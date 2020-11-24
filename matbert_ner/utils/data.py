@@ -92,6 +92,14 @@ def convert_examples_to_features(
             valid_mask.insert(0, 1)
 
         input_ids = tokenizer.convert_tokens_to_ids(tokens)
+        if len(label_ids) > len(input_ids):
+            print(example.words)
+            print(tokens)
+            print(len(example.words))
+            print(len(tokens))
+            print(len(input_ids))
+            print(len(label_ids))
+            print(label_ids, input_ids)
 
         # The mask has 1 for real tokens and 0 for padding tokens. Only real
         # tokens are attended to.
@@ -123,7 +131,11 @@ def convert_examples_to_features(
         assert len(input_ids) == max_seq_length
         assert len(input_mask) == max_seq_length
         assert len(segment_ids) == max_seq_length
-        assert len(label_ids) == max_seq_length
+        try:
+            assert len(label_ids) == max_seq_length
+        except AssertionError:
+            print(label_ids)
+            print(len(label_ids), max_seq_length)
         assert len(start_ids) == max_seq_length
         assert len(end_ids) == max_seq_length
         assert len(valid_mask) == max_seq_length
@@ -252,3 +264,19 @@ class InputFeatures(object):
         self.label_ids = label_ids
         self.start_ids = start_ids
         self.end_ids = end_ids
+
+def collate_fn(batch):
+    """
+    batch should be a list of (sequence, target, length) tuples...
+    Returns a padded tensor of sequences sorted from longest to shortest,
+    """
+    batch_tuple = tuple(map(torch.stack, zip(*batch)))
+    batch_lens = torch.sum(batch_tuple[1], dim=-1, keepdim=False)
+    max_len = batch_lens.max().item()
+    results = ()
+    for item in batch_tuple:
+        if item.dim() >= 2:
+            results += (item[:, :max_len],)
+        else:
+            results += (item,)
+    return results

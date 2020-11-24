@@ -1,37 +1,30 @@
 from models.bert_model import BertNER
 from transformers import BertTokenizer, AutoConfig
-from utils.data import InputExample, convert_examples_to_features
+from utils.data import InputExample, convert_examples_to_features, collate_fn
+from utils.dataloader import load_data
 import torch
+from torch.utils.data import DataLoader
+
+batch_size = 10
 
 device = "cuda"
 
 config = AutoConfig.from_pretrained("bert-base-uncased")
-example = [("22","B-Chemical"),("-","I-Chemical"),("oxacalcitriol","I-Chemical"),("suppresses","O")]
-label_dict = {"O":0, "B-Chemical":1, "I-Chemical":2}
-example = InputExample(0,[e[0] for e in example], [e[1] for e in example])
+config.num_labels = 19
 
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 ner_model = BertNER(config).to(device)
 
-feats = convert_examples_to_features(
-        [example],
-        ["O", "B-Chemical", "I-Chemical"],
-        10,
-        tokenizer,
-)
+datafile = "data/ner_annotations.json"
 
-input_ids = feats[0].input_ids
-input_mask = feats[0].input_mask
-valid_mask = feats[0].valid_mask
-segment_ids = feats[0].segment_ids
-label_ids = feats[0].label_ids
+tensor_dataset = load_data(datafile, tokenizer)
+dataloader = DataLoader(tensor_dataset, batch_size=batch_size,
+                        shuffle=True, num_workers=0)
 
-
-inputs = {"input_ids": torch.tensor(input_ids).unsqueeze(0).to(device),
-          "attention_mask": torch.tensor(input_mask).unsqueeze(0).to(device),
-          "valid_mask": torch.tensor(valid_mask).unsqueeze(0).to(device),
-          "labels": torch.tensor(label_ids).unsqueeze(0).to(device), }
-
-print(inputs)
+batch = dataloader._get_iterator().__next__()
+inputs = {"input_ids": batch[0].to(device),
+          "attention_mask": batch[1].to(device),
+          "valid_mask": batch[2].to(device),
+          "labels": batch[4].to(device)}
 
 print(ner_model.forward(**inputs))
