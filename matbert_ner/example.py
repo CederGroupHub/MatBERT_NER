@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 from tqdm import tqdm
 
-batch_size = 100
+batch_size = 20
 
 device = "cuda"
 
@@ -39,8 +39,14 @@ for epoch in range(4):
         loss, predicted = ner_model.forward(**inputs)
         loss.backward()
         optimizer.step()
-        predicted = torch.max(predicted,1)
-        true = (inputs['labels']==predicted).sum().item()/batch_size
 
         if i%100 == 0:
-            print(loss,true)
+            labels = inputs['labels']
+            predicted = torch.max(predicted,-1)[1]
+
+            true = torch.where(labels > 0, labels, 0)
+            predicted = torch.where(true > 0, predicted, -1)
+
+            true = torch.where(true > 0, true==predicted, False).sum().item()/torch.count_nonzero(true)
+
+            print("loss: {}, acc: {}".format(loss.item(),true.item()))
