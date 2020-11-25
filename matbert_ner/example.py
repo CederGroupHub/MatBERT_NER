@@ -7,108 +7,152 @@ from torch.utils.data import DataLoader, SubsetRandomSampler
 import torch.optim as optim
 from tqdm import tqdm
 import numpy as np
+from itertools import product
 
-batch_size = 20
-n_epochs = 20
-
-validation_split = 0.2
+val_frac = 0.02
+dev_frac = 0.02
 shuffle_dataset = True
+
 device = "cuda"
 
-# config = AutoConfig.from_pretrained("allenai/scibert_scivocab_cased")
-config = AutoConfig.from_pretrained("/home/amalie/MatBERT/matbert_data/matbert-base-cased")
+models = [("scibert", "allenai/scibert_scivocab_cased"), ("matbert","/home/amalie/MatBERT/matbert_data/matbert-base-cased")]
+lrs = [5e-6, 1e-5, 2e-5, 5e-5, 1e-4]
+epochs = [3, 10, 20, 50]
 
-print(config.hidden_dropout_prob)
-config.num_labels = 19
+results_file = "ner_results.csv"
+for model, lr, n_epochs in product(models, lrs, epochs):
+    print("{}-{}-{}".format(model[0],lr,n_epochs))
+    config = AutoConfig.from_pretrained(model[1])
 
-tokenizer = BertTokenizer.from_pretrained("/home/amalie/MatBERT/matbert_data/matbert-base-cased")
-ner_model = BertCrfForNer(config).to(device)
+    config.num_labels = 19
 
-datafile = "data/ner_annotations.json"
+    tokenizer = BertTokenizer.from_pretrained(model[1])
 
-tensor_dataset = load_data(datafile, tokenizer)
+    datafile = "data/ner_annotations.json"
 
-dataset_size = len(tensor_dataset)
-indices = list(range(dataset_size))
-split = int(np.floor(validation_split * dataset_size))
-if shuffle_dataset :
-    np.random.shuffle(indices)
-train_indices, val_indices = indices[split:], indices[:split]
+    tensor_dataset = load_data(datafile, tokenizer)
 
-# Creating PT data samplers and loaders:
-train_sampler = SubsetRandomSampler(train_indices)
-valid_sampler = SubsetRandomSampler(val_indices)
+    batch_size = 20
 
-train_dataloader = DataLoader(tensor_dataset, batch_size=batch_size,
-    num_workers=0, sampler=train_sampler)
-valid_dataloader = DataLoader(tensor_dataset, batch_size=batch_size,
-    num_workers=0, sampler=valid_sampler)
+    dataset_size = len(tensor_dataset)
+    indices = list(range(dataset_size))
+    dev_split = int(np.floor(dev_frac * dataset_size))
+    val_split = int(np.floor(val_frac * dataset_size))+dev_split
+    if shuffle_dataset :
+        np.random.seed(1000)
+        np.random.shuffle(indices)
+    dev_indices, val_indices, train_indices = indices[:dev_split], indices[dev_split:val_split], indices[val_split:]
+
+    # Creating PT data samplers and loaders:
+    train_sampler = SubsetRandomSampler(train_indices)
+    val_sampler = SubsetRandomSampler(val_indices)
+    dev_sampler = SubsetRandomSampler(dev_indices)
+
+    train_dataloader = DataLoader(tensor_dataset, batch_size=batch_size,
+        num_workers=0, sampler=train_sampler)
+    val_dataloader = DataLoader(tensor_dataset, batch_size=batch_size,
+        num_workers=0, sampler=val_sampler)
+    dev_dataloader = DataLoader(tensor_dataset, batch_size=batch_size,
+        num_workers=0, sampler=dev_sampler)
 
 
-no_decay = ["bias", "LayerNorm.weight"]
-bert_parameters = ner_model.bert.named_parameters()
-classifier_parameters = ner_model.classifier.named_parameters()
-bert_lr = 2e-5
-classifier_lr = 5e-5
-optimizer_grouped_parameters = [
-    {"params": [p for n, p in bert_parameters if not any(nd in n for nd in no_decay)],
-     "weight_decay": 0.0,
-     "lr": bert_lr},
-    {"params": [p for n, p in bert_parameters if any(nd in n for nd in no_decay)],
-     "weight_decay": 0.0,
-     "lr": bert_lr},
+    ner_model = BertCrfForNer(config).to(device)
 
-    {"params": [p for n, p in classifier_parameters if not any(nd in n for nd in no_decay)],
-     "weight_decay": 0.0,
-     "lr": classifier_lr},
-    {"params": [p for n, p in classifier_parameters if any(nd in n for nd in no_decay)],
-     "weight_decay": 0.0,
-     "lr": classifier_lr}
-]
-optimizer = optim.AdamW(optimizer_grouped_parameters, 5e-5, eps=1e-8)
-scheduler = get_linear_schedule_with_warmup(
-    optimizer, num_warmup_steps=0, num_training_steps=n_epochs*len(train_dataloader)/(batch_size)
-)
+    no_decay = ["bias", "LayerNorm.weight"]
+    bert_parameters = ner_model.bert.named_parameters()
+    classifier_parameters = ner_model.classifier.named_parameters()
+    bert_lr = lr
+    classifier_lr = lr
+    optimizer_grouped_parameters = [
+        {"params": [p for n, p in bert_parameters if not any(nd in n for nd in no_decay)],
+         "weight_decay": 0.0,
+         "lr": bert_lr},
+        {"params": [p for n, p in bert_parameters if any(nd in n for nd in no_decay)],
+         "weight_decay": 0.0,
+         "lr": bert_lr},
 
-def accuracy(predicted, labels):
-    predicted = torch.max(predicted,-1)[1]
+        {"params": [p for n, p in classifier_parameters if not any(nd in n for nd in no_decay)],
+         "weight_decay": 0.0,
+         "lr": classifier_lr},
+        {"params": [p for n, p in classifier_parameters if any(nd in n for nd in no_decay)],
+         "weight_decay": 0.0,
+         "lr": classifier_lr}
+    ]
+    optimizer = optim.AdamW(optimizer_grouped_parameters, lr, eps=1e-8)
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer, num_warmup_steps=0, num_training_steps=n_epochs*len(train_dataloader)/(batch_size)
+    )
 
-    true = torch.where(labels > 0, labels, 0)
-    predicted = torch.where(labels > 0, predicted, -1)
+    def accuracy(predicted, labels):
+        predicted = torch.max(predicted,-1)[1]
 
-    acc = (true==predicted).sum().item()/torch.count_nonzero(true)
-    return acc
+        true = torch.where(labels > 0, labels, 0)
+        predicted = torch.where(labels > 0, predicted, -1)
 
-for epoch in range(n_epochs):
-    print("\n\n\nEpoch: " + str(epoch + 1))
-    ner_model.train()
+        acc = (true==predicted).sum().item()/torch.count_nonzero(true)
+        return acc
 
-    for i, batch in enumerate(tqdm(train_dataloader)):
-        
-        inputs = {"input_ids": batch[0].to(device),
-                  "attention_mask": batch[1].to(device),
-                  "valid_mask": batch[2].to(device),
-                  "labels": batch[4].to(device)}
+    val_loss_best = 500000
+    save_path = "{}_{}_{}_best.pt".format(model[0], lr, n_epochs)
+    for epoch in range(n_epochs):
+        print("\n\n\nEpoch: " + str(epoch + 1))
+        ner_model.train()
 
-        optimizer.zero_grad()
-        loss, predicted = ner_model.forward(**inputs)
-        loss.backward()
-        optimizer.step()
-        scheduler.step()
+        for i, batch in enumerate(tqdm(train_dataloader)):
+            
+            inputs = {"input_ids": batch[0].to(device),
+                      "attention_mask": batch[1].to(device),
+                      "valid_mask": batch[2].to(device),
+                      "labels": batch[4].to(device)}
 
-        if i%100 == 0:
-            labels = inputs['labels']
+            optimizer.zero_grad()
+            loss, predicted = ner_model.forward(**inputs)
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
 
-            acc = accuracy(predicted, labels)
+            break
+            if i%100 == 0:
+                labels = inputs['labels']
 
-            print("loss: {}, acc: {}".format(torch.mean(loss).item(),acc.item()))
+                acc = accuracy(predicted, labels)
 
+                print("loss: {}, acc: {}".format(torch.mean(loss).item(),acc.item()))
+
+        ner_model.eval()
+        val_loss = []
+        val_pred = []
+        val_label = []
+        with torch.no_grad():
+            for batch in val_dataloader:
+
+                inputs = {"input_ids": batch[0].to(device),
+                          "attention_mask": batch[1].to(device),
+                          "valid_mask": batch[2].to(device),
+                          "labels": batch[4].to(device)}
+
+                loss, pred = ner_model.forward(**inputs)
+                val_loss.append(loss)
+                val_pred.append(pred)
+                val_label.append(inputs['labels'])
+            val_loss = torch.stack(val_loss)
+            val_pred = torch.cat(val_pred, dim=0)
+            val_label = torch.cat(val_label, dim=0)
+            val_acc = accuracy(val_pred, val_label)
+
+        if torch.mean(val_loss).item() < val_loss_best:
+            torch.save(ner_model.state_dict(), save_path)
+
+        print("val loss: {}, val acc: {}".format(torch.mean(val_loss).item(),val_acc.item()))
+
+    ner_model.load_state_dict(torch.load(save_path))
     ner_model.eval()
     val_loss = []
     val_pred = []
     val_label = []
+
     with torch.no_grad():
-        for batch in valid_dataloader:
+        for batch in dev_dataloader:
 
             inputs = {"input_ids": batch[0].to(device),
                       "attention_mask": batch[1].to(device),
@@ -119,10 +163,10 @@ for epoch in range(n_epochs):
             val_loss.append(loss)
             val_pred.append(pred)
             val_label.append(inputs['labels'])
-        val_loss = torch.stack(val_loss)
+        val_loss = torch.mean(torch.stack(val_loss)).item()
         val_pred = torch.cat(val_pred, dim=0)
         val_label = torch.cat(val_label, dim=0)
-        val_acc = accuracy(val_pred, val_label)
+        val_acc = accuracy(val_pred, val_label).item()
 
-    print("val loss: {}, val acc: {}".format(torch.mean(val_loss).item(),val_acc.item()))
-
+    with open(results_file,"a+") as f:
+        f.write("{},{},{},{},{}\n".format(model[0],lr,n_epochs,val_loss,val_acc))
