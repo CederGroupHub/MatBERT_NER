@@ -10,7 +10,7 @@ def load_data(datafile,tokenizer):
 			data.append(json.loads(l))
 
 	classes_raw = data[0]['labels']
-	classes = ["O", "B-PVL", "I-PVL", "B-PUT", "I-PUT"]
+	classes = ["O"]
 	for c in classes_raw:
 		classes.append("B-{}".format(c))
 		classes.append("I-{}".format(c))
@@ -31,6 +31,8 @@ def load_data(datafile,tokenizer):
 
 			text.append(t)
 			if l is None:
+				label = "O"
+			elif "PUT" in l or "PVL" in l:
 				label = "O"
 			else:
 				if len(labels) > 0 and l in labels[-1]:

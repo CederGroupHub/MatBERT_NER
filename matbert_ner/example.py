@@ -1,4 +1,4 @@
-from models.bert_model import BertNER
+from models.bert_model import BertNER, BertCrfForNer
 from transformers import BertTokenizer, AutoConfig, get_linear_schedule_with_warmup
 from utils.data import InputExample, convert_examples_to_features, collate_fn
 from utils.dataloader import load_data
@@ -8,15 +8,18 @@ import torch.optim as optim
 from tqdm import tqdm
 
 batch_size = 20
-n_epochs = 5
+n_epochs = 20
 
 device = "cuda"
 
-config = AutoConfig.from_pretrained("bert-base-uncased")
+# config = AutoConfig.from_pretrained("allenai/scibert_scivocab_cased")
+config = AutoConfig.from_pretrained("/home/amalie/MatBERT/matbert_data/matbert-base-cased")
+
+print(config.hidden_dropout_prob)
 config.num_labels = 19
 
-tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-ner_model = BertNER(config).to(device)
+tokenizer = BertTokenizer.from_pretrained("/home/amalie/MatBERT/matbert_data/matbert-base-cased")
+ner_model = BertCrfForNer(config).to(device)
 
 datafile = "data/ner_annotations.json"
 
