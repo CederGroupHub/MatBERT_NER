@@ -26,7 +26,7 @@ def load_data(datafile,tokenizer):
 		for t,l in d:
 
 			#This causes issues with BERT for some reason
-			if t=='̄':
+			if t in ['̄','̊']:
 				continue	
 
 			text.append(t)

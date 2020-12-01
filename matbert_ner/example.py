@@ -15,12 +15,12 @@ shuffle_dataset = True
 
 device = "cuda"
 
-models = [("scibert", "allenai/scibert_scivocab_cased"), ("matbert","/home/amalie/MatBERT/matbert_data/matbert-base-cased")]
-lrs = [5e-6, 1e-5, 2e-5, 5e-5, 1e-4]
-epochs = [3, 10, 20, 50]
+models = reversed([("scibert-cased", "allenai/scibert_scivocab_cased"), ("matbert-cased","/home/amalie/MatBERT_NER/matbert_ner/matbert-base-cased"),("scibert-uncased", "allenai/scibert_scivocab_uncased"), ("matbert-uncased","/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased")])
+lrs = [5e-5, 1e-4, 1e-5, 2e-5, 8e-5]
+epochs = [10, 20]
 
-results_file = "ner_results.csv"
-for model, lr, n_epochs in product(models, lrs, epochs):
+results_file = "ner_results_v2.csv"
+for n_epochs, lr, model in product(epochs, lrs, models):
     print("{}-{}-{}".format(model[0],lr,n_epochs))
     config = AutoConfig.from_pretrained(model[1])
 
@@ -80,7 +80,7 @@ for model, lr, n_epochs in product(models, lrs, epochs):
     ]
     optimizer = optim.AdamW(optimizer_grouped_parameters, lr, eps=1e-8)
     scheduler = get_linear_schedule_with_warmup(
-        optimizer, num_warmup_steps=0, num_training_steps=n_epochs*len(train_dataloader)/(batch_size)
+        optimizer, num_warmup_steps=0, num_training_steps=n_epochs*len(train_dataloader)
     )
 
     def accuracy(predicted, labels):
@@ -111,7 +111,6 @@ for model, lr, n_epochs in product(models, lrs, epochs):
             optimizer.step()
             scheduler.step()
 
-            break
             if i%100 == 0:
                 labels = inputs['labels']
 
