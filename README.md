@@ -1,2 +1,10 @@
-# MatBERT_NER
-General training framework for NER models on MatBERT 
+# MatBERT NER
+
+A framework for materials science NER using the HuggingFace Transformers NLP Toolkit.
+
+# Installation
+
+
+# Example Usage
+
+# License
