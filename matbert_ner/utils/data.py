@@ -153,8 +153,8 @@ def convert_examples_to_features(
 
 def create_tokenset(self, text):
 
-        tokenset {
-            "text" : text
+        tokenset = {
+            "text" : text,
             "tokens" : []
         }
 
