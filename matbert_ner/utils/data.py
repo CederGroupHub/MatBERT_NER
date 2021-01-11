@@ -1,4 +1,4 @@
-
+from chemdataextractor.doc import Paragraph
 
 def convert_examples_to_features(
         examples,
@@ -150,6 +150,38 @@ def convert_examples_to_features(
                           end_ids=end_ids)
         )
     return features
+
+def create_tokenset(self, text):
+
+        tokenset {
+            "text" : text
+            "tokens" : []
+        }
+
+        idx = 0
+
+        para = Paragraph(text)
+        sentences = para.raw_sentences
+
+        for sentence in sentences:
+            sent = sentence[0]
+            tokens = Paragraph(sentence).raw_tokens[0]
+
+            sent_toks = []
+            for token in tokens:
+
+                tok = {
+                    "text" : token,
+                    "start" : idx,
+                    "end" : idx + len(token)
+                }
+
+                idx += len(token) + 1
+                sent_toks.append(tok)
+
+            tokenset["tokens"].append(sent_toks)
+
+        return tokenset
 
 class InputExample(object):
     """A single training/test example for token classification."""
