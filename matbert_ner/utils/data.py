@@ -151,7 +151,7 @@ def convert_examples_to_features(
         )
     return features
 
-def create_tokenset(self, text):
+def create_tokenset(text):
 
         tokenset = {
             "text" : text,
@@ -173,7 +173,8 @@ def create_tokenset(self, text):
                 tok = {
                     "text" : token,
                     "start" : idx,
-                    "end" : idx + len(token)
+                    "end" : idx + len(token),
+                    "annotation" : None
                 }
 
                 idx += len(token) + 1
