@@ -12,11 +12,11 @@ from ..utils.data import create_tokenset
 
 
 class NERModel:
-    def __init__(self, model="allenai/scibert_scivocab_cased", classes=["O"], device="cpu", trained_ner=None):
+    def __init__(self, model="allenai/scibert_scivocab_cased", labels=[], device="cpu", trained_ner=None):
         self.tokenizer = BertTokenizer.from_pretrained(model)
-        self.classes = classes
+        self.labels = labels
         self.config = AutoConfig.from_pretrained(model)
-        self.config.num_labels = len(self.classes)
+        self.config.num_labels = 1 + 2*len(self.labels)
         self.device = device
         self.model = model
         self.trained_ner = trained_ner
@@ -31,10 +31,10 @@ class NERModel:
     def preprocess(self, data):
 
         classes_raw = data[0]['labels']
-        classes = ["O"]
+        self.classes = ["O"]
         for c in classes_raw:
-            classes.append("B-{}".format(c))
-            classes.append("I-{}".format(c))
+            self.classes.append("B-{}".format(c))
+            self.classes.append("I-{}".format(c))
 
         data = [[(d['text'],d['annotation']) for d in s] for a in data for s in a['tokens']]
 
@@ -70,7 +70,7 @@ class NERModel:
 
         features = self.__convert_examples_to_features(
                 input_examples,
-                classes,
+                self.classes,
                 max_sequence_length,
         )
 
@@ -84,7 +84,7 @@ class NERModel:
 
         return dataset
 
-    def create_dataloaders(self, tensor_dataset, val_frac, dev_frac, batch_size, shuffle_dataset):
+    def create_training_dataloaders(self, tensor_dataset, val_frac, dev_frac, batch_size, shuffle_dataset):
         dataset_size = len(tensor_dataset)
         indices = list(range(dataset_size))
         dev_split = int(np.floor(dev_frac * dataset_size))
@@ -127,7 +127,7 @@ class NERModel:
         self.config.num_labels = 1 + 2 * max([len(datum['labels']) for datum in self.data])
 
         tensor_dataset = self.preprocess(self.data)
-        train_dataloader, val_dataloader, dev_dataloader = self.create_dataloaders(tensor_dataset, val_frac, dev_frac, batch_size, shuffle_dataset)
+        train_dataloader, val_dataloader, dev_dataloader = self.create_training_dataloaders(tensor_dataset, val_frac, dev_frac, batch_size, shuffle_dataset)
 
         self.ner_model = BertCrfForNer(self.config).to(self.device)
 
@@ -225,30 +225,26 @@ class NERModel:
 
     def predict(self, data):
         # check for input data type
-        if os.isfile(texts):
+        if os.path.isfile(data):
             texts = self.load_file(data)
-        elif type(texts) == list:
+        elif type(data) == list:
             texts = data
-        elif type(texts) == str:
+        elif type(data) == str:
             texts = [data]
         else:
             print("Please provide text or set of texts (directly or in a file path format) to predict on!")
 
         # tokenize and preprocess input data
         tokenized_dataset = []
-        labels = []
-        for label in self.classes:
-            if label != "O" and label[2:] not in labels:
-                labels.append(label[2:])
-        print(texts)
+        labels = self.labels
         for text in texts:
             tokenized_text = create_tokenset(text)
             tokenized_text['labels'] = labels
             tokenized_dataset.append(tokenized_text)
         tensor_dataset = self.preprocess(tokenized_dataset)
         pred_dataloader = DataLoader(tensor_dataset)
-        ner_model = BertCrfForNer(self.config).to(self.device)
-        ner_model.load_state_dict(torch.load(self.trained_ner))
+        self.ner_model = BertCrfForNer(self.config).to(self.device)
+        self.ner_model.load_state_dict(torch.load(self.trained_ner))
 
         # run predictions
         with torch.no_grad():
@@ -275,7 +271,7 @@ class NERModel:
                     "valid_mask": batch[2].to(self.device),
                     "labels": batch[4].to(self.device)
                 }
-                loss, predicted = ner_model.forward(**inputs)
+                loss, predicted = self.ner_model.forward(**inputs)
                 predictions = torch.max(predicted,-1)[1]
 
                 # assign predictions to dataset
