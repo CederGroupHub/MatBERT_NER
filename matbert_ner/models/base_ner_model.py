@@ -84,26 +84,26 @@ class NERModel:
 
         return dataset
 
-    def create_training_dataloaders(self, tensor_dataset, val_frac, dev_frac, batch_size, shuffle_dataset):
+    def create_training_dataloaders(self, tensor_dataset, dev_frac, test_frac, batch_size, shuffle_dataset):
         dataset_size = len(tensor_dataset)
         indices = list(range(dataset_size))
-        dev_split = int(np.floor(dev_frac * dataset_size))
-        val_split = int(np.floor(val_frac * dataset_size))+dev_split
+        test_split = int(np.floor(test_frac * dataset_size))
+        dev_split = int(np.floor(dev_frac * dataset_size))+test_split
         if shuffle_dataset:
             np.random.seed(1000)
             np.random.shuffle(indices)
-        dev_indices, val_indices, train_indices = indices[:dev_split], indices[dev_split:val_split], indices[val_split:]
+        test_indices, dev_indices, train_indices = indices[:test_split], indices[test_split:dev_split], indices[test_split:]
         train_sampler = SubsetRandomSampler(train_indices)
-        val_sampler = SubsetRandomSampler(val_indices)
         dev_sampler = SubsetRandomSampler(dev_indices)
+        test_sampler = SubsetRandomSampler(test_indices)
 
         train_dataloader = DataLoader(tensor_dataset, batch_size=batch_size,
             num_workers=0, sampler=train_sampler)
-        val_dataloader = DataLoader(tensor_dataset, batch_size=batch_size,
-            num_workers=0, sampler=val_sampler)
         dev_dataloader = DataLoader(tensor_dataset, batch_size=batch_size,
             num_workers=0, sampler=dev_sampler)
-        return train_dataloader, val_dataloader, dev_dataloader
+        test_dataloader = DataLoader(tensor_dataset, batch_size=batch_size,
+            num_workers=0, sampler=test_sampler)
+        return train_dataloader, dev_dataloader, test_dataloader
 
     def grid_search(self):
         return
@@ -117,7 +117,7 @@ class NERModel:
         acc = (true==predicted).sum().item()/torch.count_nonzero(true)
         return acc
 
-    def train(self, data_file_path, val_frac=0.02, dev_frac=0.02, shuffle_dataset=True, lr=5e-5, n_epochs=10, batch_size=20):
+    def train(self, data_file_path, dev_frac=0.02, test_frac=0.02, shuffle_dataset=True, lr=5e-5, n_epochs=10, batch_size=20):
         self.results_file = "ner_results.csv"
 
         self.data = self.load_file(data_file_path)
@@ -127,7 +127,7 @@ class NERModel:
         self.config.num_labels = 1 + 2 * max([len(datum['labels']) for datum in self.data])
 
         tensor_dataset = self.preprocess(self.data)
-        train_dataloader, val_dataloader, dev_dataloader = self.create_training_dataloaders(tensor_dataset, val_frac, dev_frac, batch_size, shuffle_dataset)
+        train_dataloader, dev_dataloader, test_dataloader = self.create_training_dataloaders(tensor_dataset, dev_frac, test_frac, batch_size, shuffle_dataset)
 
         self.ner_model = BertCrfForNer(self.config).to(self.device)
 
@@ -156,7 +156,7 @@ class NERModel:
             optimizer, num_warmup_steps=0, num_training_steps=n_epochs*len(train_dataloader)
         )
 
-        self.val_loss_best = 500000
+        self.eval_loss_best = 500000
 
         self.save_path = "{}_{}_{}_best.pt".format(self.model.rsplit('/',1)[-1], lr, n_epochs)
         for epoch in range(n_epochs):
@@ -182,17 +182,17 @@ class NERModel:
 
                     print("loss: {}, acc: {}".format(torch.mean(loss).item(), acc.item()))
 
-            self.evaluate(val_dataloader, validate=True)
+            self.evaluate(dev_dataloader, validate=True)
 
         self.ner_model.load_state_dict(torch.load(self.save_path))
-        self.evaluate(dev_dataloader, validate=False, lr=lr, n_epochs=n_epochs)
+        self.evaluate(test_dataloader, validate=False, lr=lr, n_epochs=n_epochs)
         return
 
     def evaluate(self, dataloader, validate=False, lr=None, n_epochs=None):
         self.ner_model.eval()
-        val_loss = []
-        val_pred = []
-        val_label = []
+        eval_loss = []
+        eval_pred = []
+        eval_label = []
         with torch.no_grad():
             for batch in dataloader:
                 inputs = {
@@ -202,24 +202,24 @@ class NERModel:
                     "labels": batch[4].to(self.device)
                 }
                 loss, pred = self.ner_model.forward(**inputs)
-                val_loss.append(loss)
-                val_pred.append(pred)
-                val_label.append(inputs['labels'])
+                eval_loss.append(loss)
+                eval_pred.append(pred)
+                eval_label.append(inputs['labels'])
             if validate:
-                val_loss = torch.stack(val_loss)
+                eval_loss = torch.stack(eval_loss)
             else:
-                val_loss = torch.mean(torch.stack(val_loss)).item()
-            val_pred = torch.cat(val_pred, dim=0)
-            val_label = torch.cat(val_label, dim=0)
-            val_acc = self.accuracy(val_pred, val_label)
+                eval_loss = torch.mean(torch.stack(eval_loss)).item()
+            eval_pred = torch.cat(eval_pred, dim=0)
+            eval_label = torch.cat(eval_label, dim=0)
+            eval_acc = self.accuracy(eval_pred, eval_label)
 
         if validate:
-            if torch.mean(val_loss.item() < self.val_loss_best):
-                torch.save(ner_model.state_dict(), self.save_path)
-            print("val loss: {}, val acc: {}".format(torch.mean(val_loss).item(), val_acc.item()))
+            if torch.mean(eval_loss).item() < self.eval_loss_best:
+                torch.save(self.ner_model.state_dict(), self.save_path)
+            print("dev loss: {}, dev acc: {}".format(torch.mean(eval_loss).item(), eval_acc.item()))
         else:
             with open(self.results_file, "a+") as f:
-                f.write("{},{},{},{},{}\n".format(self.model[0], lr, n_epochs, val_loss, val_acc.item()))
+                f.write("{},{},{},{},{}\n".format(self.model[0], lr, n_epochs, eval_loss, eval_acc.item()))
 
         return
 
