@@ -1,19 +1,23 @@
 import json
+import os
+import numpy as np
 import torch
 from .bert_model import BertNER, BertCrfForNer
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import TensorDataset, DataLoader, SubsetRandomSampler
+import torch.optim as optim
+from tqdm import tqdm
+from itertools import product
 from transformers import BertTokenizer, AutoConfig, get_linear_schedule_with_warmup
 from ..utils.data import create_tokenset
 
 
 class NERModel:
-    def __init__(self, model="allenai/scibert_scivocab_cased", classes=["O"], device="cpu", data_file_path=None, trained_ner=None):
+    def __init__(self, model="allenai/scibert_scivocab_cased", classes=["O"], device="cpu", trained_ner=None):
         self.tokenizer = BertTokenizer.from_pretrained(model)
         self.classes = classes
         self.config = AutoConfig.from_pretrained(model)
         self.config.num_labels = len(self.classes)
         self.device = device
-        self.data_file_path = data_file_path
         self.model = model
         self.trained_ner = trained_ner
 
@@ -80,20 +84,155 @@ class NERModel:
 
         return dataset
 
-    def create_dataloaders():
+    def create_dataloaders(self, tensor_dataset, val_frac, dev_frac, batch_size, shuffle_dataset):
+        dataset_size = len(tensor_dataset)
+        indices = list(range(dataset_size))
+        dev_split = int(np.floor(dev_frac * dataset_size))
+        val_split = int(np.floor(val_frac * dataset_size))+dev_split
+        if shuffle_dataset:
+            np.random.seed(1000)
+            np.random.shuffle(indices)
+        dev_indices, val_indices, train_indices = indices[:dev_split], indices[dev_split:val_split], indices[val_split:]
+        train_sampler = SubsetRandomSampler(train_indices)
+        val_sampler = SubsetRandomSampler(val_indices)
+        dev_sampler = SubsetRandomSampler(dev_indices)
+
+        train_dataloader = DataLoader(tensor_dataset, batch_size=batch_size,
+            num_workers=0, sampler=train_sampler)
+        val_dataloader = DataLoader(tensor_dataset, batch_size=batch_size,
+            num_workers=0, sampler=val_sampler)
+        dev_dataloader = DataLoader(tensor_dataset, batch_size=batch_size,
+            num_workers=0, sampler=dev_sampler)
+        return train_dataloader, val_dataloader, dev_dataloader
+
+    def grid_search(self):
         return
 
-    def train():
+    def accuracy(self, predicted, labels):
+        predicted = torch.max(predicted, -1)[1]
+
+        true = torch.where(labels > 0, labels, 0)
+        predicted = torch.where(labels > 0, predicted, -1)
+
+        acc = (true==predicted).sum().item()/torch.count_nonzero(true)
+        return acc
+
+    def train(self, data_file_path, val_frac=0.02, dev_frac=0.02, shuffle_dataset=True, lr=5e-5, n_epochs=10, batch_size=20):
+        self.results_file = "ner_results.csv"
+
+        self.data = self.load_file(data_file_path)
+
+        print("{}-{}-{}".format(self.model.rsplit('/',1)[-1], lr, n_epochs))
+
+        self.config.num_labels = 1 + 2 * max([len(datum['labels']) for datum in self.data])
+
+        tensor_dataset = self.preprocess(self.data)
+        train_dataloader, val_dataloader, dev_dataloader = self.create_dataloaders(tensor_dataset, val_frac, dev_frac, batch_size, shuffle_dataset)
+
+        self.ner_model = BertCrfForNer(self.config).to(self.device)
+
+        no_decay = ["bias", "LayerNorm.weight"]
+        bert_parameters = self.ner_model.bert.named_parameters()
+        classifier_parameters = self.ner_model.classifier.named_parameters()
+        bert_lr = lr
+        classifier_lr = lr
+        optimizer_grouped_parameters = [
+            {"params": [p for n, p in bert_parameters if not any(nd in n for nd in no_decay)],
+             "weight_decay": 0.0,
+             "lr": bert_lr},
+            {"params": [p for n, p in bert_parameters if any(nd in n for nd in no_decay)],
+             "weight_decay": 0.0,
+             "lr": bert_lr},
+
+            {"params": [p for n, p in classifier_parameters if not any(nd in n for nd in no_decay)],
+             "weight_decay": 0.0,
+             "lr": classifier_lr},
+            {"params": [p for n, p in classifier_parameters if any(nd in n for nd in no_decay)],
+             "weight_decay": 0.0,
+             "lr": classifier_lr}
+        ]
+        optimizer = optim.AdamW(optimizer_grouped_parameters, lr, eps=1e-8)
+        scheduler = get_linear_schedule_with_warmup(
+            optimizer, num_warmup_steps=0, num_training_steps=n_epochs*len(train_dataloader)
+        )
+
+        self.val_loss_best = 500000
+
+        self.save_path = "{}_{}_{}_best.pt".format(self.model.rsplit('/',1)[-1], lr, n_epochs)
+        for epoch in range(n_epochs):
+            print("\n\n\nEpoch: " + str(epoch + 1))
+            self.ner_model.train()
+
+            for i, batch in enumerate(tqdm(train_dataloader)):
+                inputs = {
+                    "input_ids": batch[0].to(self.device),
+                    "attention_mask": batch[1].to(self.device),
+                    "valid_mask": batch[2].to(self.device),
+                    "labels": batch[4].to(self.device)
+                }
+                optimizer.zero_grad()
+                loss, predicted = self.ner_model.forward(**inputs)
+                loss.backward()
+                optimizer.step()
+                scheduler.step()
+
+                if i%100 == 0:
+                    labels = inputs['labels']
+                    acc = self.accuracy(predicted, labels)
+
+                    print("loss: {}, acc: {}".format(torch.mean(loss).item(), acc.item()))
+
+            self.evaluate(val_dataloader, validate=True)
+
+        self.ner_model.load_state_dict(torch.load(self.save_path))
+        self.evaluate(dev_dataloader, validate=False, lr=lr, n_epochs=n_epochs)
         return
 
-    def predict(self, texts):
-        # check for input data type
-        if type(texts) == list:
-            texts = self.load_data(self.data_file_path)
-        elif type(texts) == str:
-            texts = [texts]
+    def evaluate(self, dataloader, validate=False, lr=None, n_epochs=None):
+        self.ner_model.eval()
+        val_loss = []
+        val_pred = []
+        val_label = []
+        with torch.no_grad():
+            for batch in dataloader:
+                inputs = {
+                    "input_ids": batch[0].to(self.device),
+                    "attention_mask": batch[1].to(self.device),
+                    "valid_mask": batch[2].to(self.device),
+                    "labels": batch[4].to(self.device)
+                }
+                loss, pred = self.ner_model.forward(**inputs)
+                val_loss.append(loss)
+                val_pred.append(pred)
+                val_label.append(inputs['labels'])
+            if validate:
+                val_loss = torch.stack(val_loss)
+            else:
+                val_loss = torch.mean(torch.stack(val_loss)).item()
+            val_pred = torch.cat(val_pred, dim=0)
+            val_label = torch.cat(val_label, dim=0)
+            val_acc = self.accuracy(val_pred, val_label)
+
+        if validate:
+            if torch.mean(val_loss.item() < self.val_loss_best):
+                torch.save(ner_model.state_dict(), self.save_path)
+            print("val loss: {}, val acc: {}".format(torch.mean(val_loss).item(), val_acc.item()))
         else:
-            print("Please provide text or set of texts to predict on!")
+            with open(self.results_file, "a+") as f:
+                f.write("{},{},{},{},{}\n".format(self.model[0], lr, n_epochs, val_loss, val_acc.item()))
+
+        return
+
+    def predict(self, data):
+        # check for input data type
+        if os.isfile(texts):
+            texts = self.load_file(data)
+        elif type(texts) == list:
+            texts = data
+        elif type(texts) == str:
+            texts = [data]
+        else:
+            print("Please provide text or set of texts (directly or in a file path format) to predict on!")
 
         # tokenize and preprocess input data
         tokenized_dataset = []
@@ -150,10 +289,6 @@ class NERModel:
                         continue
 
         return tokenized_dataset
-
-
-    def evaluate():
-        return
 
     def __convert_examples_to_features(
             self,
