@@ -7,8 +7,8 @@ import numpy as np
 
 class NERData():
 
-    def __init__(self, model="allenai/scibert_scivocab_cased"):
-        self.tokenizer = BertTokenizer.from_pretrained(model)
+    def __init__(self, modelname="allenai/scibert_scivocab_cased"):
+        self.tokenizer = BertTokenizer.from_pretrained(modelname)
         self.dataset = None
 
     def preprocess(self, datafile):
@@ -396,7 +396,7 @@ class InputExample(object):
         self.words = words
         self.labels = labels
 
-def create_tokenset(self, text):
+def create_tokenset(text):
 
         tokenset = {
             "text" : text,
@@ -418,7 +418,8 @@ def create_tokenset(self, text):
                 tok = {
                     "text" : token,
                     "start" : idx,
-                    "end" : idx + len(token)
+                    "end" : idx + len(token),
+                    "annotation" : None
                 }
 
                 idx += len(token) + 1
