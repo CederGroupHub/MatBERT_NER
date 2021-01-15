@@ -18,7 +18,7 @@ class NERModel(ABC):
     A wrapper class for transformers models, implementing train, predict, and evaluate methods
     """
 
-    def __init__(self, modelname="allenai/scibert_scivocab_cased", classes = ["O"], device="cpu", lr=5e-5):
+    def __init__(self, modelname="allenai/scibert_scivocab_cased", classes = ["O"], device="cpu", lr=5e-5, results_file=None):
         self.modelname = modelname
         self.tokenizer = BertTokenizer.from_pretrained(modelname)
         self.classes = classes
@@ -27,6 +27,7 @@ class NERModel(ABC):
         self.lr = lr
         self.device = device
         self.model = self.initialize_model()
+        self.results_file = results_file
 
 
     def train(self, train_dataloader, n_epochs, val_dataloader=None, save_dir=None):
@@ -78,28 +79,9 @@ class NERModel(ABC):
 
             save_path = os.path.join(save_dir, "best.pt")
             self.model.load_state_dict(torch.load(save_path))
-            self.evaluate(val_dataloader, validate=True)
+            self.evaluate(val_dataloader, validate=False)
 
-        self.ner_model.load_state_dict(torch.load(self.save_path))
-        self.evaluate(test_dataloader, validate=False, lr=self.lr, n_epochs=n_epochs)
         return
-
-
-    def predict(self,dataloader):
-        self.model.eval()
-        preds = []
-
-        with torch.no_grad():
-            for batch in dataloader:
-
-                inputs = {"input_ids": batch[0].to(device),
-                          "attention_mask": batch[1].to(device),
-                          "valid_mask": batch[2].to(device)}
-
-                _, pred = self.model.forward(**inputs)
-                preds += pred
-
-        return preds
 
     @abstractmethod
     def initialize_model(self):
@@ -142,7 +124,7 @@ class NERModel(ABC):
             if torch.mean(eval_loss).item() < self.val_loss_best:
                 torch.save(self.model.state_dict(), save_path)
             print("dev loss: {}, dev acc: {}".format(torch.mean(eval_loss).item(), eval_acc.item()))
-        else:
+        elif self.results_file is not None:
             with open(self.results_file, "a+") as f:
                 f.write("{},{},{},{},{}\n".format(self.model[0], lr, n_epochs, eval_loss, eval_acc.item()))
 
@@ -161,7 +143,7 @@ class NERModel(ABC):
 
         # tokenize and preprocess input data
         tokenized_dataset = []
-        labels = self.labels
+        labels = self.classes
         for text in texts:
             tokenized_text = create_tokenset(text)
             tokenized_text['labels'] = labels
