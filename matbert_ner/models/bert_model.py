@@ -6,8 +6,48 @@ import torch
 import torch.nn.functional as F
 from typing import List, Optional
 import numpy as np
+from models.base_ner_model import NERModel
+import torch.optim as optim
+from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup
+
+class BertCRFNERModel(NERModel):
+
+    def initialize_model(self):
+        ner_model = BertCrfForNer(self.config).to(self.device)
+        return ner_model
+
+    def create_optimizer(self):
+        no_decay = ["bias", "LayerNorm.weight"]
+
+        bert_parameters = self.model.bert.named_parameters()
+        classifier_parameters = self.model.classifier.named_parameters()
+        bert_lr = self.lr
+        classifier_lr = self.lr
+        optimizer_grouped_parameters = [
+            {"params": [p for n, p in bert_parameters if not any(nd in n for nd in no_decay)],
+             "weight_decay": 0.0,
+             "lr": bert_lr},
+            {"params": [p for n, p in bert_parameters if any(nd in n for nd in no_decay)],
+             "weight_decay": 0.0,
+             "lr": bert_lr},
+
+            {"params": [p for n, p in classifier_parameters if not any(nd in n for nd in no_decay)],
+             "weight_decay": 0.0,
+             "lr": classifier_lr},
+            {"params": [p for n, p in classifier_parameters if any(nd in n for nd in no_decay)],
+             "weight_decay": 0.0,
+             "lr": classifier_lr}
+        ]
+        optimizer = optim.AdamW(optimizer_grouped_parameters, self.lr, eps=1e-8)
+        return optimizer
+
+    def create_scheduler(self, optimizer, n_epochs, train_dataloader):
+        scheduler = get_cosine_schedule_with_warmup(
+            optimizer, num_warmup_steps=len(train_dataloader), num_training_steps=n_epochs*len(train_dataloader), num_cycles=1.5
+        )
 
 
+        return scheduler
 
 class FocalLoss(nn.Module):
     '''Multi-class Focal loss implementation'''
