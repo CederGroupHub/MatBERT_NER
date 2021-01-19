@@ -149,7 +149,9 @@ class NERModel(ABC):
             tokenized_text['labels'] = labels
             tokenized_dataset.append(tokenized_text)
         ner_data = NERData(modelname=self.modelname)
-        tensor_dataset = ner_data.preprocess(tokenized_dataset)
+        ner_data.classes = labels
+        ner_data.preprocess(tokenized_dataset,is_file=False)
+        tensor_dataset = ner_data.dataset
         pred_dataloader = DataLoader(tensor_dataset)
 
         # run predictions
@@ -177,7 +179,7 @@ class NERModel(ABC):
                     "valid_mask": batch[2].to(self.device),
                     "labels": batch[4].to(self.device)
                 }
-                loss, predicted = self.ner_model.forward(**inputs)
+                loss, predicted = self.model.forward(**inputs)
                 predictions = torch.max(predicted,-1)[1]
 
                 # assign predictions to dataset

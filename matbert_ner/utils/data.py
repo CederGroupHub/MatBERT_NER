@@ -11,8 +11,8 @@ class NERData():
         self.tokenizer = BertTokenizer.from_pretrained(modelname)
         self.dataset = None
 
-    def preprocess(self, datafile):
 
+    def load_from_file(self,datafile):
         data = []
         with open(datafile, 'r') as f:
             for l in f:
@@ -25,6 +25,16 @@ class NERData():
             classes.append("I-{}".format(c))
 
         self.classes = classes
+
+        return data
+
+    def preprocess(self, datafile, is_file=True):
+
+        if is_file:
+            data = self.load_from_file(datafile)
+        else:
+            data = datafile
+
         data = [[(d['text'],d['annotation']) for d in s] for a in data for s in a['tokens']]
 
         input_examples = []
@@ -59,7 +69,7 @@ class NERData():
 
         features = self.__convert_examples_to_features(
                 input_examples,
-                classes,
+                self.classes,
                 max_sequence_length,
         )
 
