@@ -46,11 +46,15 @@ class NERModel(ABC):
         optimizer = self.create_optimizer()
         scheduler = self.create_scheduler(optimizer, n_epochs, train_dataloader)
 
+        epoch_metrics = {}
+
         for epoch in range(n_epochs):
-            print("\n\n\nEpoch: " + str(epoch + 1))
             self.model.train()
 
-            for i, batch in enumerate(tqdm(train_dataloader)):
+            metrics = {'loss': [], 'accuracy_score': [], 'f1_score': []}
+            batch_range = tqdm(train_dataloader, desc='')
+
+            for i, batch in enumerate(batch_range):
                 
                 inputs = {"input_ids": batch[0].to(self.device, non_blocking=True),
                           "attention_mask": batch[1].to(self.device, non_blocking=True),
@@ -63,13 +67,15 @@ class NERModel(ABC):
                 optimizer.step()
                 scheduler.step()
 
-                if i%100 == 0:
-                    labels = inputs['labels']
-                    acc = accuracy(predicted, labels)
-                    print("loss: {}, acc: {}".format(torch.mean(loss).item(),acc.item()))
+                labels = inputs['labels']
+                
+                metrics['loss'].append(torch.mean(loss).item())
+                metrics['accuracy_score'].append(accuracy(predicted, labels))
+                means = [np.mean(metrics[metric]) for metric in ['loss', 'accuracy_score']]
+
+                batch_range.set_description('| epoch: {:d}/{:d} | loss: {:.4f} | accuracy: {:.4f} |'.format(epoch+1, n_epochs, *means))
 
             save_path = os.path.join(save_dir, "epoch_{}.pt".format(epoch))
-
             torch.save(self.model.state_dict(), save_path)
 
             if val_dataloader is not None:
