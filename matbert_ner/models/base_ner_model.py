@@ -89,6 +89,20 @@ class NERModel(ABC):
 
         return
 
+    def embed_documents(self, data):
+        _, dataloader = self._data_to_dataloader(data)
+
+        document_embeddings = []
+        for i, batch in enumerate(tqdm(dataloader)):
+                
+                inputs = {"input_ids": batch[0].to(self.device, non_blocking=True),
+                          "attention_mask": batch[1].to(self.device, non_blocking=True),}
+
+                document_embedding = self.document_embeddings(**inputs)
+                document_embeddings.append(document_embedding)
+
+        return document_embeddings
+
     @abstractmethod
     def initialize_model(self):
         pass
@@ -99,6 +113,11 @@ class NERModel(ABC):
 
     @abstractmethod
     def create_scheduler(self, optimizer, n_epochs, train_dataloader):
+        pass
+
+    @abstractmethod
+    def document_embeddings(self, **inputs):
+        #Given an input dictionary, return the corresponding document embedding
         pass
 
     def evaluate(self, dataloader, validate=False, save_path=None, lr=None, n_epochs=None):
@@ -136,29 +155,8 @@ class NERModel(ABC):
         return
 
     def predict(self, data):
-        # check for input data type
-        if os.path.isfile(data):
-            texts = self.load_file(data)
-        elif type(data) == list:
-            texts = data
-        elif type(data) == str:
-            texts = [data]
-        else:
-            print("Please provide text or set of texts (directly or in a file path format) to predict on!")
 
-
-        # tokenize and preprocess input data
-        tokenized_dataset = []
-        labels = self.classes
-        for text in texts:
-            tokenized_text = create_tokenset(text)
-            tokenized_text['labels'] = labels
-            tokenized_dataset.append(tokenized_text)
-        ner_data = NERData(modelname=self.modelname)
-        ner_data.classes = labels
-        ner_data.preprocess(tokenized_dataset,is_file=False)
-        tensor_dataset = ner_data.dataset
-        pred_dataloader = DataLoader(tensor_dataset)
+        tokenized_text, pred_dataloader = self._data_to_dataloader(data)
 
         # run predictions
         with torch.no_grad():
@@ -200,3 +198,30 @@ class NERModel(ABC):
                         continue
 
         return tokenized_dataset
+
+    def _data_to_dataloader(self, data):
+        # check for input data type
+        if os.path.isfile(data):
+            texts = self.load_file(data)
+        elif type(data) == list:
+            texts = data
+        elif type(data) == str:
+            texts = [data]
+        else:
+            print("Please provide text or set of texts (directly or in a file path format) to predict on!")
+
+
+        # tokenize and preprocess input data
+        tokenized_dataset = []
+        labels = self.classes
+        for text in texts:
+            tokenized_text = create_tokenset(text)
+            tokenized_text['labels'] = labels
+            tokenized_dataset.append(tokenized_text)
+        ner_data = NERData(modelname=self.modelname)
+        ner_data.classes = labels
+        ner_data.preprocess(tokenized_dataset,is_file=False)
+        tensor_dataset = ner_data.dataset
+        pred_dataloader = DataLoader(tensor_dataset)
+
+        return tokenized_text, pred_dataloader
