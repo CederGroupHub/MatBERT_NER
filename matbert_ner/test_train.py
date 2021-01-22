@@ -1,4 +1,4 @@
-from .models.base_ner_model import NERModel
+from models.base_ner_model import NERModel
 import json
 
 model = NERModel(
