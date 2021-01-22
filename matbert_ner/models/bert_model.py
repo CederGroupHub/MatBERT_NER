@@ -1,6 +1,6 @@
 from torch.nn import CrossEntropyLoss
-from transformers.modeling_bert import BertModel
-from transformers.modeling_bert import BertPreTrainedModel
+from transformers.models.bert.modeling_bert import BertModel
+from transformers.models.bert.modeling_bert import BertPreTrainedModel
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
@@ -147,9 +147,11 @@ class BertCrfForNer(BertPreTrainedModel):
             token_type_ids=token_type_ids,
             position_ids=position_ids,
             head_mask=head_mask,
-            inputs_embeds=inputs_embeds
+            inputs_embeds=inputs_embeds,
+            output_hidden_states=True
         )
-        sequence_output = outputs[0]
+        sequence_output = [outputs[2][i] for i in (-1, -2, -3, -4)]
+        sequence_output = torch.mean(torch.stack(sequence_output), dim=0)
         sequence_output, attention_mask = valid_sequence_output(sequence_output, valid_mask, attention_mask)
         sequence_output = self.dropout(sequence_output)
         logits = self.classifier(sequence_output)

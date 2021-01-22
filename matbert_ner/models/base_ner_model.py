@@ -83,6 +83,12 @@ class NERModel(ABC):
 
         return
 
+    def load_model(self,save_path):
+
+        self.model.load_state_dict(torch.load(save_path))
+
+        return
+
     @abstractmethod
     def initialize_model(self):
         pass
@@ -112,21 +118,20 @@ class NERModel(ABC):
                 eval_loss.append(loss)
                 eval_pred.append(pred)
                 eval_label.append(inputs['labels'])
-            if validate:
-                eval_loss = torch.stack(eval_loss)
-            else:
-                eval_loss = torch.mean(torch.stack(eval_loss)).item()
+            eval_loss = torch.mean(torch.stack(eval_loss)).item()
             eval_pred = torch.cat(eval_pred, dim=0)
             eval_label = torch.cat(eval_label, dim=0)
-            eval_acc = accuracy(eval_pred, eval_label)
+            eval_acc = accuracy(eval_pred, eval_label).item()
 
         if validate:
-            if torch.mean(eval_loss).item() < self.val_loss_best:
+            if eval_loss < self.val_loss_best:
                 torch.save(self.model.state_dict(), save_path)
-            print("dev loss: {}, dev acc: {}".format(torch.mean(eval_loss).item(), eval_acc.item()))
+                self.val_loss_best = eval_loss
         elif self.results_file is not None:
             with open(self.results_file, "a+") as f:
                 f.write("{},{},{},{},{}\n".format(self.model[0], lr, n_epochs, eval_loss, eval_acc.item()))
+
+        print("dev loss: {}, dev acc: {}".format(eval_loss, eval_acc))
 
         return
 
@@ -140,6 +145,7 @@ class NERModel(ABC):
             texts = [data]
         else:
             print("Please provide text or set of texts (directly or in a file path format) to predict on!")
+
 
         # tokenize and preprocess input data
         tokenized_dataset = []
@@ -177,7 +183,8 @@ class NERModel(ABC):
                     "input_ids": batch[0].to(self.device),
                     "attention_mask": batch[1].to(self.device),
                     "valid_mask": batch[2].to(self.device),
-                    "labels": batch[4].to(self.device)
+                    "labels": batch[4].to(self.device),
+                    "decode": True
                 }
                 loss, predicted = self.model.forward(**inputs)
                 predictions = torch.max(predicted,-1)[1]
@@ -188,7 +195,7 @@ class NERModel(ABC):
                         tok_idx = torch.tensor([sentence.index(tok)])
                         pred_idx = torch.index_select(predictions[:, 1:], 1, tok_idx)
                         tok['annotation'] = self.classes[pred_idx]
-                    except:
+                    except ValueError:
                         print('reached max sequence length!')
                         continue
 
