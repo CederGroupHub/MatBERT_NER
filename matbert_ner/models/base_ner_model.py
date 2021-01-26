@@ -75,12 +75,12 @@ class NERModel(ABC):
                 prediction_list = list(prediction.cpu().numpy())
 
                 print(self.classes)
-                print(np.unique(labels_np, return_counts=True))
+                print(np.unique(labels_list, return_counts=True))
                 print(labels_np.shape)
                 print(prediction_np.shape)
 
                 prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj != -100] for i, j in zip(prediction_list, labels_list)]
-                valid_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_true]
+                valid_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_list]
 
                 print(valid_tags)
                 print(prediction_tags)
