@@ -69,8 +69,8 @@ class NERModel(ABC):
 
                 labels = inputs['labels']
                 
-                metrics['loss'].append(torch.mean(loss).item())
-                metrics['accuracy_score'].append(accuracy(predicted, labels))
+                metrics['loss'].append(loss.item())
+                metrics['accuracy_score'].append(accuracy(predicted, labels).item())
                 means = [np.mean(metrics[metric]) for metric in ['loss', 'accuracy_score']]
 
                 batch_range.set_description('| epoch: {:d}/{:d} | loss: {:.4f} | accuracy: {:.4f} |'.format(epoch+1, n_epochs, *means))
