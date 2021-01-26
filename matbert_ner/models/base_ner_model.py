@@ -9,6 +9,7 @@ from itertools import product
 from transformers import BertTokenizer, AutoConfig, get_linear_schedule_with_warmup
 from tqdm import tqdm
 from utils.metrics import accuracy
+from seqeval.metrics import accuracy_score, f1_score
 import torch.optim as optim
 import numpy as np
 from abc import ABC, abstractmethod
@@ -51,7 +52,7 @@ class NERModel(ABC):
         for epoch in range(n_epochs):
             self.model.train()
 
-            metrics = {'loss': [], 'accuracy_score': [], 'f1_score': []}
+            metrics = {'loss': [], 'accuracy': [],  'accuracy_score': [], 'f1_score': []}
             batch_range = tqdm(train_dataloader, desc='')
 
             for i, batch in enumerate(batch_range):
@@ -68,12 +69,21 @@ class NERModel(ABC):
                 scheduler.step()
 
                 labels = inputs['labels']
+
+                predictions = torch.max(predicted,-1)[1]
+
+                print(labels)
+                print(predictions)
                 
                 metrics['loss'].append(loss.item())
-                metrics['accuracy_score'].append(accuracy(predicted, labels).item())
-                means = [np.mean(metrics[metric]) for metric in ['loss', 'accuracy_score']]
+                metrics['accuracy'].append(accuracy(predicted, labels).item())
+                # metrics['accuracy_score'].append(accuracy_score(labels, predictions))
+                # metrics['f1_score'].append(f1_score(labels, predictions))
+                metric_list = ['loss', 'accuracy']
+                # metric_list = ['loss', 'accuracy', 'accuracy_score', 'f1_score']
+                means = [np.mean(metrics[metric]) for metric in metric_list]
 
-                batch_range.set_description('| epoch: {:d}/{:d} | loss: {:.4f} | accuracy: {:.4f} |'.format(epoch+1, n_epochs, *means))
+                batch_range.set_description('| epoch: {:d}/{:d} | loss: {:.4f} | accuracy: {:.4f} | accuracy score: {:.4f} | f1 score: {:.4f} |'.format(epoch+1, n_epochs, *means))
 
             save_path = os.path.join(save_dir, "epoch_{}.pt".format(epoch))
             torch.save(self.model.state_dict(), save_path)
