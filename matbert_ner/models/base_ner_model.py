@@ -75,8 +75,8 @@ class NERModel(ABC):
                 prediction_np = prediction.cpu().numpy()
 
                 print(np.unique(labels_np, return_counts=True))
-                print(labels_np)
-                print(prediction_np)
+                print(labels_np.shape)
+                print(prediction_np.shape)
 
                 label_tags = [[self.classes[labels_np[i, j]] for j in range(labels_np.shape[1])] for i in range(labels_np.shape[0])]
                 prediction_tags = [[self.classes[prediction_np[i, j]] for j in range(prediction_np.shape[1])] for i in range(prediction_np.shape[0])]
