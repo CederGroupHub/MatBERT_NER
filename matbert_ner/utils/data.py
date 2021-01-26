@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader, SubsetRandomSampler, TensorDataset
 import json
 import torch
 import numpy as np
+from tqdm import tqdm
 
 class NERData():
 
@@ -162,10 +163,8 @@ class NERData():
                 span_labels.append(label)
         span_map = {label: i for i, label in enumerate(span_labels)}
         features = []
-        for (ex_index, example) in enumerate(examples):
-            if ex_index % 10000 == 0:
-                print("Writing example %d of %d"%(ex_index, len(examples)))
-
+        example_range = tqdm(examples, desc='| writing examples |')
+        for example in example_range:
             tokens = []
             valid_mask = []
             for word in example.words:
