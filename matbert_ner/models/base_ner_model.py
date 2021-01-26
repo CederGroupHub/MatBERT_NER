@@ -74,19 +74,13 @@ class NERModel(ABC):
                 prediction = torch.max(predicted,-1)[1]
                 prediction_list = list(prediction.cpu().numpy())
 
-                print(self.classes)
-                print(np.unique(labels_list, return_counts=True))
-
                 prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj != -100] for i, j in zip(prediction_list, labels_list)]
                 valid_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_list]
-
-                print(valid_tags)
-                print(prediction_tags)
                 
                 metrics['loss'].append(loss.item())
                 metrics['accuracy'].append(accuracy(predicted, labels).item())
                 metrics['accuracy_score'].append(accuracy_score(valid_tags, prediction_tags))
-                metrics['f1_score'].append(f1_score(valid, prediction_tags))
+                metrics['f1_score'].append(f1_score(valid_tags, prediction_tags))
                 # metric_list = ['loss', 'accuracy']
                 metric_list = ['loss', 'accuracy', 'accuracy_score', 'f1_score']
                 means = [np.mean(metrics[metric]) for metric in metric_list]
