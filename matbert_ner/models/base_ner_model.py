@@ -173,11 +173,15 @@ class NERModel(ABC):
             if eval_loss < self.val_loss_best:
                 torch.save(self.model.state_dict(), save_path)
                 self.val_loss_best = eval_loss
+            mode = 'validation'
         elif self.results_file is not None:
             with open(self.results_file, "a+") as f:
                 f.write("{},{},{},{},{},{},{}\n".format(self.model[0], lr, n_epochs, eval_loss, eval_acc, eval_acc_score, eval_f1_score))
+            mode = 'test'
+        else:
+            mode = 'test'
 
-        print("| validation | loss: {:.4f} | accuracy: {:.4f} | accuracy_score: {:.4f} | f1_score: {:.4f} |".format(eval_loss, eval_acc, eval_acc_score, eval_f1_score))
+        print("| {} | loss: {:.4f} | accuracy: {:.4f} | accuracy_score: {:.4f} | f1_score: {:.4f} |".format(mode, eval_loss, eval_acc, eval_acc_score, eval_f1_score))
 
         return
 
@@ -193,15 +197,15 @@ class NERModel(ABC):
                 if i == 0:
                     para_i = 0
                     sent_i = 0
-                    total_len = len(tokenized_dataset[para_i]['tokens'])
+                    total_len = len(tokenized_text[para_i]['tokens'])
                 elif i < total_len:
                     sent_i += 1
                 else:
                     para_i += 1
                     sent_i = 0
-                    total_len += len(tokenized_dataset[para_i]['tokens'])
+                    total_len += len(tokenized_text[para_i]['tokens'])
 
-                sentence = tokenized_dataset[para_i]['tokens'][sent_i]
+                sentence = tokenized_text[para_i]['tokens'][sent_i]
 
                 # get masked inputs and run predictions
                 inputs = {
