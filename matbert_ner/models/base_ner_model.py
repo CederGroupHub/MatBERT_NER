@@ -89,6 +89,26 @@ class NERModel(ABC):
 
         return
 
+    def load_model(self,save_path):
+
+        self.model.load_state_dict(torch.load(save_path))
+
+        return
+
+    def embed_documents(self, data):
+        _, dataloader = self._data_to_dataloader(data)
+
+        document_embeddings = []
+        for i, batch in enumerate(tqdm(dataloader)):
+                
+                inputs = {"input_ids": batch[0].to(self.device, non_blocking=True),
+                          "attention_mask": batch[1].to(self.device, non_blocking=True),}
+
+                document_embedding = self.document_embeddings(**inputs)
+                document_embeddings.append(document_embedding)
+
+        return document_embeddings
+
     @abstractmethod
     def initialize_model(self):
         pass
@@ -99,6 +119,11 @@ class NERModel(ABC):
 
     @abstractmethod
     def create_scheduler(self, optimizer, n_epochs, train_dataloader):
+        pass
+
+    @abstractmethod
+    def document_embeddings(self, **inputs):
+        #Given an input dictionary, return the corresponding document embedding
         pass
 
     def evaluate(self, dataloader, validate=False, save_path=None, lr=None, n_epochs=None):
@@ -118,47 +143,26 @@ class NERModel(ABC):
                 eval_loss.append(loss)
                 eval_pred.append(pred)
                 eval_label.append(inputs['labels'])
-            if validate:
-                eval_loss = torch.stack(eval_loss)
-            else:
-                eval_loss = torch.mean(torch.stack(eval_loss)).item()
+            eval_loss = torch.mean(torch.stack(eval_loss)).item()
             eval_pred = torch.cat(eval_pred, dim=0)
             eval_label = torch.cat(eval_label, dim=0)
-            eval_acc = accuracy(eval_pred, eval_label)
+            eval_acc = accuracy(eval_pred, eval_label).item()
 
         if validate:
-            if torch.mean(eval_loss).item() < self.val_loss_best:
+            if eval_loss < self.val_loss_best:
                 torch.save(self.model.state_dict(), save_path)
-            print("dev loss: {}, dev acc: {}".format(torch.mean(eval_loss).item(), eval_acc.item()))
+                self.val_loss_best = eval_loss
         elif self.results_file is not None:
             with open(self.results_file, "a+") as f:
                 f.write("{},{},{},{},{}\n".format(self.model[0], lr, n_epochs, eval_loss, eval_acc.item()))
 
+        print("dev loss: {}, dev acc: {}".format(eval_loss, eval_acc))
+
         return
 
     def predict(self, data):
-        # check for input data type
-        if os.path.isfile(data):
-            texts = self.load_file(data)
-        elif type(data) == list:
-            texts = data
-        elif type(data) == str:
-            texts = [data]
-        else:
-            print("Please provide text or set of texts (directly or in a file path format) to predict on!")
 
-        # tokenize and preprocess input data
-        tokenized_dataset = []
-        labels = self.classes
-        for text in texts:
-            tokenized_text = create_tokenset(text)
-            tokenized_text['labels'] = labels
-            tokenized_dataset.append(tokenized_text)
-        ner_data = NERData(modelname=self.modelname)
-        ner_data.classes = labels
-        ner_data.preprocess(tokenized_dataset,is_file=False)
-        tensor_dataset = ner_data.dataset
-        pred_dataloader = DataLoader(tensor_dataset)
+        tokenized_text, pred_dataloader = self._data_to_dataloader(data)
 
         # run predictions
         with torch.no_grad():
@@ -183,7 +187,8 @@ class NERModel(ABC):
                     "input_ids": batch[0].to(self.device),
                     "attention_mask": batch[1].to(self.device),
                     "valid_mask": batch[2].to(self.device),
-                    "labels": batch[4].to(self.device)
+                    "labels": batch[4].to(self.device),
+                    "decode": True
                 }
                 loss, predicted = self.model.forward(**inputs)
                 predictions = torch.max(predicted,-1)[1]
@@ -194,8 +199,35 @@ class NERModel(ABC):
                         tok_idx = torch.tensor([sentence.index(tok)])
                         pred_idx = torch.index_select(predictions[:, 1:], 1, tok_idx)
                         tok['annotation'] = self.classes[pred_idx]
-                    except:
+                    except ValueError:
                         print('reached max sequence length!')
                         continue
 
         return tokenized_dataset
+
+    def _data_to_dataloader(self, data):
+        # check for input data type
+        if os.path.isfile(data):
+            texts = self.load_file(data)
+        elif type(data) == list:
+            texts = data
+        elif type(data) == str:
+            texts = [data]
+        else:
+            print("Please provide text or set of texts (directly or in a file path format) to predict on!")
+
+
+        # tokenize and preprocess input data
+        tokenized_dataset = []
+        labels = self.classes
+        for text in texts:
+            tokenized_text = create_tokenset(text)
+            tokenized_text['labels'] = labels
+            tokenized_dataset.append(tokenized_text)
+        ner_data = NERData(modelname=self.modelname)
+        ner_data.classes = labels
+        ner_data.preprocess(tokenized_dataset,is_file=False)
+        tensor_dataset = ner_data.dataset
+        pred_dataloader = DataLoader(tensor_dataset)
+
+        return tokenized_text, pred_dataloader
