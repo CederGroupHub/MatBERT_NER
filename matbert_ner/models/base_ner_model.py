@@ -197,15 +197,15 @@ class NERModel(ABC):
                 if i == 0:
                     para_i = 0
                     sent_i = 0
-                    total_len = len(tokenized_text[para_i]['tokens'])
+                    total_len = len(tokenized_dataset[para_i]['tokens'])
                 elif i < total_len:
                     sent_i += 1
                 else:
                     para_i += 1
                     sent_i = 0
-                    total_len += len(tokenized_text[para_i]['tokens'])
+                    total_len += len(tokenized_dataset[para_i]['tokens'])
 
-                sentence = tokenized_text[para_i]['tokens'][sent_i]
+                sentence = tokenized_dataset[para_i]['tokens'][sent_i]
 
                 # get masked inputs and run predictions
                 inputs = {
