@@ -69,26 +69,26 @@ class NERModel(ABC):
                 scheduler.step()
 
                 labels = inputs['labels']
-                labels_np = labels.cpu().numpy()
+                labels_list = list(labels.cpu().numpy())
 
                 prediction = torch.max(predicted,-1)[1]
-                prediction_np = prediction.cpu().numpy()
+                prediction_list = list(prediction.cpu().numpy())
 
                 print(self.classes)
                 print(np.unique(labels_np, return_counts=True))
                 print(labels_np.shape)
                 print(prediction_np.shape)
 
-                label_tags = [[self.classes[labels_np[i, j]] if labels_np[i, j] > -1 else '[PAD]' for j in range(labels_np.shape[1])] for i in range(labels_np.shape[0])]
-                prediction_tags = [[self.classes[prediction_np[i, j]] if labels_np[i, j] > -1 else '[PAD]' for j in range(prediction_np.shape[1])] for i in range(prediction_np.shape[0])]
+                prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj != -100] for i, j in zip(prediction_list, labels_list)]
+                valid_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_true]
 
-                print(label_tags)
+                print(valid_tags)
                 print(prediction_tags)
                 
                 metrics['loss'].append(loss.item())
                 metrics['accuracy'].append(accuracy(predicted, labels).item())
-                metrics['accuracy_score'].append(accuracy_score(label_tags, prediction_tags))
-                metrics['f1_score'].append(f1_score(label_tags, prediction_tags))
+                metrics['accuracy_score'].append(accuracy_score(valid_tags, prediction_tags))
+                metrics['f1_score'].append(f1_score(valid, prediction_tags))
                 # metric_list = ['loss', 'accuracy']
                 metric_list = ['loss', 'accuracy', 'accuracy_score', 'f1_score']
                 means = [np.mean(metrics[metric]) for metric in metric_list]
