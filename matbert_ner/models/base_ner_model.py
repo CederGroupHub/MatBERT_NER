@@ -76,6 +76,7 @@ class NERModel(ABC):
                 print(inputs['attention_mask'])
                 print(inputs['valid_mask'])
                 print(inputs['labels'])
+                print(loss)
                 print(predictions)
                 
                 metrics['loss'].append(loss.item())
