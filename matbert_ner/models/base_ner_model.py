@@ -47,7 +47,7 @@ class NERModel(ABC):
         optimizer = self.create_optimizer()
         scheduler = self.create_scheduler(optimizer, n_epochs, train_dataloader)
 
-        epoch_metrics = {}
+        epoch_metrics = {'train': {}, 'validate': {}}
 
         for epoch in range(n_epochs):
             self.model.train()
@@ -91,14 +91,20 @@ class NERModel(ABC):
             save_path = os.path.join(save_dir, "epoch_{}.pt".format(epoch))
             torch.save(self.model.state_dict(), save_path)
 
+            epoch_metrics['train']['epoch_{}'.format(epoch)] = metrics
+
             if val_dataloader is not None:
-                self.evaluate(val_dataloader, validate=True, save_path=os.path.join(save_dir, "best.pt"))
+                val_metrics = self.evaluate(val_dataloader, validate=True, save_path=os.path.join(save_dir, "best.pt"))
+                epoch_metrics['validate']['epoch_{}'.format(epoch)] = val_metrics
         if val_dataloader is not None:
             # Restore weights of best model after training if we can
 
             save_path = os.path.join(save_dir, "best.pt")
             self.model.load_state_dict(torch.load(save_path))
             self.evaluate(val_dataloader, validate=False)
+        
+        history_save_path = os.path.join(save_dir, 'history.pt')
+        torch.save(epoch_metrics, history_save_path)
 
         return
 
@@ -144,8 +150,9 @@ class NERModel(ABC):
         eval_loss = []
         eval_pred = []
         eval_label = []
-        prediction_tags = []
-        valid_tags = []
+        prediction_tags_all = []
+        valid_tags_all = []
+        metrics = {'loss': [], 'accuracy': [],  'accuracy_score': [], 'f1_score': []}
         with torch.no_grad():
             for batch in dataloader:
                 inputs = {
@@ -154,20 +161,33 @@ class NERModel(ABC):
                     "valid_mask": batch[2].to(self.device),
                     "labels": batch[4].to(self.device)
                 }
-                loss, pred = self.model.forward(**inputs)
-                labels_list = list(inputs['labels'].cpu().numpy())
-                prediction_list = list(torch.max(pred,-1)[1].cpu().numpy())
+                loss, predicted = self.model.forward(**inputs)
+                labels = inputs['labels']
+
+                labels_list = list(labels.cpu().numpy())
+                prediction_list = list(torch.max(predicted,-1)[1].cpu().numpy())
+
                 eval_loss.append(loss)
-                eval_pred.append(pred)
-                eval_label.append(inputs['labels'])
-                prediction_tags.extend([[self.classes[ii] for ii, jj in zip(i, j) if jj != -100] for i, j in zip(prediction_list, labels_list)])
-                valid_tags.extend([[self.classes[ii] for ii in i if ii != -100] for i in labels_list])
+                eval_pred.append(predicted)
+                eval_label.append(labels)
+
+                prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj != -100] for i, j in zip(prediction_list, labels_list)]
+                valid_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_list]
+
+                prediction_tags_all.extend(prediction_tags)
+                valid_tags_all.extend(valid_tags)
+
+                metrics['loss'].append(loss.item())
+                metrics['accuracy'].append(accuracy(predicted, labels).item())
+                metrics['accuracy_score'].append(accuracy_score(valid_tags, prediction_tags))
+                metrics['f1_score'].append(f1_score(valid_tags, prediction_tags))
+
             eval_loss = torch.mean(torch.stack(eval_loss)).item()
             eval_pred = torch.cat(eval_pred, dim=0)
             eval_label = torch.cat(eval_label, dim=0)
             eval_acc = accuracy(eval_pred, eval_label).item()
-            eval_acc_score = accuracy_score(valid_tags, prediction_tags)
-            eval_f1_score = f1_score(valid_tags, prediction_tags)
+            eval_acc_score = accuracy_score(valid_tags_all, prediction_tags_all)
+            eval_f1_score = f1_score(valid_tags_all, prediction_tags_all)
 
         if validate:
             if eval_loss < self.val_loss_best:
@@ -183,7 +203,10 @@ class NERModel(ABC):
 
         print("| {} | loss: {:.4f} | accuracy: {:.4f} | accuracy_score: {:.4f} | f1_score: {:.4f} |".format(mode, eval_loss, eval_acc, eval_acc_score, eval_f1_score))
 
-        return
+        if validate:
+            return metrics
+        else:
+            return
 
     def predict(self, data):
 
