@@ -72,7 +72,10 @@ class NERModel(ABC):
 
                 predictions = torch.max(predicted,-1)[1]
 
-                print(labels)
+                print(inputs['input_ids'])
+                print(inputs['attention_mask'])
+                print(inputs['valid_mask'])
+                print(inputs['labels'])
                 print(predictions)
                 
                 metrics['loss'].append(loss.item())
