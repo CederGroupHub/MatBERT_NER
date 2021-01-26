@@ -72,7 +72,7 @@ class NERModel(ABC):
 
                 predictions = torch.max(predicted,-1)[1]
 
-                print(np.unique(labels.numpy()))
+                print(np.unique(labels.cpu().numpy()))
                 print(labels)
                 print(predictions)
                 
