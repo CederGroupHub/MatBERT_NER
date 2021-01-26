@@ -69,23 +69,31 @@ class NERModel(ABC):
                 scheduler.step()
 
                 labels = inputs['labels']
+                labels_np = labels.cpu().numpy()
 
-                predictions = torch.max(predicted,-1)[1]
+                prediction = torch.max(predicted,-1)[1]
+                prediction_np = prediction.cpu().numpy()
 
-                print(np.unique(labels.cpu().numpy()))
-                print(labels)
-                print(predictions)
+                print(np.unique(labels_np, return_counts=True))
+                print(labels_np)
+                print(prediction_np)
+
+                label_tags = [[self.classes[labels_np[i, j]] for j in range(labels_np.shape[1])] for i in range(labels_np.shape[0])]
+                prediction_tags = [[self.classes[prediction_np[i, j]] for j in range(prediction_np.shape[1])] for i in range(prediction_np.shape[0])]
+
+                print(label_tags)
+                print(prediction_tags)
                 
                 metrics['loss'].append(loss.item())
                 metrics['accuracy'].append(accuracy(predicted, labels).item())
-                # metrics['accuracy_score'].append(accuracy_score(labels, predictions))
-                # metrics['f1_score'].append(f1_score(labels, predictions))
-                metric_list = ['loss', 'accuracy']
-                # metric_list = ['loss', 'accuracy', 'accuracy_score', 'f1_score']
+                metrics['accuracy_score'].append(accuracy_score(label_tags, prediction_tags))
+                metrics['f1_score'].append(f1_score(label_tags, prediction_tags))
+                #metric_list = ['loss', 'accuracy']
+                metric_list = ['loss', 'accuracy', 'accuracy_score', 'f1_score']
                 means = [np.mean(metrics[metric]) for metric in metric_list]
 
-                # batch_range.set_description('| epoch: {:d}/{:d} | loss: {:.4f} | accuracy: {:.4f} | accuracy score: {:.4f} | f1 score: {:.4f} |'.format(epoch+1, n_epochs, *means))
-                batch_range.set_description('| epoch: {:d}/{:d} | loss: {:.4f} | accuracy: {:.4f} |'.format(epoch+1, n_epochs, *means))
+                batch_range.set_description('| epoch: {:d}/{:d} | loss: {:.4f} | accuracy: {:.4f} | accuracy score: {:.4f} | f1 score: {:.4f} |'.format(epoch+1, n_epochs, *means))
+                # batch_range.set_description('| epoch: {:d}/{:d} | loss: {:.4f} | accuracy: {:.4f} |'.format(epoch+1, n_epochs, *means))
 
             save_path = os.path.join(save_dir, "epoch_{}.pt".format(epoch))
             torch.save(self.model.state_dict(), save_path)
