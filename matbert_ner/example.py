@@ -5,7 +5,7 @@ import json
 
 # datafile = "data/aunpmorph_annotations_fullparas.json"
 datafile = "data/ner_annotations.json"
-n_epochs = 128
+n_epochs = 2
 
 device = "cuda"
 
