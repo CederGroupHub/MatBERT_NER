@@ -47,7 +47,7 @@ class NERModel(ABC):
         optimizer = self.create_optimizer()
         scheduler = self.create_scheduler(optimizer, n_epochs, train_dataloader)
 
-        epoch_metrics = {'train': {}, 'validate': {}}
+        epoch_metrics = {'training': {}, 'validation': {}}
 
         for epoch in range(n_epochs):
             self.model.train()
@@ -203,10 +203,7 @@ class NERModel(ABC):
 
         print("| {} | loss: {:.4f} | accuracy: {:.4f} | accuracy_score: {:.4f} | f1_score: {:.4f} |".format(mode, eval_loss, eval_acc, eval_acc_score, eval_f1_score))
 
-        if validate:
-            return metrics
-        else:
-            return
+        return metrics
 
     def predict(self, data):
 
