@@ -91,11 +91,11 @@ class NERModel(ABC):
             save_path = os.path.join(save_dir, "epoch_{}.pt".format(epoch))
             torch.save(self.model.state_dict(), save_path)
 
-            epoch_metrics['train']['epoch_{}'.format(epoch)] = metrics
+            epoch_metrics['training']['epoch_{}'.format(epoch)] = metrics
 
             if val_dataloader is not None:
                 val_metrics = self.evaluate(val_dataloader, validate=True, save_path=os.path.join(save_dir, "best.pt"))
-                epoch_metrics['validate']['epoch_{}'.format(epoch)] = val_metrics
+                epoch_metrics['validation']['epoch_{}'.format(epoch)] = val_metrics
         if val_dataloader is not None:
             # Restore weights of best model after training if we can
 
