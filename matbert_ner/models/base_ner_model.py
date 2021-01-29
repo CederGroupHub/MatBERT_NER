@@ -156,7 +156,7 @@ class NERModel(ABC):
 
     def predict(self, data):
 
-        tokenized_text, pred_dataloader = self._data_to_dataloader(data)
+        tokenized_dataset, pred_dataloader = self._data_to_dataloader(data)
 
         # run predictions
         with torch.no_grad():
@@ -224,4 +224,4 @@ class NERModel(ABC):
         tensor_dataset = ner_data.dataset
         pred_dataloader = DataLoader(tensor_dataset)
 
-        return tokenized_text, pred_dataloader
+        return tokenized_dataset, pred_dataloader

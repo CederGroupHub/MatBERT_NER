@@ -105,6 +105,7 @@ class NERData():
         dev_split = int(np.floor(dev_frac * dataset_size))
         val_split = int(np.floor(val_frac * dataset_size))+dev_split
         if shuffle_dataset :
+            np.random.seed(107)
             np.random.shuffle(indices)
 
         dev_indices, val_indices, train_indices = indices[:dev_split], indices[dev_split:val_split], indices[val_split:]

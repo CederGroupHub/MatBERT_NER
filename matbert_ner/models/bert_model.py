@@ -8,7 +8,7 @@ from typing import List, Optional
 import numpy as np
 from models.base_ner_model import NERModel
 import torch.optim as optim
-from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup
+from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup, get_cosine_with_hard_restarts_schedule_with_warmup
 
 class BertCRFNERModel(NERModel):
 
@@ -43,12 +43,16 @@ class BertCRFNERModel(NERModel):
 
     def create_scheduler(self, optimizer, n_epochs, train_dataloader):
         scheduler = get_cosine_schedule_with_warmup(
-            optimizer, num_warmup_steps=0, num_training_steps=n_epochs*len(train_dataloader), num_cycles=2.5
+            optimizer, num_warmup_steps=len(train_dataloader), num_training_steps=n_epochs*len(train_dataloader), num_cycles=n_epochs/10
         )
 
         # scheduler = get_linear_schedule_with_warmup(
         #     optimizer, num_warmup_steps=0, num_training_steps=n_epochs*len(train_dataloader)
         # )
+
+        scheduler = get_cosine_with_hard_restarts_schedule_with_warmup(
+            optimizer, num_warmup_steps=0, num_training_steps=n_epochs*len(train_dataloader), num_cycles=n_epochs/5
+        )
 
         return scheduler
 
