@@ -4,7 +4,7 @@ import os
 import numpy as np
 import torch
 from torch.utils.data import TensorDataset, DataLoader, SubsetRandomSampler
-from utils.data import create_tokenset, NERData
+from utils.data import NERData
 from itertools import product
 from transformers import BertTokenizer, AutoConfig, get_linear_schedule_with_warmup
 from tqdm import tqdm
@@ -51,7 +51,7 @@ class NERModel(ABC):
             self.model.train()
 
             for i, batch in enumerate(tqdm(train_dataloader)):
-                
+
                 inputs = {"input_ids": batch[0].to(self.device, non_blocking=True),
                           "attention_mask": batch[1].to(self.device, non_blocking=True),
                           "valid_mask": batch[2].to(self.device, non_blocking=True),
@@ -94,7 +94,7 @@ class NERModel(ABC):
 
         document_embeddings = []
         for i, batch in enumerate(tqdm(dataloader)):
-                
+
                 inputs = {"input_ids": batch[0].to(self.device, non_blocking=True),
                           "attention_mask": batch[1].to(self.device, non_blocking=True),}
 
@@ -154,7 +154,12 @@ class NERModel(ABC):
 
         return
 
-    def predict(self, data):
+    def predict(self, data, trained_model=None, labels=None):
+
+        self.labels = labels
+
+        if trained_model:
+            self.model.load_state_dict(torch.load(trained_model))
 
         tokenized_dataset, pred_dataloader = self._data_to_dataloader(data)
 
@@ -185,18 +190,14 @@ class NERModel(ABC):
                     "decode": True
                 }
                 loss, predicted = self.model.forward(**inputs)
-                predictions = torch.max(predicted,-1)[1]
+                predictions = predicted.to('cpu').numpy()[0]
 
                 # assign predictions to dataset
                 for tok in sentence:
-                    try:
-                        tok_idx = torch.tensor([sentence.index(tok)])
-                        pred_idx = torch.index_select(predictions[:, 1:], 1, tok_idx)
-                        tok['annotation'] = self.classes[pred_idx]
-                    except ValueError:
-                        print('reached max sequence length!')
-                        continue
-
+                    tok_idx = torch.tensor([sentence.index(tok)])
+                    pred_idx = predictions[tok_idx]
+                    tok['annotation'] = self.classes[pred_idx]
+                tokenized_dataset[para_i]['tokens'][sent_i] = sentence
         return tokenized_dataset
 
     def _data_to_dataloader(self, data):
@@ -212,14 +213,19 @@ class NERModel(ABC):
 
 
         # tokenize and preprocess input data
+        if self.labels:
+            labels = self.labels
+        else:
+            labels = []
+            for label in self.classes:
+                if label != 'O' and label[2:] not in labels:
+                    labels.append(label[2:])
+        ner_data = NERData(modelname=self.modelname)
         tokenized_dataset = []
-        labels = self.classes
         for text in texts:
-            tokenized_text = create_tokenset(text)
+            tokenized_text = ner_data.create_tokenset(text)
             tokenized_text['labels'] = labels
             tokenized_dataset.append(tokenized_text)
-        ner_data = NERData(modelname=self.modelname)
-        ner_data.classes = labels
         ner_data.preprocess(tokenized_dataset,is_file=False)
         tensor_dataset = ner_data.dataset
         pred_dataloader = DataLoader(tensor_dataset)
