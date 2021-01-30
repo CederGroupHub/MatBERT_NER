@@ -1,6 +1,7 @@
 from models.bert_model import BertCRFNERModel
 from utils.data import NERData
 import os
+import subprocess
 import json
 
 # datafile = "data/aunpmorph_annotations_fullparas.json"
@@ -28,3 +29,5 @@ for alias, split in splits.items():
 
         ner_model = BertCRFNERModel(modelname=model, classes=classes, device=device, lr=1e-5)
         ner_model.train(train_dataloader, n_epochs=n_epochs, val_dataloader=val_dataloader, save_dir=save_dir)
+
+        subprocess.run(['rm', save_dir+'epoch_*pt'])
