@@ -185,7 +185,7 @@ class NERModel(ABC):
                 metrics['f1_score'].append(f1_score(valid_tags, prediction_tags))
                 means = [np.mean(metrics[metric]) for metric in metrics.keys()]
 
-                batch_range.set_description('| {} | epoch: {:d}/{:d} | loss: {:.4f} | accuracy: {:.4f} | accuracy score: {:.4f} | f1 score: {:.4f} |'.format(mode, epoch+1, n_epochs, *means))
+                batch_range.set_description('| {} (rolling average) | loss: {:.4f} | accuracy: {:.4f} | accuracy score: {:.4f} | f1 score: {:.4f} |'.format(mode, *means))
 
             eval_loss = torch.mean(torch.stack(eval_loss)).item()
             eval_pred = torch.cat(eval_pred, dim=0)
@@ -202,7 +202,7 @@ class NERModel(ABC):
             with open(self.results_file, "a+") as f:
                 f.write("{},{},{},{},{},{},{}\n".format(self.model[0], lr, n_epochs, eval_loss, eval_acc, eval_acc_score, eval_f1_score))
 
-        print("| {} | loss: {:.4f} | accuracy: {:.4f} | accuracy_score: {:.4f} | f1_score: {:.4f} |".format(mode, eval_loss, eval_acc, eval_acc_score, eval_f1_score))
+        print("| {} (epoch evaluation) | loss: {:.4f} | accuracy: {:.4f} | accuracy_score: {:.4f} | f1_score: {:.4f} |".format(mode, eval_loss, eval_acc, eval_acc_score, eval_f1_score))
 
         return metrics
 
