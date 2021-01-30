@@ -11,6 +11,7 @@ class NERData():
     def __init__(self, modelname="allenai/scibert_scivocab_cased"):
         self.tokenizer = BertTokenizer.from_pretrained(modelname)
         self.dataset = None
+        self.labels = None
 
 
     def load_from_file(self,datafile):
@@ -18,14 +19,6 @@ class NERData():
         with open(datafile, 'r') as f:
             for l in f:
                 data.append(json.loads(l))
-
-        classes_raw = data[0]['labels']
-        classes = ["O"]
-        for c in classes_raw:
-            classes.append("B-{}".format(c))
-            classes.append("I-{}".format(c))
-
-        self.classes = classes
 
         return data
 
@@ -35,6 +28,8 @@ class NERData():
             data = self.load_from_file(datafile)
         else:
             data = datafile
+
+        self.__get_iob_tags(data[0]['labels'])
 
         data = [[(d['text'],d['annotation']) for d in s] for a in data for s in a['tokens']]
 
@@ -47,7 +42,7 @@ class NERData():
 
                 #This causes issues with BERT for some reason
                 if t in ['̄','̊']:
-                    continue    
+                    continue
 
                 text.append(t)
                 if l is None:
@@ -106,6 +101,7 @@ class NERData():
         dev_split = int(np.floor(dev_frac * dataset_size))
         val_split = int(np.floor(val_frac * dataset_size))+dev_split
         if shuffle_dataset :
+            np.random.seed(107)
             np.random.shuffle(indices)
 
         dev_indices, val_indices, train_indices = indices[:dev_split], indices[dev_split:val_split], indices[val_split:]
@@ -131,6 +127,46 @@ class NERData():
             self.dev_dataloader = None
 
         return self.train_dataloader, self.val_dataloader, self.dev_dataloader
+
+    def create_tokenset(self, text):
+
+        tokenset = {
+            "text" : text,
+            "tokens" : []
+        }
+
+        idx = 0
+
+        para = Paragraph(text)
+        sentences = para.raw_sentences
+
+        for sentence in sentences:
+            tokens = self.tokenizer.tokenize(sentence)
+            sent_toks = []
+            for token in tokens:
+                if token.startswith('##'):
+                    tok_length = len(token) - 2
+                else:
+                    tok_length = len(token)
+                tok = {
+                    "text" : token,
+                    "start" : idx,
+                    "end" : idx + tok_length,
+                    "annotation" : None
+                }
+
+                if idx + tok_length >= len(sentence):
+                    sent_toks.append(tok)
+                    break
+                elif sentence[idx + tok_length] == " ":
+                    idx += tok_length + 1
+                else:
+                    idx += tok_length
+                sent_toks.append(tok)
+
+            tokenset["tokens"].append(sent_toks)
+
+        return tokenset
 
     def __convert_examples_to_features(
             self,
@@ -378,6 +414,17 @@ class NERData():
                 results += (item,)
         return results
 
+    def __get_iob_tags(self, labels):
+        classes_raw = labels
+        classes = ["O"]
+        for c in classes_raw:
+            classes.append("B-{}".format(c))
+            classes.append("I-{}".format(c))
+
+        self.classes = classes
+
+        return classes
+
 class InputFeatures(object):
     """A single set of features of data."""
 
@@ -404,37 +451,3 @@ class InputExample(object):
         self.guid = guid
         self.words = words
         self.labels = labels
-
-def create_tokenset(text):
-
-        tokenset = {
-            "text" : text,
-            "tokens" : []
-        }
-
-        idx = 0
-
-        para = Paragraph(text)
-        sentences = para.raw_sentences
-
-        for sentence in sentences:
-            sent = sentence[0]
-            tokens = Paragraph(sentence).raw_tokens[0]
-
-            sent_toks = []
-            for token in tokens:
-
-                tok = {
-                    "text" : token,
-                    "start" : idx,
-                    "end" : idx + len(token),
-                    "annotation" : None
-                }
-
-                idx += len(token) + 1
-                sent_toks.append(tok)
-
-            tokenset["tokens"].append(sent_toks)
-
-        return tokenset
-
