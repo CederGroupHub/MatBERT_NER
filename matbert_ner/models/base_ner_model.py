@@ -77,16 +77,13 @@ class NERModel(ABC):
                 prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj != -100] for i, j in zip(prediction_list, labels_list)]
                 valid_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_list]
                 
-                metrics['loss'].append(loss.item())
+                metrics['loss'].append(torch.mean(loss).item())
                 metrics['accuracy'].append(accuracy(predicted, labels).item())
                 metrics['accuracy_score'].append(accuracy_score(valid_tags, prediction_tags))
                 metrics['f1_score'].append(f1_score(valid_tags, prediction_tags))
-                # metric_list = ['loss', 'accuracy']
-                metric_list = ['loss', 'accuracy', 'accuracy_score', 'f1_score']
-                means = [np.mean(metrics[metric]) for metric in metric_list]
+                means = [np.mean(metrics[metric]) for metric in metrics.keys()]
 
                 batch_range.set_description('| training | epoch: {:d}/{:d} | loss: {:.4f} | accuracy: {:.4f} | accuracy score: {:.4f} | f1 score: {:.4f} |'.format(epoch+1, n_epochs, *means))
-                # batch_range.set_description('| epoch: {:d}/{:d} | loss: {:.4f} | accuracy: {:.4f} |'.format(epoch+1, n_epochs, *means))
 
             save_path = os.path.join(save_dir, "epoch_{}.pt".format(epoch))
             torch.save(self.model.state_dict(), save_path)
@@ -147,14 +144,19 @@ class NERModel(ABC):
 
     def evaluate(self, dataloader, validate=False, save_path=None, lr=None, n_epochs=None):
         self.model.eval()
+        if validate:
+            mode = 'validation'
+        else:
+            mode = 'test'
         eval_loss = []
         eval_pred = []
         eval_label = []
         prediction_tags_all = []
         valid_tags_all = []
         metrics = {'loss': [], 'accuracy': [],  'accuracy_score': [], 'f1_score': []}
+        batch_range = tqdm(dataloader, desc='')
         with torch.no_grad():
-            for batch in dataloader:
+            for batch in batch_range:
                 inputs = {
                     "input_ids": batch[0].to(self.device),
                     "attention_mask": batch[1].to(self.device),
@@ -177,10 +179,13 @@ class NERModel(ABC):
                 prediction_tags_all.extend(prediction_tags)
                 valid_tags_all.extend(valid_tags)
 
-                metrics['loss'].append(loss.item())
+                metrics['loss'].append(torch.mean(loss).item())
                 metrics['accuracy'].append(accuracy(predicted, labels).item())
                 metrics['accuracy_score'].append(accuracy_score(valid_tags, prediction_tags))
                 metrics['f1_score'].append(f1_score(valid_tags, prediction_tags))
+                means = [np.mean(metrics[metric]) for metric in metrics.keys()]
+
+                batch_range.set_description('| {} | epoch: {:d}/{:d} | loss: {:.4f} | accuracy: {:.4f} | accuracy score: {:.4f} | f1 score: {:.4f} |'.format(mode, epoch+1, n_epochs, *means))
 
             eval_loss = torch.mean(torch.stack(eval_loss)).item()
             eval_pred = torch.cat(eval_pred, dim=0)
@@ -193,13 +198,9 @@ class NERModel(ABC):
             if eval_loss < self.val_loss_best:
                 torch.save(self.model.state_dict(), save_path)
                 self.val_loss_best = eval_loss
-            mode = 'validation'
         elif self.results_file is not None:
             with open(self.results_file, "a+") as f:
                 f.write("{},{},{},{},{},{},{}\n".format(self.model[0], lr, n_epochs, eval_loss, eval_acc, eval_acc_score, eval_f1_score))
-            mode = 'test'
-        else:
-            mode = 'test'
 
         print("| {} | loss: {:.4f} | accuracy: {:.4f} | accuracy_score: {:.4f} | f1_score: {:.4f} |".format(mode, eval_loss, eval_acc, eval_acc_score, eval_f1_score))
 
