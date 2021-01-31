@@ -8,7 +8,7 @@ import json
 datafile = "data/ner_annotations.json"
 n_epochs = 128
 
-device = "cuda:1"
+device = "cuda:2"
 model_names = ['bert']
 
 splits = {'': [0.5, 0.25, 0.25]}

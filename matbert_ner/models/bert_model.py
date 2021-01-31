@@ -13,7 +13,7 @@ from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_wi
 class BertCRFNERModel(NERModel):
 
     def initialize_model(self):
-        ner_model = BertCrfForNer(self.config).to(self.device)
+        ner_model = BertCrfForNer(self.config, self.device).to(self.device)
         return ner_model
 
     def create_optimizer(self):
@@ -129,9 +129,10 @@ class BertNER(BertPreTrainedModel):
         return outputs # (loss), scores, (hidden_states), (attentions)
 
 class BertCrfForNer(BertPreTrainedModel):
-    def __init__(self, config):
+    def __init__(self, config, device):
         super(BertCrfForNer, self).__init__(config)
         self.bert = BertModel(config)
+        self.device = device
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, config.num_labels)
         self.crf = CRF(num_tags=config.num_labels, batch_first=True)
@@ -203,10 +204,8 @@ class BertCrfForNer(BertPreTrainedModel):
 
 def valid_sequence_output(sequence_output, valid_mask, attention_mask):
     batch_size, max_len, feat_dim = sequence_output.shape
-    valid_output = torch.zeros(batch_size, max_len, feat_dim, dtype=torch.float32,
-                               device='cuda' if torch.cuda.is_available() else 'cpu')
-    valid_attention_mask = torch.zeros(batch_size, max_len, dtype=torch.long,
-                                       device='cuda' if torch.cuda.is_available() else 'cpu')
+    valid_output = torch.zeros(batch_size, max_len, feat_dim, dtype=torch.float32, device=self.device)
+    valid_attention_mask = torch.zeros(batch_size, max_len, dtype=torch.long, self.device)
     for i in range(batch_size):
         jj = -1
         for j in range(max_len):
