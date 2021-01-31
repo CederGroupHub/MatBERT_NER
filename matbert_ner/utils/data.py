@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader, SubsetRandomSampler, TensorDataset
 import json
 import torch
 import numpy as np
+from tqdm import tqdm
 
 class NERData():
 
@@ -79,11 +80,12 @@ class NERData():
         self.dataset = dataset
         return self
 
-    def create_dataloaders(self, batch_size=30, val_frac=0.1, dev_frac=0.1, shuffle_dataset=True):
+    def create_dataloaders(self, batch_size=30, train_frac=None, val_frac=0.1, dev_frac=0.1, shuffle_dataset=True):
         """
         Create train, val, and dev dataloaders from a preprocessed dataset
         Inputs:
             batch_size (int) :: Minibatch size for training
+            train_frac (float or None) :: Fraction of data to use for training (None uses the remaining data)
             val_frac (float) :: Fraction of data to use for validation
             dev_frac (float) :: Fraction of data to use as a hold-out set
             shuffle_dataset (bool) :: Whether to randomize ordering of data samples
@@ -103,7 +105,13 @@ class NERData():
             np.random.seed(107)
             np.random.shuffle(indices)
 
-        dev_indices, val_indices, train_indices = indices[:dev_split], indices[dev_split:val_split], indices[val_split:]
+        dev_indices, val_indices = indices[:dev_split], indices[dev_split:val_split]
+
+        if train_frac:
+            train_split = int(np.floor(train_frac * dataset_size))+val_split
+            train_indices = indices[val_split:train_split]
+        else:
+             train_indices = indices[val_split:]
 
         # Creating PT data samplers and loaders:
         train_sampler = SubsetRandomSampler(train_indices)
@@ -198,10 +206,8 @@ class NERData():
                 span_labels.append(label)
         span_map = {label: i for i, label in enumerate(span_labels)}
         features = []
-        for (ex_index, example) in enumerate(examples):
-            if ex_index % 10000 == 0:
-                print("Writing example %d of %d"%(ex_index, len(examples)))
-
+        example_range = tqdm(examples, desc='| writing examples |')
+        for example in example_range:
             tokens = []
             valid_mask = []
             for word in example.words:
