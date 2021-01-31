@@ -1,25 +1,26 @@
 from models.bert_model import BertCRFNERModel
 from utils.data import NERData
 import os
-import subprocess
+import glob
 import json
 
 # datafile = "data/aunpmorph_annotations_fullparas.json"
 datafile = "data/ner_annotations.json"
 n_epochs = 128
 
-device = "cuda"
-model_names = ['scibert', 'matbert']
+device = "cuda:1"
+model_names = ['bert']
 
-splits = {'_{}'.format(i): [0.1*i, 0.1, 0.1] for i in range(1, 9)}
+splits = {'': [0.5, 0.25, 0.25]}
 for alias, split in splits.items():
     for model_name in model_names:
+        if model_name == 'bert':
+            model = 'bert-base-uncased'
         if model_name == 'scibert':
             model = "allenai/scibert_scivocab_uncased"
-            save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
         if model_name == 'matbert':
             model = "/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased"
-            save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
+        save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
 
         ner_data = NERData(model)
         ner_data.preprocess(datafile)
@@ -30,4 +31,9 @@ for alias, split in splits.items():
         ner_model = BertCRFNERModel(modelname=model, classes=classes, device=device, lr=1e-5)
         ner_model.train(train_dataloader, n_epochs=n_epochs, val_dataloader=val_dataloader, save_dir=save_dir)
 
-        subprocess.run(['rm', save_dir+'epoch_*pt'])
+        fs = glob.glob(save_dir+'epoch_*pt')
+        for f in fs:
+            try:
+                os.remove(f)
+            except:
+                print('error while deleting file: {}'.format(f))
