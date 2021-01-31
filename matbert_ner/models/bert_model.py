@@ -205,7 +205,7 @@ class BertCrfForNer(BertPreTrainedModel):
 def valid_sequence_output(sequence_output, valid_mask, attention_mask):
     batch_size, max_len, feat_dim = sequence_output.shape
     valid_output = torch.zeros(batch_size, max_len, feat_dim, dtype=torch.float32, device=self.device)
-    valid_attention_mask = torch.zeros(batch_size, max_len, dtype=torch.long, self.device)
+    valid_attention_mask = torch.zeros(batch_size, max_len, dtype=torch.long, device=self.device)
     for i in range(batch_size):
         jj = -1
         for j in range(max_len):
