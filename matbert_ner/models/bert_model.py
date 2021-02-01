@@ -138,7 +138,7 @@ class BertCrfForNer(BertPreTrainedModel):
         self.crf = CRF(num_tags=config.num_labels, batch_first=True)
         self.init_weights()
     
-    @device
+    @property
     def device(self):
         return self._device
     
