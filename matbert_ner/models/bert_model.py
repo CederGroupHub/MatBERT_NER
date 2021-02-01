@@ -81,13 +81,22 @@ class FocalLoss(nn.Module):
         return loss
 
 class BertNER(BertPreTrainedModel):
-    def __init__(self, config):
+    def __init__(self, config, device):
         super(BertNER, self).__init__(config)
         self.num_labels = config.num_labels
         self.bert = BertModel(config)
+        self._device = device
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, self.num_labels)
         self.init_weights()
+
+    @property
+    def device(self):
+        return self._device
+    
+    @device.setter
+    def device(self, device):
+        self._device = device
 
     def forward(
             self,
@@ -109,7 +118,7 @@ class BertNER(BertPreTrainedModel):
             inputs_embeds=inputs_embeds
         )
         sequence_output = outputs[0]
-        sequence_output, attention_mask = valid_sequence_output(sequence_output, valid_mask, attention_mask)
+        sequence_output, attention_mask = valid_sequence_output(sequence_output, valid_mask, attention_mask, self.device)
         sequence_output = self.dropout(sequence_output)
         logits = self.classifier(sequence_output)
         outputs = (logits,) + outputs[2:]  # add hidden states and attention if they are here
@@ -170,7 +179,7 @@ class BertCrfForNer(BertPreTrainedModel):
         sequence_output = [outputs[2][i] for i in (-1, -2, -3, -4)]
         sequence_output = torch.mean(torch.stack(sequence_output), dim=0)
         # sequence_output = outputs[0]
-        sequence_output, attention_mask = valid_sequence_output(sequence_output, valid_mask, attention_mask)
+        sequence_output, attention_mask = valid_sequence_output(sequence_output, valid_mask, attention_mask, self.device)
         sequence_output = self.dropout(sequence_output)
         logits = self.classifier(sequence_output)
         if decode:
@@ -210,10 +219,10 @@ class BertCrfForNer(BertPreTrainedModel):
 
         return sequence_output
 
-def valid_sequence_output(sequence_output, valid_mask, attention_mask):
+def valid_sequence_output(sequence_output, valid_mask, attention_mask, device):
     batch_size, max_len, feat_dim = sequence_output.shape
-    valid_output = torch.zeros(batch_size, max_len, feat_dim, dtype=torch.float32, device=self.device)
-    valid_attention_mask = torch.zeros(batch_size, max_len, dtype=torch.long, device=self.device)
+    valid_output = torch.zeros(batch_size, max_len, feat_dim, dtype=torch.float32, device=device)
+    valid_attention_mask = torch.zeros(batch_size, max_len, dtype=torch.long, device=device)
     for i in range(batch_size):
         jj = -1
         for j in range(max_len):
