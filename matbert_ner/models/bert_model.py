@@ -144,7 +144,7 @@ class BertCrfForNer(BertPreTrainedModel):
         self._device = device
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, config.num_labels)
-        self.crf = CRF(num_tags=config.num_labels, batch_first=True)
+        self.crf = CRF(num_tags=config.num_labels, batch_first=True, device=self.device)
         self.init_weights()
     
     @property
@@ -234,12 +234,13 @@ def valid_sequence_output(sequence_output, valid_mask, attention_mask, device):
 
 
 class CRF(nn.Module):
-    def __init__(self, num_tags: int, batch_first: bool = False) -> None:
+    def __init__(self, num_tags: int, batch_first: bool = False, device: str = 'cuda') -> None:
         if num_tags <= 0:
             raise ValueError(f'invalid number of tags: {num_tags}')
         super().__init__()
         self.num_tags = num_tags
         self.batch_first = batch_first
+        self.device = device
         self.start_transitions = nn.Parameter(torch.empty(num_tags))
         self.end_transitions = nn.Parameter(torch.empty(num_tags))
         self.transitions = nn.Parameter(torch.empty(num_tags, num_tags))
@@ -535,4 +536,4 @@ class CRF(nn.Module):
             best_tags_list.append(best_tags)
         best_tags_list = [item + [-1] * (seq_length - len(item)) for item in best_tags_list]
         best_tags_list = torch.from_numpy(np.array(best_tags_list))
-        return torch.LongTensor(best_tags_list).cuda()
+        return torch.LongTensor(best_tags_list).to(self.device)
