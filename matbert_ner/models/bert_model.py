@@ -132,11 +132,19 @@ class BertCrfForNer(BertPreTrainedModel):
     def __init__(self, config, device):
         super(BertCrfForNer, self).__init__(config)
         self.bert = BertModel(config)
-        self.device = device
+        self._device = device
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, config.num_labels)
         self.crf = CRF(num_tags=config.num_labels, batch_first=True)
         self.init_weights()
+    
+    @device
+    def device(self):
+        return self._device
+    
+    @device.setter
+    def device(self, device):
+        self._device = device
 
     def forward(
             self,
