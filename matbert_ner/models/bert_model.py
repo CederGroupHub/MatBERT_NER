@@ -145,8 +145,8 @@ class BertCrfForNer(BertPreTrainedModel):
         self._device = device
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, config.num_labels)
-        self.crf = CRF(tag_names=tag_names, batch_first=True)
         self.init_weights()
+        self.crf = CRF(tag_names=tag_names, batch_first=True)
     
     @property
     def device(self):
