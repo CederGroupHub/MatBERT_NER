@@ -101,8 +101,8 @@ class NERModel(ABC):
                         print(aa, '\t', bb, '\t', cc, '\t', dd, '\t', ii, '\t', jj)
 
                 
-                prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(prediction_list, valid_attention_mask)]
-                label_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
+                prediction_tags = [[self.classes[ii] for ii, jj, kk in zip(i, j, k) if kk==1 and jj>=0] for i, j, k in zip(prediction_list, labels_list, valid_attention_mask)]
+                label_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1 and ii>0] for i, j in zip(labels_list, valid_attention_mask)]
 
                 metrics['loss'].append(torch.mean(loss).item())
                 metrics['accuracy'].append(accuracy(predicted, labels).item())
