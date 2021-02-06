@@ -97,8 +97,8 @@ class NERModel(ABC):
                                             prediction_list):
                     print(len(a), len(b), len(c), len(i), len(j), len(k))
                     for aa, bb, cc, ii, jj, kk in zip(a, b, c, i, j, k):
-                        print('ID', 'VM', 'AM', 'VAM', 'L', 'P')
-                        print(a, b, c, i, j, k)
+                        print('ID', '\t', 'VM', '\t', 'AM', '\t', 'VAM', '\t', 'L', '\t', 'P')
+                        print(aa, '\t', bb, '\t', cc, '\t', ii, '\t', jj, '\t', kk)
 
                 
                 prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(prediction_list, valid_attention_mask)]
