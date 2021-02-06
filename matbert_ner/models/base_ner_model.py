@@ -75,22 +75,23 @@ class NERModel(ABC):
                 prediction_list = list(prediction.cpu().numpy())
                 
                 batch_size, max_len, feat_dim = predicted.shape
-                valid_attention_mask = [[0 for j in range(max_len)] for i in range(batch_size)]
+                valid_attention_mask = np.zeros((batch_size, max_len), dtype=np.bool)
                 for i in range(batch_size):
                     jj = -1
                     for j in range(max_len):
                         if inputs['valid_mask'][i][j].item() == 1:
                             jj += 1
-                            valid_attention_mask[i][jj] = inputs['attention_mask'][i][j].item()
+                            valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
+                valid_attention_mask = list(valid_attention_mask)
 
                 # valid_attention_mask = [[ii.item() if jj.item()==1 else 0 for ii, jj in zip(i, j)] for i, j in zip(inputs['attention_mask'], inputs['valid_mask'])]
 
                 # prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj != -100] for i, j in zip(prediction_list, labels_list)]
                 # valid_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_list]
 
-                for a, i, j, k in zip(inputs['input_ids'], labels_list, prediction_list, valid_attention_mask):
-                    print(a.tolist(), '\n', i, '\n', j, '\n', k, '\n')
-                    print(len(a.tolist()), len(i), len(j), len(k))
+                for a, i, j, k in zip(list(inputs['input_ids'].cpu().numpy()), labels_list, prediction_list, valid_attention_mask):
+                    print(a, '\n', i, '\n', j, '\n', k, '\n')
+                    print(len(a), len(i), len(j), len(k))
 
                 
                 prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(prediction_list, valid_attention_mask)]
