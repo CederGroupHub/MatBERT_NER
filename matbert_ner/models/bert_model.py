@@ -255,10 +255,10 @@ class CRF(nn.Module):
         self.prefixes = set([tag_name[0] for tag_name in self.tag_names if tag_name not in [self.pad_token, self.cls_token, self.sep_token]])
         if self.prefixes == set(['B', 'I', 'O']):
             # (B)eginning (I)nside (O)utside
-            # cannot begin sentence with I (inside), only B (beginning) or O (outside)
-            self.invalid_begin = ('I',)
-            # cannot end sentence with B (beginning) or I (inside) - assumes data ends with O (outside), such as punctuation
-            self.invalid_end = ('B', 'I')
+            # sentence must begin with [CLS] ([PAD])
+            self.invalid_begin = ('B', 'I', 'O')
+            # sentence must end with [SEP] ([PAD])
+            self.invalid_end = ('B', 'I', 'O')
             # prevent B (beginning) going to P - B must be followed by B, I, or O
             # prevent I (inside) going to P - I must be followed by B, I, or O
             # prevent O (outside) going to I (inside) - O must be followed by B or O
@@ -271,10 +271,10 @@ class CRF(nn.Module):
                                              'I': 'I'}
         if self.prefixes == set(['B', 'I', 'L', 'U', 'O']):
             # (B)eginning (I)nside (L)ast (U)nit (O)utside
-            # cannot begin sentence with I (inside) or L (last)
-            self.invalid_begin = ('I', 'L')
-            # cannot end sentence with B (beginning) or I (inside)
-            self.invalid_end = ('B', 'I')
+            # sentence must begin with [CLS] ([PAD])
+            self.invalid_begin = ('B', 'I', 'L', 'U', 'O')
+            # sentence must end with [SEP] ([PAD])
+            self.invalid_end = ('B', 'I', 'L', 'U', 'O')
             # prevent B (beginning) going to B (beginning), O (outside), U (unit), or P - B must be followed by I or L
             # prevent I (inside) going to B (beginning), O (outside), U (unit), or P - I must be followed by I or L
             # prevent L (last) going to I (inside) or L(last) - U must be followed by B, O, U, or P
@@ -291,10 +291,10 @@ class CRF(nn.Module):
                                              'I': 'IL'}
         if self.prefixes == set(['B', 'I', 'E', 'S', 'O']):
             # (B)eginning (I)nside (E)nd (S)ingle (O)utside
-            # cannot begin sentence with I (inside) or E (end)
-            self.invalid_begin = ('I', 'E')
-            # cannot end sentence with B (beginning) or I (inside)
-            self.invalid_end = ('B', 'I')
+            # sentence must begin with [CLS] ([PAD])
+            self.invalid_begin = ('B', 'I', 'E', 'S', 'O')
+            # sentence must end with [SEP] ([PAD])
+            self.invalid_end = ('B', 'I', 'E', 'S', 'O')
             # prevent B (beginning) going to B (beginning), O (outside), S (single), or P - B must be followed by I or E
             # prevent I (inside) going to B (beginning), O (outside), S (single), or P - I must be followed by I or E
             # prevent E (end) going to I (inside) or E (end) - U must be followed by B, O, U, or P
@@ -316,11 +316,10 @@ class CRF(nn.Module):
         # penalize bad beginnings and endings
         for i in range(num_tags):
             tag_name = self.tag_names[i]
-            if tag_name[0] in self.invalid_begin or tag_name == self.pad_token:
+            if tag_name[0] in self.invalid_begin:
                 torch.nn.init.constant_(self.crf.start_transitions[i], imp_value)
-            # don't penalize endings since not every example ends with punctuation
-            # if tag_name[0] in self.invalid_end:
-            #     torch.nn.init.constant_(self.crf.end_transitions[i], imp_value)
+            if tag_name[0] in self.invalid_end:
+                torch.nn.init.constant_(self.crf.end_transitions[i], imp_value)
         # build tag type dictionary
         tag_is = {}
         for tag_position in self.prefixes:
