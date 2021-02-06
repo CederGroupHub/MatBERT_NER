@@ -96,8 +96,8 @@ class NERModel(ABC):
                                             labels_list,
                                             prediction_list):
                     print(len(a), len(b), len(c), len(i), len(j), len(k))
+                    print('ID', '\t', 'VM', '\t', 'AM', '\t', 'VAM', '\t', 'L', '\t', 'P')
                     for aa, bb, cc, ii, jj, kk in zip(a, b, c, i, j, k):
-                        print('ID', '\t', 'VM', '\t', 'AM', '\t', 'VAM', '\t', 'L', '\t', 'P')
                         print(aa, '\t', bb, '\t', cc, '\t', ii, '\t', jj, '\t', kk)
 
                 
