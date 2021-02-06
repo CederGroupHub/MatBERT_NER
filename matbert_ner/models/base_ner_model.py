@@ -89,16 +89,16 @@ class NERModel(ABC):
                 # prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj != -100] for i, j in zip(prediction_list, labels_list)]
                 # valid_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_list]
 
-                for a, b, c, i, j, k in zip(list(inputs['input_ids'].cpu().numpy()),
+                for a, b, c, d, i, j in zip(list(inputs['input_ids'].cpu().numpy()),
+                                            list(inputs['labels'].cpu().numpy()),
                                             list(inputs['valid_mask'].cpu().numpy()),
                                             list(inputs['attention_mask'].cpu().numpy()),
-                                            valid_attention_mask,
-                                            labels_list,
-                                            prediction_list):
-                    print(len(a), len(b), len(c), len(i), len(j), len(k))
-                    print('ID', '\t', 'VM', '\t', 'AM', '\t', 'VAM', '\t', 'L', '\t', 'P')
-                    for aa, bb, cc, ii, jj, kk in zip(a, b, c, i, j, k):
-                        print(aa, '\t', bb, '\t', cc, '\t', ii, '\t', jj, '\t', kk)
+                                            prediction_list,
+                                            valid_attention_mask):
+                    print(len(a), len(b), len(c), len(d), len(i), len(j))
+                    print('ID', '\t', 'L', '\t', 'VM', '\t', 'AM', '\t', 'P', '\t', 'VAM')
+                    for aa, bb, cc, dd, ii, jj in zip(a, b, c, d, i, j):
+                        print(aa, '\t', bb, '\t', cc, '\t', dd, '\t', ii, '\t', jj)
 
                 
                 prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(prediction_list, valid_attention_mask)]
