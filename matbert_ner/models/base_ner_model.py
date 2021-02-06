@@ -81,6 +81,7 @@ class NERModel(ABC):
 
                 for i, j, k in zip(labels_list, prediction_list, valid_attention_mask):
                     print(i, '\n', j, '\n', k)
+                    print(len(i), len(j), len(k))
 
                 
                 prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(prediction_list, valid_attention_mask)]
