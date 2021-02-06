@@ -74,7 +74,7 @@ class NERModel(ABC):
                 prediction = torch.max(predicted,-1)[1]
                 prediction_list = list(prediction.cpu().numpy())
 
-                valid_attention_mask = [[ii if jj==1 else 0 for ii, jj in zip(i, j)] for i, j in zip(inputs['attention_mask'], inputs['valid_mask'])]
+                valid_attention_mask = [[ii.item() if jj==1 else 0 for ii, jj in zip(i, j)] for i, j in zip(inputs['attention_mask'], inputs['valid_mask'])]
 
                 # prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj != -100] for i, j in zip(prediction_list, labels_list)]
                 # valid_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_list]
