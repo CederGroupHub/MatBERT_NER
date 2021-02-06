@@ -78,6 +78,10 @@ class NERModel(ABC):
 
                 # prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj != -100] for i, j in zip(prediction_list, labels_list)]
                 # valid_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_list]
+
+                for i, j, k in zip(labels_list, prediction_list, valid_attention_mask):
+                    print(i, '\n', j, '\n', k)
+
                 
                 prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(prediction_list, valid_attention_mask)]
                 label_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
