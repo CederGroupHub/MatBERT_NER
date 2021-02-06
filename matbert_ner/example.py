@@ -11,7 +11,7 @@ n_epochs = 128
 device = "cuda"
 model_names = ['bert']
 
-splits = {'': [0.5, 0.25, 0.25]}
+splits = {'_new_crf': [0.5, 0.25, 0.25]}
 for alias, split in splits.items():
     for model_name in model_names:
         if model_name == 'bert':
