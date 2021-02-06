@@ -9,7 +9,7 @@ datafile = "data/ner_annotations.json"
 n_epochs = 128
 
 device = "cuda"
-model_names = ['bert']
+model_names = ['scibert', 'matbert']
 
 splits = {'_new_crf': [0.5, 0.25, 0.25]}
 for alias, split in splits.items():
