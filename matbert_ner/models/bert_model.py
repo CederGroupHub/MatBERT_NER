@@ -190,7 +190,7 @@ class BertCrfForNer(BertPreTrainedModel):
             outputs = (logits,)
 
         if labels is not None:
-            # labels = torch.where(labels >= 0, labels, torch.zeros_like(labels))
+            labels = torch.where(labels >= 0, labels, torch.zeros_like(labels))
             loss = self.crf.crf(logits, tags=labels, mask=attention_mask)
             outputs = (-1 * loss,) + outputs
 
@@ -223,7 +223,7 @@ class BertCrfForNer(BertPreTrainedModel):
 def valid_sequence_output(sequence_output, valid_mask, attention_mask, device):
     batch_size, max_len, feat_dim = sequence_output.shape
     valid_output = torch.zeros(batch_size, max_len, feat_dim, dtype=torch.float32, device=device)
-    valid_attention_mask = torch.zeros(batch_size, max_len, dtype=torch.long, device=device)
+    valid_attention_mask = torch.zeros(batch_size, max_len, dtype=torch.bool, device=device)
     for i in range(batch_size):
         jj = -1
         for j in range(max_len):
