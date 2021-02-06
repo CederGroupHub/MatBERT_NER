@@ -73,7 +73,8 @@ class NERModel(ABC):
 
                 prediction = torch.max(predicted,-1)[1]
                 prediction_list = list(prediction.cpu().numpy())
-
+                
+                batch_size, max_len, feat_dim = predicted.shape
                 valid_attention_mask = [[0 for j in range(max_len)] for i in range(batch_size)]
                 for i in range(batch_size):
                     jj = -1
