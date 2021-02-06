@@ -80,6 +80,7 @@ class NERModel(ABC):
                     jj = -1
                     for j in range(max_len):
                         if inputs['valid_mask'][i][j].item() == 1:
+                            jj += 1
                             valid_attention_mask[i][jj] = inputs['attention_mask'][i][j].item()
 
                 # valid_attention_mask = [[ii.item() if jj.item()==1 else 0 for ii, jj in zip(i, j)] for i, j in zip(inputs['attention_mask'], inputs['valid_mask'])]
