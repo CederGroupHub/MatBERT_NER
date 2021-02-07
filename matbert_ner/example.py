@@ -4,9 +4,9 @@ import os
 import glob
 import json
 
-datafile = 'data/impurityphase_fullparas.json'
+# datafile = 'data/impurityphase_fullparas.json'
 # datafile = 'data/aunpmorph_annotations_fullparas.json'
-# datafile = "data/ner_annotations.json"
+datafile = "data/ner_annotations.json"
 n_epochs = 128
 
 device = "cuda"
@@ -14,9 +14,9 @@ models = {'bert': 'bert-base-uncased',
           'scibert': 'allenai/scibert_scivocab_uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
-splits = {'_impurity': [0.5, 0.25, 0.25]}
+splits = {'': [0.5, 0.25, 0.25]}
 for alias, split in splits.items():
-    for model_name in models.keys():
+    for model_name in ['bert']:
         save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
 
         ner_data = NERData(models[model_name])
