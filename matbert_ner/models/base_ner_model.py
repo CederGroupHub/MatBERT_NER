@@ -88,7 +88,7 @@ class NERModel(ABC):
                 valid_attention_mask = list(valid_attention_mask)
 
                 # prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj != -100] for i, j in zip(prediction_list, labels_list)]
-                # valid_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_list]
+                # label_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_list]
 
                 # for a, b, c, d, i, j in zip(list(inputs['input_ids'].cpu().numpy()),
                 #                             list(inputs['labels'].cpu().numpy()),
@@ -214,18 +214,18 @@ class NERModel(ABC):
                 valid_attention_mask = list(valid_attention_mask)
 
                 # prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj != -100] for i, j in zip(prediction_list, labels_list)]
-                # valid_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_list]
+                # label_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_list]
 
                 prediction_tags = [[self.classes[ii] for ii, jj, kk in zip(i, j, k) if kk==1 and jj>=0] for i, j, k in zip(prediction_list, labels_list, valid_attention_mask)]
                 label_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1 and ii>=0] for i, j in zip(labels_list, valid_attention_mask)]
 
                 prediction_tags_all.extend(prediction_tags)
-                valid_tags_all.extend(valid_tags)
+                valid_tags_all.extend(label_tags)
 
                 metrics['loss'].append(torch.mean(loss).item())
                 metrics['accuracy'].append(accuracy(predicted, labels).item())
-                metrics['accuracy_score'].append(accuracy_score(valid_tags, prediction_tags))
-                metrics['f1_score'].append(f1_score(valid_tags, prediction_tags))
+                metrics['accuracy_score'].append(accuracy_score(label_tags, prediction_tags))
+                metrics['f1_score'].append(f1_score(label_tags, prediction_tags))
                 means = [np.mean(metrics[metric]) for metric in metrics.keys()]
 
                 batch_range.set_description('| {} (rolling average) | loss: {:.4f} | accuracy: {:.4f} | accuracy score: {:.4f} | f1 score: {:.4f} |'.format(mode, *means))
