@@ -81,25 +81,25 @@ class NERModel(ABC):
                     for j in range(max_len):
                         if inputs['valid_mask'][i][j].item() == 1:
                             jj += 1
-                            valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
+                            if input['input_ids'][i][j].item() in [102, 103]:
+                                valid_attention_mask[i, jj] = 0
+                            else:
+                                valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
                 valid_attention_mask = list(valid_attention_mask)
-
-                # valid_attention_mask = [[ii.item() if jj.item()==1 else 0 for ii, jj in zip(i, j)] for i, j in zip(inputs['attention_mask'], inputs['valid_mask'])]
 
                 # prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj != -100] for i, j in zip(prediction_list, labels_list)]
                 # valid_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_list]
 
-                # for a, b, c, d, i, j in zip(list(inputs['input_ids'].cpu().numpy()),
-                #                             list(inputs['labels'].cpu().numpy()),
-                #                             list(inputs['valid_mask'].cpu().numpy()),
-                #                             list(inputs['attention_mask'].cpu().numpy()),
-                #                             prediction_list,
-                #                             valid_attention_mask):
-                #     print(len(a), len(b), len(c), len(d), len(i), len(j))
-                #     print('ID', '\t', 'L', '\t', 'VM', '\t', 'AM', '\t', 'P', '\t', 'VAM')
-                #     for aa, bb, cc, dd, ii, jj in zip(a, b, c, d, i, j):
-                #         print(aa, '\t', bb, '\t', cc, '\t', dd, '\t', ii, '\t', jj)
-
+                for a, b, c, d, i, j in zip(list(inputs['input_ids'].cpu().numpy()),
+                                            list(inputs['labels'].cpu().numpy()),
+                                            list(inputs['valid_mask'].cpu().numpy()),
+                                            list(inputs['attention_mask'].cpu().numpy()),
+                                            prediction_list,
+                                            valid_attention_mask):
+                    print(len(a), len(b), len(c), len(d), len(i), len(j))
+                    print('ID', '\t', 'L', '\t', 'VM', '\t', 'AM', '\t', 'P', '\t', 'VAM')
+                    for aa, bb, cc, dd, ii, jj in zip(a, b, c, d, i, j):
+                        print(aa, '\t', bb, '\t', cc, '\t', dd, '\t', ii, '\t', jj)
                 
                 prediction_tags = [[self.classes[ii] for ii, jj, kk in zip(i, j, k) if kk==1 and jj>=0] for i, j, k in zip(prediction_list, labels_list, valid_attention_mask)]
                 label_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1 and ii>=0] for i, j in zip(labels_list, valid_attention_mask)]
@@ -200,8 +200,21 @@ class NERModel(ABC):
                 eval_pred.append(predicted)
                 eval_label.append(labels)
 
-                prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj != -100] for i, j in zip(prediction_list, labels_list)]
-                valid_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_list]
+                batch_size, max_len, feat_dim = predicted.shape
+                valid_attention_mask = np.zeros((batch_size, max_len), dtype=int)
+                for i in range(batch_size):
+                    jj = -1
+                    for j in range(max_len):
+                        if inputs['valid_mask'][i][j].item() == 1:
+                            jj += 1
+                            valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
+                valid_attention_mask = list(valid_attention_mask)
+
+                # prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj != -100] for i, j in zip(prediction_list, labels_list)]
+                # valid_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_list]
+
+                prediction_tags = [[self.classes[ii] for ii, jj, kk in zip(i, j, k) if kk==1 and jj>=0] for i, j, k in zip(prediction_list, labels_list, valid_attention_mask)]
+                label_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1 and ii>=0] for i, j in zip(labels_list, valid_attention_mask)]
 
                 prediction_tags_all.extend(prediction_tags)
                 valid_tags_all.extend(valid_tags)

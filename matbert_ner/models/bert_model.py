@@ -119,7 +119,7 @@ class BertNER(BertPreTrainedModel):
             inputs_embeds=inputs_embeds
         )
         sequence_output = outputs[0]
-        sequence_output, attention_mask = valid_sequence_output(sequence_output, valid_mask, attention_mask, self.device)
+        sequence_output, attention_mask = valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask, False, self.device)
         sequence_output = self.dropout(sequence_output)
         logits = self.classifier(sequence_output)
         outputs = (logits,) + outputs[2:]  # add hidden states and attention if they are here
@@ -180,7 +180,7 @@ class BertCrfForNer(BertPreTrainedModel):
         sequence_output = [outputs[2][i] for i in (-1, -2, -3, -4)]
         sequence_output = torch.mean(torch.stack(sequence_output), dim=0)
         # sequence_output = outputs[0]
-        sequence_output, attention_mask = valid_sequence_output(sequence_output, valid_mask, attention_mask, self.device)
+        sequence_output, attention_mask = valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask, True, self.device)
         sequence_output = self.dropout(sequence_output)
         logits = self.classifier(sequence_output)
         if decode:
@@ -220,7 +220,7 @@ class BertCrfForNer(BertPreTrainedModel):
 
         return sequence_output
 
-def valid_sequence_output(sequence_output, valid_mask, attention_mask, device):
+def valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask, crf, device):
     batch_size, max_len, feat_dim = sequence_output.shape
     valid_output = torch.zeros(batch_size, max_len, feat_dim, dtype=torch.float32, device=device)
     valid_attention_mask = torch.zeros(batch_size, max_len, dtype=torch.bool, device=device)
@@ -230,7 +230,10 @@ def valid_sequence_output(sequence_output, valid_mask, attention_mask, device):
             if valid_mask[i][j].item() == 1:
                 jj += 1
                 valid_output[i][jj] = sequence_output[i][j]
-                valid_attention_mask[i][jj] = attention_mask[i][j]
+                if input_ids[i][j].item() in [102, 103] and crf:
+                    valid_attention_mask[i, jj] = 0
+                else:
+                    valid_attention_mask[i][jj] = attention_mask[i][j]
     return valid_output, valid_attention_mask
 
 class CRF(nn.Module):
@@ -239,8 +242,6 @@ class CRF(nn.Module):
         # tag pad index and tag names
         self.tag_pad_idx = -100
         self.pad_token = '[PAD]'
-        self.cls_token = '[CLS]'
-        self.sep_token = '[SEP]'
         self.tag_names = tag_names
         # initialize CRF
         self.crf = torchcrf.CRF(num_tags=len(self.tag_names), batch_first=batch_first)
@@ -252,13 +253,15 @@ class CRF(nn.Module):
 
     def define_invalid_crf_transitions(self):
         ''' function for establishing valid tagging transitions, assumes BIO or BILUO tagging '''
-        self.prefixes = set([tag_name[0] for tag_name in self.tag_names if tag_name not in [self.pad_token, self.cls_token, self.sep_token]])
+        self.prefixes = set([tag_name[0] for tag_name in self.tag_names if tag_name != self.pad_token])
         if self.prefixes == set(['B', 'I', 'O']):
             # (B)eginning (I)nside (O)utside
             # sentence must begin with [CLS] ([PAD])
-            self.invalid_begin = ('B', 'I', 'O')
+            # self.invalid_begin = ('B', 'I', 'O')
+            self.invalid_begin = ('I',)
             # sentence must end with [SEP] ([PAD])
-            self.invalid_end = ('B', 'I', 'O')
+            # self.invalid_end = ('B', 'I', 'O')
+            self.invalid_end = ('B', "I")
             # prevent B (beginning) going to P - B must be followed by B, I, or O
             # prevent I (inside) going to P - I must be followed by B, I, or O
             # prevent O (outside) going to I (inside) - O must be followed by B or O
@@ -272,9 +275,11 @@ class CRF(nn.Module):
         if self.prefixes == set(['B', 'I', 'L', 'U', 'O']):
             # (B)eginning (I)nside (L)ast (U)nit (O)utside
             # sentence must begin with [CLS] ([PAD])
-            self.invalid_begin = ('B', 'I', 'L', 'U', 'O')
+            # self.invalid_begin = ('B', 'I', 'L', 'U', 'O')
+            self.invalid_begin = ('I', 'L')
             # sentence must end with [SEP] ([PAD])
-            self.invalid_end = ('B', 'I', 'L', 'U', 'O')
+            # self.invalid_end = ('B', 'I', 'L', 'U', 'O')
+            self.invalid_end = ('B', "I")
             # prevent B (beginning) going to B (beginning), O (outside), U (unit), or P - B must be followed by I or L
             # prevent I (inside) going to B (beginning), O (outside), U (unit), or P - I must be followed by I or L
             # prevent L (last) going to I (inside) or L(last) - U must be followed by B, O, U, or P
@@ -292,9 +297,11 @@ class CRF(nn.Module):
         if self.prefixes == set(['B', 'I', 'E', 'S', 'O']):
             # (B)eginning (I)nside (E)nd (S)ingle (O)utside
             # sentence must begin with [CLS] ([PAD])
-            self.invalid_begin = ('B', 'I', 'E', 'S', 'O')
+            # self.invalid_begin = ('B', 'I', 'E', 'S', 'O')
+            self.invalid_begin = ('I', 'E')
             # sentence must end with [SEP] ([PAD])
-            self.invalid_end = ('B', 'I', 'E', 'S', 'O')
+            # self.invalid_end = ('B', 'I', 'E', 'S', 'O')
+            self.invalid_end = ('B', "I")
             # prevent B (beginning) going to B (beginning), O (outside), S (single), or P - B must be followed by I or E
             # prevent I (inside) going to B (beginning), O (outside), S (single), or P - I must be followed by I or E
             # prevent E (end) going to I (inside) or E (end) - U must be followed by B, O, U, or P
@@ -318,8 +325,9 @@ class CRF(nn.Module):
             tag_name = self.tag_names[i]
             if tag_name[0] in self.invalid_begin:
                 torch.nn.init.constant_(self.crf.start_transitions[i], imp_value)
-            if tag_name[0] in self.invalid_end:
-                torch.nn.init.constant_(self.crf.end_transitions[i], imp_value)
+            # don't penalize endings since not every example ends with punctuation
+            # if tag_name[0] in self.invalid_end:
+            #     torch.nn.init.constant_(self.crf.end_transitions[i], imp_value)
         # build tag type dictionary
         tag_is = {}
         for tag_position in self.prefixes:
