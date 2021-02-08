@@ -81,8 +81,8 @@ class NERModel(ABC):
                     for j in range(max_len):
                         if inputs['valid_mask'][i][j].item() == 1:
                             jj += 1
-                            if inputs['input_ids'][i][j].item() in [101, 102]:
-                                valid_attention_mask[i, jj] = 0
+                            # if inputs['input_ids'][i][j].item() in [101, 102]:
+                            #     valid_attention_mask[i, jj] = 0
                             else:
                                 valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
                 valid_attention_mask = list(valid_attention_mask)
@@ -207,8 +207,8 @@ class NERModel(ABC):
                     for j in range(max_len):
                         if inputs['valid_mask'][i][j].item() == 1:
                             jj += 1
-                            if inputs['input_ids'][i][j].item() in [101, 102]:
-                                valid_attention_mask[i, jj] = 0
+                            # if inputs['input_ids'][i][j].item() in [101, 102]:
+                            #     valid_attention_mask[i, jj] = 0
                             else:
                                 valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
                 valid_attention_mask = list(valid_attention_mask)
