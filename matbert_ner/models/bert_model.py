@@ -232,8 +232,8 @@ def valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask
                 valid_output[i][jj] = sequence_output[i][j]
                 # if input_ids[i][j].item() in [102, 103] and crf:
                 #     valid_attention_mask[i, jj] = 0
-                else:
-                    valid_attention_mask[i][jj] = attention_mask[i][j]
+                # else:
+                valid_attention_mask[i][jj] = attention_mask[i][j]
     return valid_output, valid_attention_mask
 
 class CRF(nn.Module):
