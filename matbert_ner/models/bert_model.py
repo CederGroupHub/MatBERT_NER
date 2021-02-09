@@ -149,7 +149,7 @@ class BertNER(BertPreTrainedModel):
 class BertCrfForNer(BertPreTrainedModel):
     def __init__(self, config, tag_names, device):
         super(BertCrfForNer, self).__init__(config)
-        self.new_crf = False
+        self.new_crf = True
         self.bert = BertModel(config)
         self._device = device
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
