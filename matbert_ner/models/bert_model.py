@@ -22,6 +22,7 @@ class BertCRFNERModel(NERModel):
 
         bert_parameters = self.model.bert.named_parameters()
         classifier_parameters = self.model.classifier.named_parameters()
+        crf_parameters = self.model.crf.named_parameters()
         bert_lr = self.lr
         classifier_lr = self.lr
         optimizer_grouped_parameters = [
@@ -36,6 +37,13 @@ class BertCRFNERModel(NERModel):
              "weight_decay": 0.0,
              "lr": classifier_lr},
             {"params": [p for n, p in classifier_parameters if any(nd in n for nd in no_decay)],
+             "weight_decay": 0.0,
+             "lr": classifier_lr},
+
+            {"params": [p for n, p in crf_parameters if not any(nd in n for nd in no_decay)],
+             "weight_decay": 0.0,
+             "lr": classifier_lr},
+            {"params": [p for n, p in crf_parameters if any(nd in n for nd in no_decay)],
              "weight_decay": 0.0,
              "lr": classifier_lr}
         ]
@@ -141,14 +149,20 @@ class BertNER(BertPreTrainedModel):
 class BertCrfForNer(BertPreTrainedModel):
     def __init__(self, config, tag_names, device):
         super(BertCrfForNer, self).__init__(config)
+        self.new_crf = False
         self.bert = BertModel(config)
         self._device = device
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, config.num_labels)
-        # self.init_weights()
-        # self.crf = CRF(tag_names=tag_names, batch_first=True)
-        self.crf = CRF(num_tags=config.num_labels, batch_first=True)
+        if self.new_crf:
+            self.crf = CRF_NEW(tag_names=tag_names, batch_first=True)
+        else:
+            self.crf = CRF(num_tags=config.num_labels, batch_first=True)
         self.init_weights()
+        if self.new_crf:
+            self.crf.define_invalid_crf_transitions()
+            self.crf.init_crf_transitions()
+
     
     @property
     def device(self):
@@ -186,7 +200,6 @@ class BertCrfForNer(BertPreTrainedModel):
         sequence_output = self.dropout(sequence_output)
         logits = self.classifier(sequence_output)
         if decode:
-            # tags = self.crf.crf.decode(logits, mask=attention_mask)
             tags = self.crf.decode(logits, mask=attention_mask)
             outputs = (tags,)
         else:
@@ -194,8 +207,7 @@ class BertCrfForNer(BertPreTrainedModel):
 
         if labels is not None:
             labels = torch.where(labels >= 0, labels, torch.zeros_like(labels))
-            # loss = self.crf.crf(logits, tags=labels, mask=attention_mask)
-            loss = self.crf(logits, tags=labels, mask=attention_mask)
+            loss = self.crf(logits, labels, mask=attention_mask)
             outputs = (-1 * loss,) + outputs
 
         return outputs  # (loss), scores
@@ -240,120 +252,130 @@ def valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask
                 valid_attention_mask[i][jj] = attention_mask[i][j]
     return valid_output, valid_attention_mask
 
-# class CRF(nn.Module):
-#     def __init__(self, tag_names, batch_first):
-#         super().__init__()
-#         # tag pad index and tag names
-#         self.tag_pad_idx = -100
-#         self.pad_token = '[PAD]'
-#         self.tag_names = tag_names
-#         # initialize CRF
-#         self.crf = torchcrf.CRF(num_tags=len(self.tag_names), batch_first=batch_first)
-#         # construct definitions of invalid transitions
-#         self.define_invalid_crf_transitions()
-#         # initialize transitions
-#         self.init_crf_transitions()
-    
-
-#     def define_invalid_crf_transitions(self):
-#         ''' function for establishing valid tagging transitions, assumes BIO or BILUO tagging '''
-#         self.prefixes = set([tag_name[0] for tag_name in self.tag_names if tag_name != self.pad_token])
-#         if self.prefixes == set(['B', 'I', 'O']):
-#             # (B)eginning (I)nside (O)utside
-#             # sentence must begin with [CLS] ([PAD])
-#             self.invalid_begin = ('B', 'I', 'O')
-#             # self.invalid_begin = ('I',)
-#             # sentence must end with [SEP] ([PAD])
-#             self.invalid_end = ('B', 'I', 'O')
-#             # self.invalid_end = ('B', "I")
-#             # prevent B (beginning) going to P - B must be followed by B, I, or O
-#             # prevent I (inside) going to P - I must be followed by B, I, or O
-#             # prevent O (outside) going to I (inside) - O must be followed by B or O
-#             self.invalid_transitions_position = {'B': 'P',
-#                                                  'I': 'P',
-#                                                  'O': 'I'}
-#             # prevent B (beginning) going to I (inside) of a different type
-#             # prevent I (inside) going to I (inside) of a different type
-#             self.invalid_transitions_tags = {'B': 'I',
-#                                              'I': 'I'}
-#         if self.prefixes == set(['B', 'I', 'L', 'U', 'O']):
-#             # (B)eginning (I)nside (L)ast (U)nit (O)utside
-#             # sentence must begin with [CLS] ([PAD])
-#             self.invalid_begin = ('B', 'I', 'L', 'U', 'O')
-#             # self.invalid_begin = ('I', 'L')
-#             # sentence must end with [SEP] ([PAD])
-#             self.invalid_end = ('B', 'I', 'L', 'U', 'O')
-#             # self.invalid_end = ('B', "I")
-#             # prevent B (beginning) going to B (beginning), O (outside), U (unit), or P - B must be followed by I or L
-#             # prevent I (inside) going to B (beginning), O (outside), U (unit), or P - I must be followed by I or L
-#             # prevent L (last) going to I (inside) or L(last) - U must be followed by B, O, U, or P
-#             # prevent U (unit) going to I (inside) or L(last) - U must be followed by B, O, U, or P
-#             # prevent O (outside) going to I (inside) or L (last) - O must be followed by B, O, U, or P
-#             self.invalid_transitions_position = {'B': 'BOUP',
-#                                                  'I': 'BOUP',
-#                                                  'L': 'IL',
-#                                                  'U': 'IL',
-#                                                  'O': 'IL'}
-#             # prevent B (beginning) from going to I (inside) or L (last) of a different type
-#             # prevent I (inside) from going to I (inside) or L (last) of a different tpye
-#             self.invalid_transitions_tags = {'B': 'IL',
-#                                              'I': 'IL'}
-#         if self.prefixes == set(['B', 'I', 'E', 'S', 'O']):
-#             # (B)eginning (I)nside (E)nd (S)ingle (O)utside
-#             # sentence must begin with [CLS] ([PAD])
-#             self.invalid_begin = ('B', 'I', 'E', 'S', 'O')
-#             # self.invalid_begin = ('I', 'E')
-#             # sentence must end with [SEP] ([PAD])
-#             self.invalid_end = ('B', 'I', 'E', 'S', 'O')
-#             # self.invalid_end = ('B', "I")
-#             # prevent B (beginning) going to B (beginning), O (outside), S (single), or P - B must be followed by I or E
-#             # prevent I (inside) going to B (beginning), O (outside), S (single), or P - I must be followed by I or E
-#             # prevent E (end) going to I (inside) or E (end) - U must be followed by B, O, U, or P
-#             # prevent S (single) going to I (inside) or E (end) - U must be followed by B, O, U, or P
-#             # prevent O (outside) going to I (inside) or E (end) - O must be followed by B, O, U, or P
-#             self.invalid_transitions_position = {'B': 'BOSP',
-#                                                  'I': 'BOSP',
-#                                                  'E': 'IE',
-#                                                  'S': 'IE',
-#                                                  'O': 'IE'}
-#             # prevent B (beginning) from going to I (inside) or E (end) of a different type
-#             # prevent I (inside) from going to I (inside) or E (end) of a different tpye
-#             self.invalid_transitions_tags = {'B': 'IE',
-#                                              'I': 'IE'}
-    
-
-#     def init_crf_transitions(self, imp_value=-100):
-#         num_tags = len(self.tag_names)
-#         # penalize bad beginnings and endings
-#         for i in range(num_tags):
-#             tag_name = self.tag_names[i]
-#             if tag_name[0] in self.invalid_begin:
-#                 torch.nn.init.constant_(self.crf.start_transitions[i], imp_value)
-#             if tag_name[0] in self.invalid_end:
-#                 torch.nn.init.constant_(self.crf.end_transitions[i], imp_value)
-#         # build tag type dictionary
-#         tag_is = {}
-#         for tag_position in self.prefixes:
-#             tag_is[tag_position] = [i for i, tag in enumerate(self.tag_names) if tag[0] == tag_position]
-#         tag_is['P'] = [i for i, tag in enumerate(self.tag_names) if tag == 'tag']
-#         # penalties for invalid consecutive tags by position
-#         for from_tag, to_tag_list in self.invalid_transitions_position.items():
-#             to_tags = list(to_tag_list)
-#             for from_tag_i in tag_is[from_tag]:
-#                 for to_tag in to_tags:
-#                     for to_tag_i in tag_is[to_tag]:
-#                         torch.nn.init.constant_(self.crf.transitions[from_tag_i, to_tag_i], imp_value)
-#         # penalties for invalid consecutive tags by tag
-#         for from_tag, to_tag_list in self.invalid_transitions_tags.items():
-#             to_tags = list(to_tag_list)
-#             for from_tag_i in tag_is[from_tag]:
-#                 for to_tag in to_tags:
-#                     for to_tag_i in tag_is[to_tag]:
-#                         if self.tag_names[from_tag_i].split('-')[1] != self.tag_names[to_tag_i].split('-')[1]:
-#                             torch.nn.init.constant_(self.crf.transitions[from_tag_i, to_tag_i], imp_value)        
-
-
 class CRF(nn.Module):
+    def __init__(self, tag_names, batch_first):
+        super().__init__()
+        # tag pad index and tag names
+        self.tag_pad_idx = -100
+        self.pad_token = '[PAD]'
+        self.tag_names = tag_names
+        # initialize CRF
+        self.crf = torchcrf.CRF(num_tags=len(self.tag_names), batch_first=batch_first)
+        # construct definitions of invalid transitions
+        self.define_invalid_crf_transitions()
+        # initialize transitions
+        self.init_crf_transitions()
+    
+
+    def define_invalid_crf_transitions(self):
+        ''' function for establishing valid tagging transitions, assumes BIO or BILUO tagging '''
+        self.prefixes = set([tag_name[0] for tag_name in self.tag_names if tag_name != self.pad_token])
+        if self.prefixes == set(['B', 'I', 'O']):
+            # (B)eginning (I)nside (O)utside
+            # sentence must begin with [CLS] ([PAD])
+            self.invalid_begin = ('B', 'I', 'O')
+            # self.invalid_begin = ('I',)
+            # sentence must end with [SEP] ([PAD])
+            self.invalid_end = ('B', 'I', 'O')
+            # self.invalid_end = ('B', "I")
+            # prevent B (beginning) going to P - B must be followed by B, I, or O
+            # prevent I (inside) going to P - I must be followed by B, I, or O
+            # prevent O (outside) going to I (inside) - O must be followed by B or O
+            self.invalid_transitions_position = {'B': 'P',
+                                                 'I': 'P',
+                                                 'O': 'I'}
+            # prevent B (beginning) going to I (inside) of a different type
+            # prevent I (inside) going to I (inside) of a different type
+            self.invalid_transitions_tags = {'B': 'I',
+                                             'I': 'I'}
+        if self.prefixes == set(['B', 'I', 'L', 'U', 'O']):
+            # (B)eginning (I)nside (L)ast (U)nit (O)utside
+            # sentence must begin with [CLS] ([PAD])
+            self.invalid_begin = ('B', 'I', 'L', 'U', 'O')
+            # self.invalid_begin = ('I', 'L')
+            # sentence must end with [SEP] ([PAD])
+            self.invalid_end = ('B', 'I', 'L', 'U', 'O')
+            # self.invalid_end = ('B', "I")
+            # prevent B (beginning) going to B (beginning), O (outside), U (unit), or P - B must be followed by I or L
+            # prevent I (inside) going to B (beginning), O (outside), U (unit), or P - I must be followed by I or L
+            # prevent L (last) going to I (inside) or L(last) - U must be followed by B, O, U, or P
+            # prevent U (unit) going to I (inside) or L(last) - U must be followed by B, O, U, or P
+            # prevent O (outside) going to I (inside) or L (last) - O must be followed by B, O, U, or P
+            self.invalid_transitions_position = {'B': 'BOUP',
+                                                 'I': 'BOUP',
+                                                 'L': 'IL',
+                                                 'U': 'IL',
+                                                 'O': 'IL'}
+            # prevent B (beginning) from going to I (inside) or L (last) of a different type
+            # prevent I (inside) from going to I (inside) or L (last) of a different tpye
+            self.invalid_transitions_tags = {'B': 'IL',
+                                             'I': 'IL'}
+        if self.prefixes == set(['B', 'I', 'E', 'S', 'O']):
+            # (B)eginning (I)nside (E)nd (S)ingle (O)utside
+            # sentence must begin with [CLS] ([PAD])
+            self.invalid_begin = ('B', 'I', 'E', 'S', 'O')
+            # self.invalid_begin = ('I', 'E')
+            # sentence must end with [SEP] ([PAD])
+            self.invalid_end = ('B', 'I', 'E', 'S', 'O')
+            # self.invalid_end = ('B', "I")
+            # prevent B (beginning) going to B (beginning), O (outside), S (single), or P - B must be followed by I or E
+            # prevent I (inside) going to B (beginning), O (outside), S (single), or P - I must be followed by I or E
+            # prevent E (end) going to I (inside) or E (end) - U must be followed by B, O, U, or P
+            # prevent S (single) going to I (inside) or E (end) - U must be followed by B, O, U, or P
+            # prevent O (outside) going to I (inside) or E (end) - O must be followed by B, O, U, or P
+            self.invalid_transitions_position = {'B': 'BOSP',
+                                                 'I': 'BOSP',
+                                                 'E': 'IE',
+                                                 'S': 'IE',
+                                                 'O': 'IE'}
+            # prevent B (beginning) from going to I (inside) or E (end) of a different type
+            # prevent I (inside) from going to I (inside) or E (end) of a different tpye
+            self.invalid_transitions_tags = {'B': 'IE',
+                                             'I': 'IE'}
+    
+
+    def init_crf_transitions(self, imp_value=-100):
+        num_tags = len(self.tag_names)
+        # penalize bad beginnings and endings
+        for i in range(num_tags):
+            tag_name = self.tag_names[i]
+            if tag_name[0] in self.invalid_begin:
+                torch.nn.init.constant_(self.crf.start_transitions[i], imp_value)
+            if tag_name[0] in self.invalid_end:
+                torch.nn.init.constant_(self.crf.end_transitions[i], imp_value)
+        # build tag type dictionary
+        tag_is = {}
+        for tag_position in self.prefixes:
+            tag_is[tag_position] = [i for i, tag in enumerate(self.tag_names) if tag[0] == tag_position]
+        tag_is['P'] = [i for i, tag in enumerate(self.tag_names) if tag == 'tag']
+        # penalties for invalid consecutive tags by position
+        for from_tag, to_tag_list in self.invalid_transitions_position.items():
+            to_tags = list(to_tag_list)
+            for from_tag_i in tag_is[from_tag]:
+                for to_tag in to_tags:
+                    for to_tag_i in tag_is[to_tag]:
+                        torch.nn.init.constant_(self.crf.transitions[from_tag_i, to_tag_i], imp_value)
+        # penalties for invalid consecutive tags by tag
+        for from_tag, to_tag_list in self.invalid_transitions_tags.items():
+            to_tags = list(to_tag_list)
+            for from_tag_i in tag_is[from_tag]:
+                for to_tag in to_tags:
+                    for to_tag_i in tag_is[to_tag]:
+                        if self.tag_names[from_tag_i].split('-')[1] != self.tag_names[to_tag_i].split('-')[1]:
+                            torch.nn.init.constant_(self.crf.transitions[from_tag_i, to_tag_i], imp_value)
+    
+
+    def decode(self, emissions, mask):
+        crf_out = self.crf.decode(emissions, mask=mask)
+        return crf_out
+
+
+    def forward(self, emissions, tags, mask):
+        crf_loss = self.crf(emissions, tags=tags, mask=mask)
+        return crf_loss
+
+
+class CRF_NEW(nn.Module):
     def __init__(self, num_tags: int, batch_first: bool = False) -> None:
         if num_tags <= 0:
             raise ValueError(f'invalid number of tags: {num_tags}')

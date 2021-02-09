@@ -16,7 +16,7 @@ models = {'bert': 'bert-base-uncased',
 
 splits = {'': [0.5, 0.25, 0.25]}
 for alias, split in splits.items():
-    for model_name in ['scibert', 'matbert']:
+    for model_name in ['bert', 'scibert', 'matbert']:
         save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
 
         ner_data = NERData(models[model_name])
