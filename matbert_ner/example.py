@@ -9,7 +9,7 @@ import json
 datafile = "data/ner_annotations.json"
 n_epochs = 128
 
-device = "cuda"
+device = "cuda:1"
 models = {'bert': 'bert-base-uncased',
           'scibert': 'allenai/scibert_scivocab_uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
