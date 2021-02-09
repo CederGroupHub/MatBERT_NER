@@ -253,11 +253,10 @@ def valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask
     return valid_output, valid_attention_mask
 
 
-class CRF(nn.Module):
+class CRF_NEW(nn.Module):
     def __init__(self, tag_names, batch_first):
         super().__init__()
         # tag pad index and tag names
-        self.tag_pad_idx = -100
         self.pad_token = '[PAD]'
         self.tag_names = tag_names
         # initialize CRF
@@ -376,7 +375,7 @@ class CRF(nn.Module):
         return crf_loss
 
 
-class CRF_NEW(nn.Module):
+class CRF(nn.Module):
     def __init__(self, tag_names: list, batch_first: bool = False) -> None:
         num_tags = len(tag_names)
         if num_tags <= 0:
