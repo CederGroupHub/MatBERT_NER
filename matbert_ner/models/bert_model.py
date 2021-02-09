@@ -157,7 +157,7 @@ class BertCrfForNer(BertPreTrainedModel):
         if self.new_crf:
             self.crf = CRF_NEW(tag_names=tag_names, batch_first=True)
         else:
-            self.crf = CRF(num_tags=config.num_labels, batch_first=True)
+            self.crf = CRF(tag_names=tag_names, batch_first=True)
         self.init_weights()
         if self.new_crf:
             self.crf.define_invalid_crf_transitions()
