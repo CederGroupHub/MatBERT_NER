@@ -18,36 +18,28 @@ class BertCRFNERModel(NERModel):
         return ner_model
 
     def create_optimizer(self):
-        no_decay = ["bias", "LayerNorm.weight"]
+        # no_decay = ["bias", "LayerNorm.weight"]
 
-        bert_parameters = self.model.bert.named_parameters()
-        classifier_parameters = self.model.classifier.named_parameters()
-        crf_parameters = self.model.crf.named_parameters()
-        bert_lr = self.lr
-        classifier_lr = self.lr
-        optimizer_grouped_parameters = [
-            {"params": [p for n, p in bert_parameters if not any(nd in n for nd in no_decay)],
-             "weight_decay": 0.0,
-             "lr": bert_lr},
-            {"params": [p for n, p in bert_parameters if any(nd in n for nd in no_decay)],
-             "weight_decay": 0.0,
-             "lr": bert_lr},
+        # bert_parameters = self.model.bert.named_parameters()
+        # classifier_parameters = self.model.classifier.named_parameters()
+        # bert_lr = self.lr
+        # classifier_lr = self.lr
+        # optimizer_grouped_parameters = [
+        #     {"params": [p for n, p in bert_parameters if not any(nd in n for nd in no_decay)],
+        #      "weight_decay": 0.0,
+        #      "lr": bert_lr},
+        #     {"params": [p for n, p in bert_parameters if any(nd in n for nd in no_decay)],
+        #      "weight_decay": 0.0,
+        #      "lr": bert_lr},
 
-            {"params": [p for n, p in classifier_parameters if not any(nd in n for nd in no_decay)],
-             "weight_decay": 0.0,
-             "lr": classifier_lr},
-            {"params": [p for n, p in classifier_parameters if any(nd in n for nd in no_decay)],
-             "weight_decay": 0.0,
-             "lr": classifier_lr},
-
-            {"params": [p for n, p in crf_parameters if not any(nd in n for nd in no_decay)],
-             "weight_decay": 0.0,
-             "lr": classifier_lr},
-            {"params": [p for n, p in crf_parameters if any(nd in n for nd in no_decay)],
-             "weight_decay": 0.0,
-             "lr": classifier_lr}
-        ]
-        optimizer = optim.AdamW(optimizer_grouped_parameters, self.lr, eps=1e-8)
+        #     {"params": [p for n, p in classifier_parameters if not any(nd in n for nd in no_decay)],
+        #      "weight_decay": 0.0,
+        #      "lr": classifier_lr},
+        #     {"params": [p for n, p in classifier_parameters if any(nd in n for nd in no_decay)],
+        #      "weight_decay": 0.0,
+        #      "lr": classifier_lr}
+        # ]
+        optimizer = optim.AdamW(self.model.parameters(), self.lr, eps=1e-8)
         return optimizer
 
     def create_scheduler(self, optimizer, n_epochs, train_dataloader):

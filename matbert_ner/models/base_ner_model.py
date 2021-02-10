@@ -48,6 +48,8 @@ class NERModel(ABC):
         scheduler = self.create_scheduler(optimizer, n_epochs, train_dataloader)
 
         epoch_metrics = {'training': {}, 'validation': {}}
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)            
 
         for epoch in range(n_epochs):
             self.model.train()
