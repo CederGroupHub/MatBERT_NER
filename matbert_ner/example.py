@@ -22,7 +22,7 @@ for alias, split in splits.items():
         ner_data = NERData(models[model_name])
         ner_data.preprocess(datafile)
 
-        train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(train_frac=split[0], val_frac=split[1], dev_frac=split[2], batch_size=30)
+        train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(train_frac=split[0], val_frac=split[1], dev_frac=split[2], batch_size=32)
         classes = ner_data.classes
 
         ner_model = BertCRFNERModel(modelname=models[model_name], classes=classes, device=device, lr=1e-5)
