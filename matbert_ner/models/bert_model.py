@@ -141,7 +141,7 @@ class BertNER(BertPreTrainedModel):
 class BertCrfForNer(BertPreTrainedModel):
     def __init__(self, config, tag_names, device):
         super(BertCrfForNer, self).__init__(config)
-        self.new_crf = False
+        self.new_crf = True
         self.bert = BertModel(config)
         self._device = device
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
@@ -153,6 +153,7 @@ class BertCrfForNer(BertPreTrainedModel):
         self.init_weights()
         if self.new_crf:
             self.crf.define_invalid_crf_transitions()
+            self.crf.init_weights()
             self.crf.init_crf_transitions()
 
     
@@ -238,9 +239,6 @@ def valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask
             if valid_mask[i][j].item() == 1:
                 jj += 1
                 valid_output[i][jj] = sequence_output[i][j]
-                # if input_ids[i][j].item() in [102, 103] and crf:
-                #     valid_attention_mask[i, jj] = 0
-                # else:
                 valid_attention_mask[i][jj] = attention_mask[i][j]
     return valid_output, valid_attention_mask
 
@@ -255,8 +253,15 @@ class CRF_NEW(nn.Module):
         self.crf = torchcrf.CRF(num_tags=len(self.tag_names), batch_first=batch_first)
         # construct definitions of invalid transitions
         self.define_invalid_crf_transitions()
+        # initialize weights
+        self.init_weights()
         # initialize transitions
         self.init_crf_transitions()
+    
+
+    def init_weights(self):
+        for name, param in self.named_parameters():
+            nn.init.normal_(param.data, mean=0, std=0.1)
     
 
     def define_invalid_crf_transitions(self):
