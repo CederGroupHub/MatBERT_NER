@@ -4,14 +4,15 @@ import os
 import subprocess
 import json
 
-# datafile = "data/aunpmorph_annotations_fullparas.json"
-datafile = "data/ner_annotations.json"
+datafile = "data/aunpmorph_annotations_fullparas.json"
+# datafile = "data/ner_annotations.json"
 n_epochs = 128
 
 device = "cuda"
 model_names = ['scibert', 'matbert']
 
 splits = {'_{}'.format(i): [0.1*i, 0.1, 0.1] for i in range(1, 9)}
+splits = {'_t':[0.8, 0.1, 0.1]}
 for alias, split in splits.items():
     for model_name in model_names:
         if model_name == 'scibert':
@@ -24,7 +25,7 @@ for alias, split in splits.items():
         ner_data = NERData(model)
         ner_data.preprocess(datafile)
 
-        train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(train_frac=split[0], val_frac=split[1], dev_frac=split[2], batch_size=64)
+        train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(train_frac=split[0], val_frac=split[1], dev_frac=split[2], batch_size=30)
         classes = ner_data.classes
 
         ner_model = BertCRFNERModel(modelname=model, classes=classes, device=device, lr=1e-5)
