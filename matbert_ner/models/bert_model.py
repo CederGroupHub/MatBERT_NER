@@ -264,11 +264,11 @@ class CRF_NEW(nn.Module):
         self.prefixes = set([tag_name[0] for tag_name in self.tag_names if tag_name != self.pad_token])
         if self.prefixes == set(['B', 'I', 'O']):
             # (B)eginning (I)nside (O)utside
-            # sentence must begin with [CLS] ([PAD])
-            self.invalid_begin = ('B', 'I', 'O')
+            # sentence must begin with [CLS] (O)
+            self.invalid_begin = ('B', 'I')
             # self.invalid_begin = ('I',)
-            # sentence must end with [SEP] ([PAD])
-            self.invalid_end = ('B', 'I', 'O')
+            # sentence must end with [SEP] (O)
+            self.invalid_end = ('B', 'I')
             # self.invalid_end = ('B', "I")
             # prevent B (beginning) going to P - B must be followed by B, I, or O
             # prevent I (inside) going to P - I must be followed by B, I, or O
@@ -282,11 +282,11 @@ class CRF_NEW(nn.Module):
                                              'I': 'I'}
         if self.prefixes == set(['B', 'I', 'L', 'U', 'O']):
             # (B)eginning (I)nside (L)ast (U)nit (O)utside
-            # sentence must begin with [CLS] ([PAD])
-            self.invalid_begin = ('B', 'I', 'L', 'U', 'O')
+            # sentence must begin with [CLS] (O)
+            self.invalid_begin = ('B', 'I', 'L', 'U')
             # self.invalid_begin = ('I', 'L')
-            # sentence must end with [SEP] ([PAD])
-            self.invalid_end = ('B', 'I', 'L', 'U', 'O')
+            # sentence must end with [SEP] (O)
+            self.invalid_end = ('B', 'I', 'L', 'U')
             # self.invalid_end = ('B', "I")
             # prevent B (beginning) going to B (beginning), O (outside), U (unit), or P - B must be followed by I or L
             # prevent I (inside) going to B (beginning), O (outside), U (unit), or P - I must be followed by I or L
@@ -304,11 +304,11 @@ class CRF_NEW(nn.Module):
                                              'I': 'IL'}
         if self.prefixes == set(['B', 'I', 'E', 'S', 'O']):
             # (B)eginning (I)nside (E)nd (S)ingle (O)utside
-            # sentence must begin with [CLS] ([PAD])
-            self.invalid_begin = ('B', 'I', 'E', 'S', 'O')
+            # sentence must begin with [CLS] (O)
+            self.invalid_begin = ('B', 'I', 'E', 'S')
             # self.invalid_begin = ('I', 'E')
-            # sentence must end with [SEP] ([PAD])
-            self.invalid_end = ('B', 'I', 'E', 'S', 'O')
+            # sentence must end with [SEP] (O)
+            self.invalid_end = ('B', 'I', 'E', 'S')
             # self.invalid_end = ('B', "I")
             # prevent B (beginning) going to B (beginning), O (outside), S (single), or P - B must be followed by I or E
             # prevent I (inside) going to B (beginning), O (outside), S (single), or P - I must be followed by I or E
