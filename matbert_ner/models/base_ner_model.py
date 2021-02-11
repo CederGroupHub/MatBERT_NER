@@ -67,6 +67,7 @@ class NERModel(ABC):
                 optimizer.zero_grad()
                 loss, predicted = self.model.forward(**inputs)
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(parameters=self.model.parameters(), max_norm=1.0)
                 optimizer.step()
                 scheduler.step()
 
