@@ -74,7 +74,7 @@ class NERModel(ABC):
                 labels = inputs['labels']
                 labels_list = list(labels.cpu().numpy())
 
-                prediction = torch.max(predicted,-1)[1]
+                prediction = torch.max(predicted, -1)[1]
                 prediction_list = list(prediction.cpu().numpy())
                 
                 batch_size, max_len, feat_dim = predicted.shape

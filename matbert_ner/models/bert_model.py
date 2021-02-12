@@ -151,10 +151,10 @@ class BertCrfForNer(BertPreTrainedModel):
         else:
             self.crf = CRF(tag_names=tag_names, batch_first=True)
         self.init_weights()
-        if self.new_crf:
-            self.crf.define_invalid_crf_transitions()
-            self.crf.init_weights()
-            self.crf.init_crf_transitions()
+        # if self.new_crf:
+        #     self.crf.define_invalid_crf_transitions()
+        #     self.crf.init_weights()
+        #     self.crf.init_crf_transitions()
 
     
     @property
@@ -252,21 +252,16 @@ class CRF_NEW(nn.Module):
         # initialize CRF
         self.crf = torchcrf.CRF(num_tags=len(self.tag_names), batch_first=batch_first)
         # construct definitions of invalid transitions
-        self.define_invalid_crf_transitions()
+        # self.define_invalid_crf_transitions()
         # initialize weights
-        self.init_weights()
+        self.crf.reset_parameters()
         # initialize transitions
-        self.init_crf_transitions()
-    
-
-    def init_weights(self):
-        for name, param in self.named_parameters():
-            nn.init.normal_(param.data, mean=0, std=0.1)
+        # self.init_crf_transitions()
     
 
     def define_invalid_crf_transitions(self):
         ''' function for establishing valid tagging transitions, assumes BIO or BILUO tagging '''
-        self.prefixes = set([tag_name[0] for tag_name in self.tag_names if tag_name != self.pad_token])
+        self.prefixes = set([tag_name[0] for tag_name in self.tag_names])
         if self.prefixes == set(['B', 'I', 'O']):
             # (B)eginning (I)nside (O)utside
             # sentence must begin with [CLS] (O)
@@ -367,8 +362,8 @@ class CRF_NEW(nn.Module):
         return crf_out
 
 
-    def forward(self, emissions, tags, mask):
-        crf_loss = self.crf(emissions, tags=tags, mask=mask)
+    def forward(self, emissions, tags, mask, reduction='sum'):
+        crf_loss = self.crf(emissions, tags=tags, mask=mask, reduction=reduction)
         return crf_loss
 
 
