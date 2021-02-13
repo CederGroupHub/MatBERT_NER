@@ -96,7 +96,7 @@ class BertCrfForNer(BertPreTrainedModel):
         if labels is not None:
             labels = torch.where(labels >= 0, labels, torch.zeros_like(labels))
             loss = self.crf(logits, labels, mask=attention_mask)
-            outputs = (-1 * loss,) + outputs
+            outputs = (loss,) + outputs
         return outputs  # (loss), scores
 
 
@@ -201,7 +201,7 @@ class CRF(nn.Module):
                                              'I': 'IE'}
     
 
-    def init_crf_transitions(self, imp_value=-100):
+    def init_crf_transitions(self, imp_value=-10):
         num_tags = len(self.tag_names)
         # penalize bad beginnings and endings
         for i in range(num_tags):
@@ -237,5 +237,5 @@ class CRF(nn.Module):
 
 
     def forward(self, emissions, tags, mask, reduction='sum'):
-        crf_loss = self.crf(emissions, tags=tags, mask=mask, reduction=reduction)
+        crf_loss = -self.crf(emissions, tags=tags, mask=mask, reduction=reduction)
         return crf_loss
