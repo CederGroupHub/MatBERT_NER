@@ -43,7 +43,7 @@ class NERModel(ABC):
         self.val_loss_best = 1e10
 
         optimizer = self.create_optimizer(full_finetuning)
-        # scheduler = self.create_scheduler(optimizer, n_epochs, train_dataloader)
+        scheduler = self.create_scheduler(optimizer, n_epochs, train_dataloader)
 
         epoch_metrics = {'training': {}, 'validation': {}}
         if not os.path.exists(save_dir):
@@ -66,7 +66,7 @@ class NERModel(ABC):
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(parameters=self.model.parameters(), max_norm=1.0)
                 optimizer.step()
-                # scheduler.step()
+                scheduler.step()
 
                 labels = inputs['labels']
                 labels_list = list(labels.cpu().numpy())

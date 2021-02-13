@@ -27,7 +27,7 @@ class BertCRFNERModel(NERModel):
             optimizer_grouped_parameters = [{'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay_rate': 0.01},
                                             {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)],'weight_decay_rate': 0.0}]
         else:
-            param_optimizer = list(self.model.lstm.named_parameters())+list(self.model.attn.named_parameters())+list(self.model.classifier.named_parameters())+list(self.model.crf.named_parameters())
+            param_optimizer = [item for sblst in [list(module.named_parameters()) for module in self.model_modules[1:]] for item in sblst]
             optimizer_grouped_parameters = [{"params": [p for n, p in param_optimizer]}]
         optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.lr, eps=1e-8)
         return optimizer
@@ -57,16 +57,21 @@ class BertCrfForNer(BertPreTrainedModel):
         super(BertCrfForNer, self).__init__(config)
         self.bert = BertModel(config)
         self._device = device
+        lstm = True
         self.dropout_b = nn.Dropout(config.hidden_dropout_prob)
-        self.lstm = nn.LSTM(batch_first=True, input_size=config.hidden_size,
-                            hidden_size=64, num_layers=2,
-                            bidirectional=True, dropout=0.1)
-        self.attn = nn.MultiheadAttention(embed_dim=128, num_heads=16, dropout=0.25)
-        self.dropout_c = nn.Dropout(0.25)
-        self.classifier = nn.Linear(128, config.num_labels)
-        # self.classifier = nn.Linear(config.hidden_size, config.num_labels)
+        self.model_modules = [self.bert, self.dropout_b]
+        if lstm:
+            self.lstm = nn.LSTM(batch_first=True, input_size=config.hidden_size,
+                                hidden_size=64, num_layers=2,
+                                bidirectional=True, dropout=0.1)
+            self.attn = nn.MultiheadAttention(embed_dim=128, num_heads=16, dropout=0.25)
+            self.dropout_c = nn.Dropout(0.25)
+            self.model_modules.extend([self.lstm, self.attn, self.dropout_c])
+        self.classifier = nn.Linear(128 if lstm else config.hidden_size, config.num_labels)
         self.crf = CRF(tag_names=tag_names, batch_first=True)
+        self.model_modules.extend([self.classifier, self.crf])
         self.init_weights()
+        
 
 
     @property
@@ -92,15 +97,13 @@ class BertCrfForNer(BertPreTrainedModel):
         # sequence_output = torch.mean(torch.stack(sequence_output), dim=0)
         sequence_output = outputs[0]
         sequence_output, attention_mask = valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask, self.device)
-        # sequence_output = self.dropout(sequence_output)
-        # logits = self.classifier(sequence_output)
         sequence_output = self.dropout_b(sequence_output)
-        lstm_out, _ = self.lstm(sequence_output)
-        # masking using the text padding index
-        # attention outputs
-        attn_out, attn_weight = self.attn(lstm_out, lstm_out, lstm_out, key_padding_mask=attention_mask.permute(1, 0))
-        # fully connected layer as function of attention output
-        logits = self.classifier(self.dropout_c(attn_out))
+        if lstm:
+            lstm_out, _ = self.lstm(sequence_output)
+            attn_out, attn_weight = self.attn(lstm_out, lstm_out, lstm_out, key_padding_mask=attention_mask.permute(1, 0))
+            logits = self.classifier(self.dropout_c(attn_out))
+        else:
+            logits = self.classifier(sequence_output)        
         if decode:
             tags = self.crf.decode(logits, mask=attention_mask)
             outputs = (tags,)
