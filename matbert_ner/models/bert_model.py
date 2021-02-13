@@ -151,10 +151,8 @@ class CRF(nn.Module):
             # (B)eginning (I)nside (O)utside
             # sentence must begin with [CLS] (O)
             self.invalid_begin = ('B', 'I')
-            # self.invalid_begin = ('I',)
             # sentence must end with [SEP] (O)
             self.invalid_end = ('B', 'I')
-            # self.invalid_end = ('B', 'I')
             # prevent O (outside) going to I (inside) - O must be followed by B or O
             self.invalid_transitions_position = {'O': 'I'}
             # prevent B (beginning) going to I (inside) of a different type
@@ -165,10 +163,8 @@ class CRF(nn.Module):
             # (B)eginning (I)nside (L)ast (U)nit (O)utside
             # sentence must begin with [CLS] (O)
             self.invalid_begin = ('B', 'I', 'L', 'U')
-            # self.invalid_begin = ('I', 'L')
             # sentence must end with [SEP] (O)
             self.invalid_end = ('B', 'I', 'L', 'U')
-            # self.invalid_end = ('B', "I")
             # prevent B (beginning) going to B (beginning), O (outside), U (unit), or P - B must be followed by I or L
             # prevent I (inside) going to B (beginning), O (outside), U (unit), or P - I must be followed by I or L
             # prevent L (last) going to I (inside) or L(last) - U must be followed by B, O, U, or P
@@ -187,10 +183,8 @@ class CRF(nn.Module):
             # (B)eginning (I)nside (E)nd (S)ingle (O)utside
             # sentence must begin with [CLS] (O)
             self.invalid_begin = ('B', 'I', 'E', 'S')
-            # self.invalid_begin = ('I', 'E')
             # sentence must end with [SEP] (O)
             self.invalid_end = ('B', 'I', 'E', 'S')
-            # self.invalid_end = ('B', "I")
             # prevent B (beginning) going to B (beginning), O (outside), S (single), or P - B must be followed by I or E
             # prevent I (inside) going to B (beginning), O (outside), S (single), or P - I must be followed by I or E
             # prevent E (end) going to I (inside) or E (end) - U must be followed by B, O, U, or P
@@ -210,12 +204,12 @@ class CRF(nn.Module):
     def init_crf_transitions(self, imp_value=-100):
         num_tags = len(self.tag_names)
         # penalize bad beginnings and endings
-        # for i in range(num_tags):
-        #     tag_name = self.tag_names[i]
-        #     if tag_name.split('-')[0] in self.invalid_begin:
-        #         torch.nn.init.constant_(self.crf.start_transitions[i], imp_value)
-        #     if tag_name.split('-')[0] in self.invalid_end:
-        #         torch.nn.init.constant_(self.crf.end_transitions[i], imp_value)
+        for i in range(num_tags):
+            tag_name = self.tag_names[i]
+            if tag_name.split('-')[0] in self.invalid_begin:
+                torch.nn.init.constant_(self.crf.start_transitions[i], imp_value)
+            if tag_name.split('-')[0] in self.invalid_end:
+                torch.nn.init.constant_(self.crf.end_transitions[i], imp_value)
         # build tag type dictionary
         tag_is = {}
         for tag_position in self.prefixes:
