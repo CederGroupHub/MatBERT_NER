@@ -57,17 +57,17 @@ class BertCrfForNer(BertPreTrainedModel):
         super(BertCrfForNer, self).__init__(config)
         self.bert = BertModel(config)
         self._device = device
-        lstm = True
+        self.use_lstm = True
         self.dropout_b = nn.Dropout(config.hidden_dropout_prob)
         self.model_modules = [self.bert, self.dropout_b]
-        if lstm:
+        if self.use_lstm:
             self.lstm = nn.LSTM(batch_first=True, input_size=config.hidden_size,
                                 hidden_size=64, num_layers=2,
                                 bidirectional=True, dropout=0.1)
             self.attn = nn.MultiheadAttention(embed_dim=128, num_heads=16, dropout=0.25)
             self.dropout_c = nn.Dropout(0.25)
             self.model_modules.extend([self.lstm, self.attn, self.dropout_c])
-        self.classifier = nn.Linear(128 if lstm else config.hidden_size, config.num_labels)
+        self.classifier = nn.Linear(128 if self.use_lstm else config.hidden_size, config.num_labels)
         self.crf = CRF(tag_names=tag_names, batch_first=True)
         self.model_modules.extend([self.classifier, self.crf])
         self.init_weights()
@@ -98,7 +98,7 @@ class BertCrfForNer(BertPreTrainedModel):
         sequence_output = outputs[0]
         sequence_output, attention_mask = valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask, self.device)
         sequence_output = self.dropout_b(sequence_output)
-        if lstm:
+        if self.use_lstm:
             lstm_out, _ = self.lstm(sequence_output)
             attn_out, attn_weight = self.attn(lstm_out, lstm_out, lstm_out, key_padding_mask=attention_mask.permute(1, 0))
             logits = self.classifier(self.dropout_c(attn_out))
