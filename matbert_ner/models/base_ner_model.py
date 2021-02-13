@@ -31,7 +31,7 @@ class NERModel(ABC):
         self.results_file = results_file
 
 
-    def train(self, train_dataloader, n_epochs, val_dataloader=None, save_dir=None):
+    def train(self, train_dataloader, n_epochs, val_dataloader=None, save_dir=None, full_finetuning=True):
         """
         Train the model
         Inputs:
@@ -40,12 +40,10 @@ class NERModel(ABC):
             val_dataloader :: dataloader with validation data - if provided the model with the best performance on the validation set will be saved
             save_dir :: directory to save models
         """
-
         self.val_loss_best = 1e10
 
-
-        optimizer = self.create_optimizer()
-        scheduler = self.create_scheduler(optimizer, n_epochs, train_dataloader)
+        optimizer = self.create_optimizer(full_finetuning)
+        # scheduler = self.create_scheduler(optimizer, n_epochs, train_dataloader)
 
         epoch_metrics = {'training': {}, 'validation': {}}
         if not os.path.exists(save_dir):
@@ -58,7 +56,6 @@ class NERModel(ABC):
             batch_range = tqdm(train_dataloader, desc='')
 
             for i, batch in enumerate(batch_range):
-                
                 inputs = {"input_ids": batch[0].to(self.device, non_blocking=True),
                           "attention_mask": batch[1].to(self.device, non_blocking=True),
                           "valid_mask": batch[2].to(self.device, non_blocking=True),
@@ -69,7 +66,7 @@ class NERModel(ABC):
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(parameters=self.model.parameters(), max_norm=1.0)
                 optimizer.step()
-                scheduler.step()
+                # scheduler.step()
 
                 labels = inputs['labels']
                 labels_list = list(labels.cpu().numpy())
@@ -130,9 +127,7 @@ class NERModel(ABC):
         return
 
     def load_model(self,save_path):
-
         self.model.load_state_dict(torch.load(save_path))
-
         return
 
     def embed_documents(self, data):

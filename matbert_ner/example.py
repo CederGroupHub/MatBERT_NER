@@ -8,15 +8,16 @@ import json
 # datafile = 'data/aunpmorph_annotations_fullparas.json'
 datafile = "data/ner_annotations.json"
 n_epochs = 128
+full_finetuning = True
 
 device = "cuda"
 models = {'bert': 'bert-base-uncased',
           'scibert': 'allenai/scibert_scivocab_uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
-splits = {'_new_crf_grad_clip_bare': [0.5, 0.25, 0.25]}
+splits = {'_lr_sched_test': [0.5, 0.25, 0.25]}
 for alias, split in splits.items():
-    for model_name in ['matbert', 'scibert', 'bert']:
+    for model_name in ['matbert']:
         save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
 
         ner_data = NERData(models[model_name])
@@ -25,8 +26,8 @@ for alias, split in splits.items():
         train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(train_frac=split[0], val_frac=split[1], dev_frac=split[2], batch_size=32)
         classes = ner_data.classes
 
-        ner_model = BertCRFNERModel(modelname=models[model_name], classes=classes, device=device, lr=1e-5)
-        ner_model.train(train_dataloader, n_epochs=n_epochs, val_dataloader=val_dataloader, save_dir=save_dir)
+        ner_model = BertCRFNERModel(modelname=models[model_name], classes=classes, device=device, lr=3e-5)
+        ner_model.train(train_dataloader, n_epochs=n_epochs, val_dataloader=val_dataloader, save_dir=save_dir, full_finetuning=full_finetuning)
 
         fs = glob.glob(save_dir+'epoch_*pt')
         for f in fs:
