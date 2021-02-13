@@ -105,7 +105,8 @@ class BertCrfForNer(BertPreTrainedModel):
             attn_out, attn_weight = self.attn(lstm_out, lstm_out, lstm_out, key_padding_mask=attention_mask.permute(1, 0))
             logits = self.classifier(self.dropout_c(attn_out))
         else:
-            logits = self.classifier(sequence_output)        
+            logits = self.classifier(sequence_output)
+            print(logits.size())      
         if decode:
             tags = self.crf.decode(logits[:, 1:], mask=attention_mask[:, 1:])
             outputs = (tags,)
