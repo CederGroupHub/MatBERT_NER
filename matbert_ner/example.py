@@ -8,14 +8,14 @@ import json
 # datafile = 'data/aunpmorph_annotations_fullparas.json'
 datafile = "data/ner_annotations.json"
 n_epochs = 128
-full_finetuning = True
+full_finetuning = False
 
 device = "cuda"
 models = {'bert': 'bert-base-uncased',
           'scibert': 'allenai/scibert_scivocab_uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
-splits = {'_lr_sched_test': [0.5, 0.25, 0.25]}
+splits = {'_shallow': [0.5, 0.25, 0.25]}
 for alias, split in splits.items():
     for model_name in ['matbert']:
         save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
