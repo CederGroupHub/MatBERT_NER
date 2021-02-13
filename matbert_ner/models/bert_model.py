@@ -113,9 +113,9 @@ class BertCrfForNer(BertPreTrainedModel):
             outputs = (logits,)
         if labels is not None:
             # labels = torch.where(labels >= 0, labels, torch.zeros_like(labels))
-            loss = self.crf(logits[:, 1:], labels[:, 1:], mask=attention_mask[:, 1:])
+            loss = -self.crf(logits[:, 1:], labels[:, 1:], mask=attention_mask[:, 1:])
             outputs = (loss,) + outputs
-        return outputs  # (loss), scores
+        return outputs  # loss, scores
 
 
     def document_embedding(self, input_ids,
@@ -140,8 +140,8 @@ def valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask
         for j in range(max_len):
             if valid_mask[i][j].item() == 1:
                 jj += 1
-                valid_output[i][jj] = sequence_output[i][j]
                 if input_ids[i][j] not in (2, 3):
+                    valid_output[i][jj] = sequence_output[i][j]
                     valid_attention_mask[i][jj] = attention_mask[i][j]
     return valid_output, valid_attention_mask
 
@@ -149,7 +149,7 @@ def valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask
 class CRF(nn.Module):
     def __init__(self, tag_names, batch_first):
         super().__init__()
-        penalties = True
+        penalties = False
         # tag names
         self.tag_names = tag_names
         # initialize CRF
@@ -260,5 +260,5 @@ class CRF(nn.Module):
 
 
     def forward(self, emissions, tags, mask, reduction='sum'):
-        crf_loss = -self.crf(emissions, tags=tags, mask=mask, reduction=reduction)
+        crf_loss = self.crf(emissions, tags=tags, mask=mask, reduction=reduction)
         return crf_loss
