@@ -96,17 +96,13 @@ class BertCrfForNer(BertPreTrainedModel):
         # sequence_output = torch.mean(torch.stack(sequence_output), dim=0)
         sequence_output = outputs[0]
         sequence_output, attention_mask = valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask, self.device)
-        print(input_ids.size(), sequence_output.size(), labels.size(), attention_mask.size())
-        for a, b, c in zip(input_ids[0], labels[0], attention_mask[0]):
-            print(a.item(), b.item(), c.item())
         sequence_output = self.dropout_b(sequence_output)
         if self.use_lstm:
             lstm_out, _ = self.lstm(sequence_output)
             attn_out, attn_weight = self.attn(lstm_out, lstm_out, lstm_out, key_padding_mask=attention_mask.permute(1, 0))
             logits = self.classifier(self.dropout_c(attn_out))
         else:
-            logits = self.classifier(sequence_output)
-            print(logits.size())      
+            logits = self.classifier(sequence_output)     
         if decode:
             tags = self.crf.decode(logits, mask=attention_mask)
             outputs = (tags,)
@@ -141,9 +137,9 @@ def valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask
         for j in range(max_len):
             if valid_mask[i][j].item() == 1:
                 jj += 1
-                if input_ids[i][j] not in (2, 3):
-                    valid_output[i][jj] = sequence_output[i][j]
-                    valid_attention_mask[i][jj] = attention_mask[i][j]
+                # if input_ids[i][j] not in (2, 3):
+                valid_output[i][jj] = sequence_output[i][j]
+                valid_attention_mask[i][jj] = attention_mask[i][j]
     return valid_output, valid_attention_mask
 
 
