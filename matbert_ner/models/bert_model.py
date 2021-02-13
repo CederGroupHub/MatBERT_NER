@@ -28,7 +28,7 @@ class BertCRFNERModel(NERModel):
                                             {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)],'weight_decay_rate': 0.0}]
         else:
             param_optimizer = list(self.model.classifier.named_parameters())+list(self.model.crf.named_parameters())
-            self.optimizer_grouped_parameters = [{"params": [p for n, p in param_optimizer]}]
+            optimizer_grouped_parameters = [{"params": [p for n, p in param_optimizer]}]
         optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.lr, eps=1e-8)
         return optimizer
 
