@@ -104,13 +104,13 @@ class BertCrfForNer(BertPreTrainedModel):
         else:
             logits = self.classifier(sequence_output)     
         if decode:
-            tags = self.crf.decode(logits, mask=attention_mask)
+            tags = self.crf.decode(logits[:, 1:], mask=attention_mask[:, 1:])
             outputs = (tags,)
         else:
             outputs = (logits,)
         if labels is not None:
             labels = torch.where(labels >= 0, labels, torch.zeros_like(labels))
-            loss = -self.crf(logits, labels, mask=attention_mask)
+            loss = -self.crf(logits[:, 1:], labels[:, 1:], mask=attention_mask[:, 1:])
             outputs = (loss,) + outputs
         return outputs  # loss, scores
 
@@ -137,9 +137,9 @@ def valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask
         for j in range(max_len):
             if valid_mask[i][j].item() == 1:
                 jj += 1
-                # if input_ids[i][j] not in (2, 3):
                 valid_output[i][jj] = sequence_output[i][j]
-                valid_attention_mask[i][jj] = attention_mask[i][j]
+                if input_ids[i][j] not in (2, 3):
+                    valid_attention_mask[i][jj] = attention_mask[i][j]
     return valid_output, valid_attention_mask
 
 
@@ -170,9 +170,9 @@ class CRF(nn.Module):
         if self.prefixes == set(['B', 'I', 'O']):
             # (B)eginning (I)nside (O)utside
             # sentence must begin with [CLS] (O)
-            self.invalid_begin = ('B', 'I')
+            self.invalid_begin = ('I',) # ('B', 'I')
             # sentence must end with [SEP] (O)
-            self.invalid_end = ('B', 'I')
+            self.invalid_end = () # ('B', 'I')
             # prevent O (outside) going to I (inside) - O must be followed by B or O
             self.invalid_transitions_position = {'O': 'I'}
             # prevent B (beginning) going to I (inside) of a different type
