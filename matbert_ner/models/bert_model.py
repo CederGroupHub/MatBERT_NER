@@ -110,7 +110,7 @@ class BertCrfForNer(BertPreTrainedModel):
         else:
             outputs = (logits,)
         if labels is not None:
-            labels = torch.where(labels >= 0, labels, torch.zeros_like(labels))
+            # labels = torch.where(labels >= 0, labels, torch.zeros_like(labels))
             loss = self.crf(logits, labels, mask=attention_mask)
             outputs = (loss,) + outputs
         return outputs  # (loss), scores
@@ -138,8 +138,9 @@ def valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask
         for j in range(max_len):
             if valid_mask[i][j].item() == 1:
                 jj += 1
-                valid_output[i][jj] = sequence_output[i][j]
-                valid_attention_mask[i][jj] = attention_mask[i][j]
+                if input_ids[i][j] not in [101, 102]:
+                    valid_output[i][jj] = sequence_output[i][j]
+                    valid_attention_mask[i][jj] = attention_mask[i][j]
     return valid_output, valid_attention_mask
 
 
@@ -170,11 +171,9 @@ class CRF(nn.Module):
         if self.prefixes == set(['B', 'I', 'O']):
             # (B)eginning (I)nside (O)utside
             # sentence must begin with [CLS] (O)
-            self.invalid_begin = ('B', 'I')
-            self.valid_begin = ('O',)
+            self.invalid_begin = ('I',) # ('B', 'I')
             # sentence must end with [SEP] (O)
-            self.invalid_end = ('B', 'I')
-            self.valid_end = ('O',)
+            self.invalid_end = () # ('B', 'I')
             # prevent O (outside) going to I (inside) - O must be followed by B or O
             self.invalid_transitions_position = {'O': 'I'}
             # prevent B (beginning) going to I (inside) of a different type
@@ -232,10 +231,6 @@ class CRF(nn.Module):
                 torch.nn.init.constant_(self.crf.start_transitions[i], imp_value)
             if tag_name.split('-')[0] in self.invalid_end:
                 torch.nn.init.constant_(self.crf.end_transitions[i], imp_value)
-            if tag_name.split('-')[0] in self.valid_begin:
-                torch.nn.init.constant_(self.crf.start_transitions[i], -imp_value)
-            if tag_name.split('-')[0] in self.valid_end:
-                torch.nn.init.constant_(self.crf.end_transitions[i], -imp_value)
         # build tag type dictionary
         tag_is = {}
         for tag_position in self.prefixes:
