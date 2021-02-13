@@ -100,7 +100,7 @@ class NERModel(ABC):
 
                 for i, j in zip(prediction_tags, label_tags):
                     for ii, jj in zip(i, j):
-                        print(self.classes[ii], self.classes[jj])
+                        print(ii, jj)
 
                 metrics['loss'].append(torch.mean(loss).item())
                 metrics['accuracy'].append(accuracy(predicted, labels).item())
