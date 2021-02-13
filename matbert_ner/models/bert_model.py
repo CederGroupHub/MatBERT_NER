@@ -108,13 +108,13 @@ class BertCrfForNer(BertPreTrainedModel):
             logits = self.classifier(sequence_output)
             print(logits.size())      
         if decode:
-            tags = self.crf.decode(logits[:, 1:], mask=attention_mask[:, 1:])
+            tags = self.crf.decode(logits, mask=attention_mask)
             outputs = (tags,)
         else:
             outputs = (logits,)
         if labels is not None:
             # labels = torch.where(labels >= 0, labels, torch.zeros_like(labels))
-            loss = -self.crf(logits[:, 1:], labels[:, 1:], mask=attention_mask[:, 1:])
+            loss = -self.crf(logits, labels, mask=attention_mask)
             outputs = (loss,) + outputs
         return outputs  # loss, scores
 

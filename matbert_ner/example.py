@@ -27,6 +27,7 @@ for alias, split in splits.items():
         classes = ner_data.classes
 
         ner_model = BertCRFNERModel(modelname=models[model_name], classes=classes, device=device, lr=3e-5)
+        print('{} classes: {}'.format(len(ner_model.classes),' '.join(ner_model.classes)))
         ner_model.train(train_dataloader, n_epochs=n_epochs, val_dataloader=val_dataloader, save_dir=save_dir, full_finetuning=full_finetuning)
 
         fs = glob.glob(save_dir+'epoch_*pt')
