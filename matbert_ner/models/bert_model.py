@@ -99,7 +99,7 @@ class BertCrfForNer(BertPreTrainedModel):
         sequence_output, attention_mask = valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask, self.device)
         print(input_ids.size(), sequence_output.size(), labels.size(), attention_mask.size())
         for a, b, c in zip(input_ids[0], labels[0], attention_mask[0]):
-            print(a, b, c)
+            print(a.item(), b.item(), c.item())
         sequence_output = self.dropout_b(sequence_output)
         if self.use_lstm:
             lstm_out, _ = self.lstm(sequence_output)
@@ -142,7 +142,7 @@ def valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask
             if valid_mask[i][j].item() == 1:
                 jj += 1
                 valid_output[i][jj] = sequence_output[i][j]
-                if input_ids[i][j] not in [101, 102]:
+                if input_ids[i][j] not in (2, 3):
                     valid_attention_mask[i][jj] = attention_mask[i][j]
     return valid_output, valid_attention_mask
 
