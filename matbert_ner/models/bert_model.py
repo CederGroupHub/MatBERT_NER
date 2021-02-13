@@ -171,8 +171,10 @@ class CRF(nn.Module):
             # (B)eginning (I)nside (O)utside
             # sentence must begin with [CLS] (O)
             self.invalid_begin = ('B', 'I')
+            self.valid_begin = ('O',)
             # sentence must end with [SEP] (O)
             self.invalid_end = ('B', 'I')
+            self.valid_end = ('O',)
             # prevent O (outside) going to I (inside) - O must be followed by B or O
             self.invalid_transitions_position = {'O': 'I'}
             # prevent B (beginning) going to I (inside) of a different type
@@ -230,6 +232,10 @@ class CRF(nn.Module):
                 torch.nn.init.constant_(self.crf.start_transitions[i], imp_value)
             if tag_name.split('-')[0] in self.invalid_end:
                 torch.nn.init.constant_(self.crf.end_transitions[i], imp_value)
+            if tag_name.split('-')[0] in self.valid_begin:
+                torch.nn.init.constant_(self.crf.start_transitions[i], -imp_value)
+            if tag_name.split('-')[0] in self.valid_end:
+                torch.nn.init.constant_(self.crf.end_transitions[i], -imp_value)
         # build tag type dictionary
         tag_is = {}
         for tag_position in self.prefixes:

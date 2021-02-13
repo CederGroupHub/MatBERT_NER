@@ -98,10 +98,10 @@ class NERModel(ABC):
                 prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(prediction_list, valid_attention_mask)]
                 label_tags = [[self.classes[ii] if ii>=0 else self.classes[0] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
 
-                # for i, j in zip(prediction_tags, label_tags):
-                #     for ii, jj in zip(i, j):
-                #         print(ii, '\t', jj)
-                #     print('\n')
+                for i, j in zip(prediction_tags, label_tags):
+                    for ii, jj in zip(i, j):
+                        print(ii, '\t', jj)
+                    print('\n')
 
                 metrics['loss'].append(torch.mean(loss).item())
                 metrics['accuracy'].append(accuracy(predicted, labels).item())
