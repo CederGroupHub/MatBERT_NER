@@ -71,7 +71,6 @@ class BertCrfForNer(BertPreTrainedModel):
         self.crf = CRF(tag_names=tag_names, batch_first=True)
         self.model_modules.extend([self.classifier, self.crf])
         self.init_weights()
-        
 
 
     @property
@@ -108,13 +107,13 @@ class BertCrfForNer(BertPreTrainedModel):
         else:
             logits = self.classifier(sequence_output)        
         if decode:
-            tags = self.crf.decode(logits, mask=attention_mask)
+            tags = self.crf.decode(logits[:, 1:], mask=attention_mask[:, 1:])
             outputs = (tags,)
         else:
             outputs = (logits,)
         if labels is not None:
             # labels = torch.where(labels >= 0, labels, torch.zeros_like(labels))
-            loss = self.crf(logits, labels, mask=attention_mask)
+            loss = self.crf(logits[:, 1:], labels[:, 1:], mask=attention_mask[:, 1:])
             outputs = (loss,) + outputs
         return outputs  # (loss), scores
 
