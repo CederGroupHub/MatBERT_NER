@@ -223,7 +223,7 @@ class CRF(nn.Module):
                                              'I': 'IE'}
     
 
-    def init_crf_transitions(self, imp_value=-100):
+    def init_crf_transitions(self, imp_value=-1e4):
         num_tags = len(self.tag_names)
         # penalize bad beginnings and endings
         for i in range(num_tags):
