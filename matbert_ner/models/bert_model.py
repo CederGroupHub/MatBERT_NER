@@ -134,12 +134,12 @@ class CRF(nn.Module):
         self.tag_names = tag_names
         # initialize CRF
         self.crf = torchcrf.CRF(num_tags=len(self.tag_names), batch_first=batch_first)
-        # construct definitions of invalid transitions
-        # self.define_invalid_crf_transitions()
         # initialize weights
         self.crf.reset_parameters()
+        # construct definitions of invalid transitions
+        self.define_invalid_crf_transitions()
         # initialize transitions
-        # self.init_crf_transitions()
+        self.init_crf_transitions()
     
 
     def define_invalid_crf_transitions(self):
