@@ -97,7 +97,9 @@ class BertCrfForNer(BertPreTrainedModel):
         # sequence_output = torch.mean(torch.stack(sequence_output), dim=0)
         sequence_output = outputs[0]
         sequence_output, attention_mask = valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask, self.device)
-        print(sequence_output, labels, attention_mask)
+        print(input_ids.size(), sequence_output.size(), labels.size(), attention_mask.size())
+        for a, b, c, d in zip(input_ids[0], sequence_output[0], labels[0], attention_mask[0]):
+            print(a, b, c, d)
         sequence_output = self.dropout_b(sequence_output)
         if self.use_lstm:
             lstm_out, _ = self.lstm(sequence_output)
