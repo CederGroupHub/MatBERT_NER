@@ -144,7 +144,7 @@ class CRF(nn.Module):
 
     def define_invalid_crf_transitions(self):
         ''' function for establishing valid tagging transitions, assumes BIO or BILUO tagging '''
-        self.prefixes = set([tag_name[0] for tag_name in self.tag_names])
+        self.prefixes = set([tag_name.split('-')[0] for tag_name in self.tag_names])
         if self.prefixes == set(['B', 'I', 'O']):
             # (B)eginning (I)nside (O)utside
             # sentence must begin with [CLS] (O)
@@ -152,13 +152,9 @@ class CRF(nn.Module):
             # self.invalid_begin = ('I',)
             # sentence must end with [SEP] (O)
             self.invalid_end = ('B', 'I')
-            # self.invalid_end = ('B', "I")
-            # prevent B (beginning) going to P - B must be followed by B, I, or O
-            # prevent I (inside) going to P - I must be followed by B, I, or O
+            # self.invalid_end = ('B', 'I')
             # prevent O (outside) going to I (inside) - O must be followed by B or O
-            self.invalid_transitions_position = {'B': 'P',
-                                                 'I': 'P',
-                                                 'O': 'I'}
+            self.invalid_transitions_position = {'O': 'I'}
             # prevent B (beginning) going to I (inside) of a different type
             # prevent I (inside) going to I (inside) of a different type
             self.invalid_transitions_tags = {'B': 'I',
@@ -176,8 +172,8 @@ class CRF(nn.Module):
             # prevent L (last) going to I (inside) or L(last) - U must be followed by B, O, U, or P
             # prevent U (unit) going to I (inside) or L(last) - U must be followed by B, O, U, or P
             # prevent O (outside) going to I (inside) or L (last) - O must be followed by B, O, U, or P
-            self.invalid_transitions_position = {'B': 'BOUP',
-                                                 'I': 'BOUP',
+            self.invalid_transitions_position = {'B': 'BOU',
+                                                 'I': 'BOU',
                                                  'L': 'IL',
                                                  'U': 'IL',
                                                  'O': 'IL'}
@@ -198,8 +194,8 @@ class CRF(nn.Module):
             # prevent E (end) going to I (inside) or E (end) - U must be followed by B, O, U, or P
             # prevent S (single) going to I (inside) or E (end) - U must be followed by B, O, U, or P
             # prevent O (outside) going to I (inside) or E (end) - O must be followed by B, O, U, or P
-            self.invalid_transitions_position = {'B': 'BOSP',
-                                                 'I': 'BOSP',
+            self.invalid_transitions_position = {'B': 'BOS',
+                                                 'I': 'BOS',
                                                  'E': 'IE',
                                                  'S': 'IE',
                                                  'O': 'IE'}
@@ -214,15 +210,14 @@ class CRF(nn.Module):
         # penalize bad beginnings and endings
         for i in range(num_tags):
             tag_name = self.tag_names[i]
-            if tag_name[0] in self.invalid_begin:
+            if tag_name.split('-')[0] in self.invalid_begin:
                 torch.nn.init.constant_(self.crf.start_transitions[i], imp_value)
-            if tag_name[0] in self.invalid_end:
+            if tag_name.split('-')[0] in self.invalid_end:
                 torch.nn.init.constant_(self.crf.end_transitions[i], imp_value)
         # build tag type dictionary
         tag_is = {}
         for tag_position in self.prefixes:
-            tag_is[tag_position] = [i for i, tag in enumerate(self.tag_names) if tag[0] == tag_position]
-        tag_is['P'] = [i for i, tag in enumerate(self.tag_names) if tag == 'tag']
+            tag_is[tag_position] = [i for i, tag in enumerate(self.tag_names) if tag.split('-')[0] == tag_position]
         # penalties for invalid consecutive tags by position
         for from_tag, to_tag_list in self.invalid_transitions_position.items():
             to_tags = list(to_tag_list)
