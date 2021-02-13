@@ -57,7 +57,7 @@ class BertCrfForNer(BertPreTrainedModel):
         super(BertCrfForNer, self).__init__(config)
         self.bert = BertModel(config)
         self._device = device
-        self.use_lstm = True
+        self.use_lstm = False
         self.dropout_b = nn.Dropout(config.hidden_dropout_prob)
         self.model_modules = [self.bert, self.dropout_b]
         if self.use_lstm:
@@ -146,7 +146,7 @@ def valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask
 class CRF(nn.Module):
     def __init__(self, tag_names, batch_first):
         super().__init__()
-        penalties = False
+        penalties = True
         # tag names
         self.tag_names = tag_names
         # initialize CRF
@@ -158,6 +158,10 @@ class CRF(nn.Module):
             self.define_invalid_crf_transitions()
             # initialize transitions
             self.init_crf_transitions()
+            print(self.tag_names)
+            print(self.crf.start_transitions)
+            print(self.crf.end_transitions)
+            print(self.crf.transitions)
     
 
     def define_invalid_crf_transitions(self):
