@@ -40,7 +40,7 @@ class NERModel(ABC):
             val_dataloader :: dataloader with validation data - if provided the model with the best performance on the validation set will be saved
             save_dir :: directory to save models
         """
-        self.val_loss_best = 1e10
+        self.val_f1_best = 0
 
         optimizer = self.create_optimizer(full_finetuning)
         scheduler = self.create_scheduler(optimizer, n_epochs, train_dataloader)
@@ -235,9 +235,9 @@ class NERModel(ABC):
             eval_f1_score = f1_score(valid_tags_all, prediction_tags_all)
 
         if validate:
-            if eval_loss < self.val_loss_best:
+            if eval_f1_score > self.val_f1_best:
                 torch.save(self.model.state_dict(), save_path)
-                self.val_loss_best = eval_loss
+                self.val_f1_best = eval_f1_score
         elif self.results_file is not None:
             with open(self.results_file, "a+") as f:
                 f.write("{},{},{},{},{},{},{}\n".format(self.model[0], lr, n_epochs, eval_loss, eval_acc, eval_acc_score, eval_f1_score))

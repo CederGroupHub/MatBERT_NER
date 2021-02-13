@@ -170,9 +170,9 @@ class CRF(nn.Module):
         if self.prefixes == set(['B', 'I', 'O']):
             # (B)eginning (I)nside (O)utside
             # sentence must begin with [CLS] (O)
-            self.invalid_begin = ('I',) # ('B', 'I')
+            self.invalid_begin = ('B', 'I')
             # sentence must end with [SEP] (O)
-            self.invalid_end = () # ('B', 'I')
+            self.invalid_end = ('B', 'I')
             # prevent O (outside) going to I (inside) - O must be followed by B or O
             self.invalid_transitions_position = {'O': 'I'}
             # prevent B (beginning) going to I (inside) of a different type
