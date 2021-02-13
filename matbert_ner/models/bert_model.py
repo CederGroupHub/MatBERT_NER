@@ -82,9 +82,9 @@ class BertCrfForNer(BertPreTrainedModel):
                             token_type_ids=token_type_ids, position_ids=position_ids,
                             head_mask=head_mask, inputs_embeds=inputs_embeds,
                             output_hidden_states=True)
-        sequence_output = [outputs[2][i] for i in (-1, -2, -3, -4)]
-        sequence_output = torch.mean(torch.stack(sequence_output), dim=0)
-        # sequence_output = outputs[0]
+        # sequence_output = [outputs[2][i] for i in (-1, -2, -3, -4)]
+        # sequence_output = torch.mean(torch.stack(sequence_output), dim=0)
+        sequence_output = outputs[0]
         sequence_output, attention_mask = valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask, self.device)
         sequence_output = self.dropout(sequence_output)
         logits = self.classifier(sequence_output)
@@ -130,16 +130,18 @@ def valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask
 class CRF(nn.Module):
     def __init__(self, tag_names, batch_first):
         super().__init__()
+        penalties = True
         # tag names
         self.tag_names = tag_names
         # initialize CRF
         self.crf = torchcrf.CRF(num_tags=len(self.tag_names), batch_first=batch_first)
         # initialize weights
         self.crf.reset_parameters()
-        # construct definitions of invalid transitions
-        self.define_invalid_crf_transitions()
-        # initialize transitions
-        self.init_crf_transitions()
+        if penalties:
+            # construct definitions of invalid transitions
+            self.define_invalid_crf_transitions()
+            # initialize transitions
+            self.init_crf_transitions()
     
 
     def define_invalid_crf_transitions(self):
