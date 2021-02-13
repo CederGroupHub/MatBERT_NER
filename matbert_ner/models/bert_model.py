@@ -92,14 +92,14 @@ class BertCrfForNer(BertPreTrainedModel):
         # sequence_output = torch.mean(torch.stack(sequence_output), dim=0)
         sequence_output = outputs[0]
         sequence_output, attention_mask = valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask, self.device)
-        #sequence_output = self.dropout(sequence_output)
+        # sequence_output = self.dropout(sequence_output)
         # logits = self.classifier(sequence_output)
         sequence_output = self.dropout_b(sequence_output)
         lstm_out, _ = self.lstm(sequence_output)
         # masking using the text padding index
-        key_padding_mask = torch.as_tensor(attention_mask == 0).permute(1, 0)
+        # key_padding_mask = torch.as_tensor(attention_mask == 0).permute(1, 0)
         # attention outputs
-        attn_out, attn_weight = self.attn(lstm_out, lstm_out, lstm_out, key_padding_mask=key_padding_mask)
+        attn_out, attn_weight = self.attn(lstm_out, lstm_out, lstm_out, key_padding_mask=attention_mask)
         # fully connected layer as function of attention output
         logits = self.classifier(self.dropout_c(attn_out))
         if decode:
