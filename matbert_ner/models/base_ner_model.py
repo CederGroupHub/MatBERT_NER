@@ -48,8 +48,8 @@ class NERModel(ABC):
         valid_attention_mask = list(valid_attention_mask)
 
         prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(prediction_list, valid_attention_mask)]
-        # label_tags = [[self.classes[ii] if ii>=0 else self.classes[0] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
-        label_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
+        label_tags = [[self.classes[ii] if ii>=0 else self.classes[0] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
+        # label_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
         return prediction_tags, label_tags, valid_attention_mask
 
 
