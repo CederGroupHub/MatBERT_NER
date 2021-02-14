@@ -31,7 +31,7 @@ class NERModel(ABC):
         self.results_file = results_file
 
 
-    def process_tags(self, predicted, labels):
+    def process_tags(self, inputs, predicted, labels):
         labels_list = list(labels.cpu().numpy())
         prediction_list = list(torch.max(predicted,-1)[1].cpu().numpy())
         # prediction_list = list(np.insert(torch.max(predicted,-1)[1].cpu().numpy(), 0, 0, axis=1))
@@ -92,7 +92,7 @@ class NERModel(ABC):
 
                 labels = inputs['labels']
 
-                prediction_tags, label_tags, valid_attention_mask = self.process_tags(predicted, labels)
+                prediction_tags, label_tags, valid_attention_mask = self.process_tags(inputs, predicted, labels)
 
                 # for a, b, c, d, i, j in zip(list(inputs['input_ids'].cpu().numpy()),
                 #                             list(inputs['labels'].cpu().numpy()),
@@ -201,7 +201,7 @@ class NERModel(ABC):
                 eval_pred.append(predicted)
                 eval_label.append(labels)
 
-                prediction_tags, label_tags, valid_attention_mask = self.process_tags(predicted, labels)
+                prediction_tags, label_tags, valid_attention_mask = self.process_tags(inputs, predicted, labels)
 
                 prediction_tags_all.extend(prediction_tags)
                 valid_tags_all.extend(label_tags)
