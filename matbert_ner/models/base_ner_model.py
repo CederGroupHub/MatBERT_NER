@@ -31,7 +31,7 @@ class NERModel(ABC):
         self.results_file = results_file
 
 
-    def process_tags(self, predicted, labels)
+    def process_tags(self, predicted, labels):
         labels_list = list(labels.cpu().numpy())
         prediction_list = list(torch.max(predicted,-1)[1].cpu().numpy())
         # prediction_list = list(np.insert(torch.max(predicted,-1)[1].cpu().numpy(), 0, 0, axis=1))
