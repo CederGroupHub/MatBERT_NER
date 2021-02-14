@@ -194,8 +194,8 @@ class NERModel(ABC):
                 labels = inputs['labels']
 
                 labels_list = list(labels.cpu().numpy())
-                prediction_list = list(torch.max(predicted,-1)[1].cpu().numpy())
-                # prediction_list = list(np.insert(prediction.cpu().numpy(), 0, 0, axis=1))
+                # prediction_list = list(torch.max(predicted,-1)[1].cpu().numpy())
+                prediction_list = list(np.insert(prediction.cpu().numpy(), 0, 0, axis=1))
 
                 eval_loss.append(loss)
                 eval_pred.append(predicted)
@@ -208,13 +208,13 @@ class NERModel(ABC):
                     for j in range(max_len):
                         if inputs['valid_mask'][i][j].item() == 1:
                             jj += 1
-                            # if inputs['input_ids'][i][j] not in (2, 3):
-                            valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
+                            if inputs['input_ids'][i][j] not in (2, 3):
+                                valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
                 valid_attention_mask = list(valid_attention_mask)
 
                 prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(prediction_list, valid_attention_mask)]
-                label_tags = [[self.classes[ii] if ii>=0 else self.classes[0] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
-                # label_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
+                # label_tags = [[self.classes[ii] if ii>=0 else self.classes[0] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
+                label_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
 
                 prediction_tags_all.extend(prediction_tags)
                 valid_tags_all.extend(label_tags)
