@@ -148,7 +148,7 @@ def valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask
 class CRF(nn.Module):
     def __init__(self, tag_names, batch_first):
         super().__init__()
-        penalties = True
+        penalties = False
         # tag names
         self.tag_names = tag_names
         # initialize CRF
@@ -226,12 +226,12 @@ class CRF(nn.Module):
     def init_crf_transitions(self, imp_value=-100):
         num_tags = len(self.tag_names)
         # penalize bad beginnings and endings
-        # for i in range(num_tags):
-        #     tag_name = self.tag_names[i]
-        #     if tag_name.split('-')[0] in self.invalid_begin:
-        #         torch.nn.init.constant_(self.crf.start_transitions[i], imp_value)
-        #     if tag_name.split('-')[0] in self.invalid_end:
-        #         torch.nn.init.constant_(self.crf.end_transitions[i], imp_value)
+        for i in range(num_tags):
+            tag_name = self.tag_names[i]
+            if tag_name.split('-')[0] in self.invalid_begin:
+                torch.nn.init.constant_(self.crf.start_transitions[i], imp_value)
+            if tag_name.split('-')[0] in self.invalid_end:
+                torch.nn.init.constant_(self.crf.end_transitions[i], imp_value)
         # build tag type dictionary
         tag_is = {}
         for tag_position in self.prefixes:

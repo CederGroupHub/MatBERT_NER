@@ -15,9 +15,9 @@ models = {'bert': 'bert-base-uncased',
           'scibert': 'allenai/scibert_scivocab_uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
-splits = {'_crf_trans': [0.5, 0.25, 0.25]}
+splits = {'': [0.5, 0.25, 0.25]}
 for alias, split in splits.items():
-    for model_name in ['matbert']:
+    for model_name in ['matbert', 'scibert', 'bert']:
         save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
 
         ner_data = NERData(models[model_name])
