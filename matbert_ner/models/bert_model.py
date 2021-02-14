@@ -148,7 +148,7 @@ def valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask
 class CRF(nn.Module):
     def __init__(self, tag_names, batch_first):
         super().__init__()
-        penalties = False
+        penalties = True
         # tag names
         self.tag_names = tag_names
         # initialize CRF
