@@ -31,6 +31,28 @@ class NERModel(ABC):
         self.results_file = results_file
 
 
+    def process_tags(self, predicted, labels)
+        labels_list = list(labels.cpu().numpy())
+        prediction_list = list(torch.max(predicted,-1)[1].cpu().numpy())
+        # prediction_list = list(np.insert(torch.max(predicted,-1)[1].cpu().numpy(), 0, 0, axis=1))
+
+        batch_size, max_len, feat_dim = predicted.shape
+        valid_attention_mask = np.zeros((batch_size, max_len), dtype=int)
+        for i in range(batch_size):
+            jj = -1
+            for j in range(max_len):
+                if inputs['valid_mask'][i][j].item() == 1:
+                    jj += 1
+                    if inputs['input_ids'][i][j] not in (2, 3):
+                        valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
+        valid_attention_mask = list(valid_attention_mask)
+
+        prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(prediction_list, valid_attention_mask)]
+        # label_tags = [[self.classes[ii] if ii>=0 else self.classes[0] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
+        label_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
+        return prediction_tags, label_tags, valid_attention_mask
+
+
     def train(self, train_dataloader, n_epochs, val_dataloader=None, save_dir=None, full_finetuning=True):
         """
         Train the model
@@ -47,7 +69,7 @@ class NERModel(ABC):
 
         epoch_metrics = {'training': {}, 'validation': {}}
         if not os.path.exists(save_dir):
-            os.makedirs(save_dir)            
+            os.makedirs(save_dir)          
 
         for epoch in range(n_epochs):
             self.model.train()
@@ -69,21 +91,8 @@ class NERModel(ABC):
                 scheduler.step()
 
                 labels = inputs['labels']
-                labels_list = list(labels.cpu().numpy())
 
-                # prediction_list = list(torch.max(predicted,-1)[1].cpu().numpy())
-                prediction_list = list(np.insert(torch.max(predicted,-1)[1].cpu().numpy(), 0, 0, axis=1))
-                
-                batch_size, max_len, feat_dim = predicted.shape
-                valid_attention_mask = np.zeros((batch_size, max_len), dtype=int)
-                for i in range(batch_size):
-                    jj = -1
-                    for j in range(max_len):
-                        if inputs['valid_mask'][i][j].item() == 1:
-                            jj += 1
-                            if inputs['input_ids'][i][j] not in (2, 3):
-                                valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
-                valid_attention_mask = list(valid_attention_mask)
+                prediction_tags, label_tags, valid_attention_mask = self.process_tags(predicted, labels)
 
                 # for a, b, c, d, i, j in zip(list(inputs['input_ids'].cpu().numpy()),
                 #                             list(inputs['labels'].cpu().numpy()),
@@ -95,10 +104,6 @@ class NERModel(ABC):
                 #     print('ID', '\t', 'L', '\t', 'VM', '\t', 'AM', '\t', 'P', '\t', 'VAM')
                 #     for aa, bb, cc, dd, ii, jj in zip(a, b, c, d, i, j):
                 #         print(aa, '\t', bb, '\t', cc, '\t', dd, '\t', ii, '\t', jj)
-                
-                prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(prediction_list, valid_attention_mask)]
-                # label_tags = [[self.classes[ii] if ii>=0 else self.classes[0] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
-                label_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
 
                 # for i, j in zip(prediction_tags, label_tags):
                 #     for ii, jj in zip(i, j):
@@ -192,28 +197,11 @@ class NERModel(ABC):
                 loss, predicted = self.model.forward(**inputs)
                 labels = inputs['labels']
 
-                labels_list = list(labels.cpu().numpy())
-                # prediction_list = list(torch.max(predicted,-1)[1].cpu().numpy())
-                prediction_list = list(np.insert(torch.max(predicted,-1)[1].cpu().numpy(), 0, 0, axis=1))
-
                 eval_loss.append(loss)
                 eval_pred.append(predicted)
                 eval_label.append(labels)
 
-                batch_size, max_len, feat_dim = predicted.shape
-                valid_attention_mask = np.zeros((batch_size, max_len), dtype=int)
-                for i in range(batch_size):
-                    jj = -1
-                    for j in range(max_len):
-                        if inputs['valid_mask'][i][j].item() == 1:
-                            jj += 1
-                            if inputs['input_ids'][i][j] not in (2, 3):
-                                valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
-                valid_attention_mask = list(valid_attention_mask)
-
-                prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(prediction_list, valid_attention_mask)]
-                # label_tags = [[self.classes[ii] if ii>=0 else self.classes[0] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
-                label_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
+                prediction_tags, label_tags, valid_attention_mask = self.process_tags(predicted, labels)
 
                 prediction_tags_all.extend(prediction_tags)
                 valid_tags_all.extend(label_tags)
