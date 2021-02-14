@@ -71,9 +71,8 @@ class NERModel(ABC):
                 labels = inputs['labels']
                 labels_list = list(labels.cpu().numpy())
 
-                prediction = torch.max(predicted, -1)[1]
                 # prediction_list = list(torch.max(predicted,-1)[1].cpu().numpy())
-                prediction_list = list(np.insert(prediction.cpu().numpy(), 0, 0, axis=1))
+                prediction_list = list(np.insert(torch.max(predicted,-1)[1].cpu().numpy(), 0, 0, axis=1))
                 
                 batch_size, max_len, feat_dim = predicted.shape
                 valid_attention_mask = np.zeros((batch_size, max_len), dtype=int)
@@ -195,7 +194,7 @@ class NERModel(ABC):
 
                 labels_list = list(labels.cpu().numpy())
                 # prediction_list = list(torch.max(predicted,-1)[1].cpu().numpy())
-                prediction_list = list(np.insert(prediction.cpu().numpy(), 0, 0, axis=1))
+                prediction_list = list(np.insert(torch.max(predicted,-1)[1].cpu().numpy(), 0, 0, axis=1))
 
                 eval_loss.append(loss)
                 eval_pred.append(predicted)
