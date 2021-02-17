@@ -31,7 +31,29 @@ class NERModel(ABC):
         self.results_file = results_file
 
 
-    def train(self, train_dataloader, n_epochs, val_dataloader=None, save_dir=None):
+    def process_tags(self, inputs, predicted, labels):
+        labels_list = list(labels.cpu().numpy())
+        prediction_list = list(torch.max(predicted,-1)[1].cpu().numpy())
+        # prediction_list = list(np.insert(torch.max(predicted,-1)[1].cpu().numpy(), 0, 0, axis=1))
+
+        batch_size, max_len, feat_dim = predicted.shape
+        valid_attention_mask = np.zeros((batch_size, max_len), dtype=int)
+        for i in range(batch_size):
+            jj = -1
+            for j in range(max_len):
+                if inputs['valid_mask'][i][j].item() == 1:
+                    jj += 1
+                    if inputs['input_ids'][i][j] not in (2, 3):
+                        valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
+        valid_attention_mask = list(valid_attention_mask)
+
+        prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(prediction_list, valid_attention_mask)]
+        label_tags = [[self.classes[ii] if ii>=0 else self.classes[0] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
+        # label_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
+        return prediction_tags, label_tags, valid_attention_mask
+
+
+    def train(self, train_dataloader, n_epochs, val_dataloader=None, save_dir=None, full_finetuning=True):
         """
         Train the model
         Inputs:
@@ -40,16 +62,14 @@ class NERModel(ABC):
             val_dataloader :: dataloader with validation data - if provided the model with the best performance on the validation set will be saved
             save_dir :: directory to save models
         """
+        self.val_f1_best = 0
 
-        self.val_loss_best = 1e10
-
-
-        optimizer = self.create_optimizer()
+        optimizer = self.create_optimizer(full_finetuning)
         scheduler = self.create_scheduler(optimizer, n_epochs, train_dataloader)
 
         epoch_metrics = {'training': {}, 'validation': {}}
         if not os.path.exists(save_dir):
-            os.makedirs(save_dir)            
+            os.makedirs(save_dir)          
 
         for epoch in range(n_epochs):
             self.model.train()
@@ -58,7 +78,6 @@ class NERModel(ABC):
             batch_range = tqdm(train_dataloader, desc='')
 
             for i, batch in enumerate(batch_range):
-                
                 inputs = {"input_ids": batch[0].to(self.device, non_blocking=True),
                           "attention_mask": batch[1].to(self.device, non_blocking=True),
                           "valid_mask": batch[2].to(self.device, non_blocking=True),
@@ -67,22 +86,34 @@ class NERModel(ABC):
                 optimizer.zero_grad()
                 loss, predicted = self.model.forward(**inputs)
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(parameters=self.model.parameters(), max_norm=1.0)
                 optimizer.step()
                 scheduler.step()
 
                 labels = inputs['labels']
-                labels_list = list(labels.cpu().numpy())
 
-                prediction = torch.max(predicted,-1)[1]
-                prediction_list = list(prediction.cpu().numpy())
+                prediction_tags, label_tags, valid_attention_mask = self.process_tags(inputs, predicted, labels)
 
-                prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj != -100] for i, j in zip(prediction_list, labels_list)]
-                valid_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_list]
-                
+                # for a, b, c, d, i, j in zip(list(inputs['input_ids'].cpu().numpy()),
+                #                             list(inputs['labels'].cpu().numpy()),
+                #                             list(inputs['valid_mask'].cpu().numpy()),
+                #                             list(inputs['attention_mask'].cpu().numpy()),
+                #                             prediction_list,
+                #                             valid_attention_mask):
+                #     print(len(a), len(b), len(c), len(d), len(i), len(j))
+                #     print('ID', '\t', 'L', '\t', 'VM', '\t', 'AM', '\t', 'P', '\t', 'VAM')
+                #     for aa, bb, cc, dd, ii, jj in zip(a, b, c, d, i, j):
+                #         print(aa, '\t', bb, '\t', cc, '\t', dd, '\t', ii, '\t', jj)
+
+                # for i, j in zip(prediction_tags, label_tags):
+                #     for ii, jj in zip(i, j):
+                #         print(ii, '\t', jj)
+                #     print('\n')
+
                 metrics['loss'].append(torch.mean(loss).item())
                 metrics['accuracy'].append(accuracy(predicted, labels).item())
-                metrics['accuracy_score'].append(accuracy_score(valid_tags, prediction_tags))
-                metrics['f1_score'].append(f1_score(valid_tags, prediction_tags))
+                metrics['accuracy_score'].append(accuracy_score(label_tags, prediction_tags))
+                metrics['f1_score'].append(f1_score(label_tags, prediction_tags))
                 means = [np.mean(metrics[metric]) for metric in metrics.keys()]
 
                 batch_range.set_description('| training | epoch: {:d}/{:d} | loss: {:.4f} | accuracy: {:.4f} | accuracy score: {:.4f} | f1 score: {:.4f} |'.format(epoch+1, n_epochs, *means))
@@ -108,9 +139,7 @@ class NERModel(ABC):
         return
 
     def load_model(self,save_path):
-
         self.model.load_state_dict(torch.load(save_path))
-
         return
 
     def embed_documents(self, data):
@@ -168,23 +197,19 @@ class NERModel(ABC):
                 loss, predicted = self.model.forward(**inputs)
                 labels = inputs['labels']
 
-                labels_list = list(labels.cpu().numpy())
-                prediction_list = list(torch.max(predicted,-1)[1].cpu().numpy())
-
                 eval_loss.append(loss)
                 eval_pred.append(predicted)
                 eval_label.append(labels)
 
-                prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj != -100] for i, j in zip(prediction_list, labels_list)]
-                valid_tags = [[self.classes[ii] for ii in i if ii != -100] for i in labels_list]
+                prediction_tags, label_tags, valid_attention_mask = self.process_tags(inputs, predicted, labels)
 
                 prediction_tags_all.extend(prediction_tags)
-                valid_tags_all.extend(valid_tags)
+                valid_tags_all.extend(label_tags)
 
                 metrics['loss'].append(torch.mean(loss).item())
                 metrics['accuracy'].append(accuracy(predicted, labels).item())
-                metrics['accuracy_score'].append(accuracy_score(valid_tags, prediction_tags))
-                metrics['f1_score'].append(f1_score(valid_tags, prediction_tags))
+                metrics['accuracy_score'].append(accuracy_score(label_tags, prediction_tags))
+                metrics['f1_score'].append(f1_score(label_tags, prediction_tags))
                 means = [np.mean(metrics[metric]) for metric in metrics.keys()]
 
                 batch_range.set_description('| {} (rolling average) | loss: {:.4f} | accuracy: {:.4f} | accuracy score: {:.4f} | f1 score: {:.4f} |'.format(mode, *means))
@@ -197,9 +222,9 @@ class NERModel(ABC):
             eval_f1_score = f1_score(valid_tags_all, prediction_tags_all)
 
         if validate:
-            if eval_loss < self.val_loss_best:
+            if eval_f1_score > self.val_f1_best:
                 torch.save(self.model.state_dict(), save_path)
-                self.val_loss_best = eval_loss
+                self.val_f1_best = eval_f1_score
         elif self.results_file is not None:
             with open(self.results_file, "a+") as f:
                 f.write("{},{},{},{},{},{},{}\n".format(self.model[0], lr, n_epochs, eval_loss, eval_acc, eval_acc_score, eval_f1_score))

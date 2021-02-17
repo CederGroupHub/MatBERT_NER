@@ -1,34 +1,39 @@
 from models.bert_model import BertCRFNERModel
 from utils.data import NERData
 import os
-import subprocess
+import glob
 import json
 
-datafile = "data/aunpmorph_annotations_fullparas.json"
-# datafile = "data/ner_annotations.json"
+# datafile = 'data/impurityphase_fullparas.json'
+# datafile = 'data/aunpmorph_annotations_fullparas.json'
+datafile = "data/ner_annotations.json"
 n_epochs = 128
+full_finetuning = True
 
 device = "cuda"
-model_names = ['scibert', 'matbert']
+models = {'bert': 'bert-base-uncased',
+          'scibert': 'allenai/scibert_scivocab_uncased',
+          'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
-splits = {'_{}'.format(i): [0.1*i, 0.1, 0.1] for i in range(1, 9)}
-splits = {'_t':[0.8, 0.1, 0.1]}
+splits = {'_80_10_10': [0.8, 0.1, 0.1]}
 for alias, split in splits.items():
-    for model_name in model_names:
-        if model_name == 'scibert':
-            model = "allenai/scibert_scivocab_uncased"
-            save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
-        if model_name == 'matbert':
-            model = "/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased"
-            save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
+    for model_name in ['matbert', 'scibert', 'bert']:
+        save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
 
-        ner_data = NERData(model)
+        ner_data = NERData(models[model_name])
         ner_data.preprocess(datafile)
 
-        train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(train_frac=split[0], val_frac=split[1], dev_frac=split[2], batch_size=30)
+        train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(train_frac=split[0], val_frac=split[1], dev_frac=split[2], batch_size=32)
         classes = ner_data.classes
 
-        ner_model = BertCRFNERModel(modelname=model, classes=classes, device=device, lr=1e-5)
-        ner_model.train(train_dataloader, n_epochs=n_epochs, val_dataloader=val_dataloader, save_dir=save_dir)
+        ner_model = BertCRFNERModel(modelname=models[model_name], classes=classes, device=device, lr=3e-5)
+        print('{} classes: {}'.format(len(ner_model.classes),' '.join(ner_model.classes)))
+        print(ner_model.model)
+        ner_model.train(train_dataloader, n_epochs=n_epochs, val_dataloader=val_dataloader, save_dir=save_dir, full_finetuning=full_finetuning)
 
-        subprocess.run(['rm', save_dir+'epoch_*pt'])
+        fs = glob.glob(save_dir+'epoch_*pt')
+        for f in fs:
+            try:
+                os.remove(f)
+            except:
+                print('error while deleting file: {}'.format(f))
