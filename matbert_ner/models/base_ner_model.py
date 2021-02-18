@@ -42,7 +42,8 @@ class NERModel(ABC):
             for j in range(max_len):
                 if inputs['valid_mask'][i][j].item() == 1:
                     jj += 1
-                    valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
+                    if inputs['input_ids'][i][j] not in (2, 3):
+                        valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
         valid_attention_mask = list(valid_attention_mask)
 
         prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(prediction_list, valid_attention_mask)]
