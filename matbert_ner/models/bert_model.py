@@ -8,6 +8,7 @@ from typing import List, Optional
 import numpy as np
 from models.base_ner_model import NERModel
 import torch.optim as optim
+from torchtools.optim import RangerLars
 from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup, get_cosine_with_hard_restarts_schedule_with_warmup
 import torchcrf
 
@@ -29,7 +30,8 @@ class BertCRFNERModel(NERModel):
         else:
             param_optimizer = [item for sblst in [list(module.named_parameters()) for module in self.model.model_modules[1:]] for item in sblst]
             optimizer_grouped_parameters = [{"params": [p for n, p in param_optimizer]}]
-        optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.lr, eps=1e-8)
+        # optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.lr, eps=1e-8)
+        optimizer = RangerLars(optimizer_grouped_parameters, lr=self.lr)
         return optimizer
 
 
@@ -104,14 +106,12 @@ class BertCrfForNer(BertPreTrainedModel):
         else:
             logits = self.classifier(sequence_output)     
         if decode:
-            # tags = self.crf.decode(logits[:, 1:], mask=attention_mask[:, 1:])
             tags = self.crf.decode(logits, mask=attention_mask)
             outputs = (tags,)
         else:
             outputs = (logits,)
         if labels is not None:
             labels = torch.where(labels >= 0, labels, torch.zeros_like(labels))
-            # loss = -self.crf(logits[:, 1:], labels[:, 1:], mask=attention_mask[:, 1:])
             loss = -self.crf(logits, labels, mask=attention_mask)
             outputs = (loss,) + outputs
         return outputs  # loss, scores
@@ -140,7 +140,6 @@ def valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask
             if valid_mask[i][j].item() == 1:
                 jj += 1
                 valid_output[i][jj] = sequence_output[i][j]
-                # if input_ids[i][j] not in (2, 3):
                 valid_attention_mask[i][jj] = attention_mask[i][j]
     return valid_output, valid_attention_mask
 

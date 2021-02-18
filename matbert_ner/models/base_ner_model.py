@@ -34,7 +34,6 @@ class NERModel(ABC):
     def process_tags(self, inputs, predicted, labels):
         labels_list = list(labels.cpu().numpy())
         prediction_list = list(torch.max(predicted,-1)[1].cpu().numpy())
-        # prediction_list = list(np.insert(torch.max(predicted,-1)[1].cpu().numpy(), 0, 0, axis=1))
 
         batch_size, max_len, feat_dim = predicted.shape
         valid_attention_mask = np.zeros((batch_size, max_len), dtype=int)
@@ -43,13 +42,11 @@ class NERModel(ABC):
             for j in range(max_len):
                 if inputs['valid_mask'][i][j].item() == 1:
                     jj += 1
-                    if inputs['input_ids'][i][j] not in (2, 3):
-                        valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
+                    valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
         valid_attention_mask = list(valid_attention_mask)
 
         prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(prediction_list, valid_attention_mask)]
         label_tags = [[self.classes[ii] if ii>=0 else self.classes[0] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
-        # label_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
         return prediction_tags, label_tags, valid_attention_mask
 
 
@@ -126,9 +123,9 @@ class NERModel(ABC):
             if val_dataloader is not None:
                 val_metrics = self.evaluate(val_dataloader, validate=True, save_path=os.path.join(save_dir, "best.pt"))
                 epoch_metrics['validation']['epoch_{}'.format(epoch)] = val_metrics
+        
         if val_dataloader is not None:
             # Restore weights of best model after training if we can
-
             save_path = os.path.join(save_dir, "best.pt")
             self.model.load_state_dict(torch.load(save_path))
             self.evaluate(val_dataloader, validate=False)
@@ -229,7 +226,7 @@ class NERModel(ABC):
             with open(self.results_file, "a+") as f:
                 f.write("{},{},{},{},{},{},{}\n".format(self.model[0], lr, n_epochs, eval_loss, eval_acc, eval_acc_score, eval_f1_score))
 
-        print("| {} (epoch evaluation) | loss: {:.4f} | accuracy: {:.4f} | accuracy_score: {:.4f} | f1_score: {:.4f} |".format(mode, eval_loss, eval_acc, eval_acc_score, eval_f1_score))
+        # print("| {} (epoch evaluation) | loss: {:.4f} | accuracy: {:.4f} | accuracy_score: {:.4f} | f1_score: {:.4f} |".format(mode, eval_loss, eval_acc, eval_acc_score, eval_f1_score))
 
         return metrics
 
