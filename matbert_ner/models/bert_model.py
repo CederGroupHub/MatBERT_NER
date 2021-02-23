@@ -30,8 +30,8 @@ class BertCRFNERModel(NERModel):
         else:
             param_optimizer = [item for sblst in [list(module.named_parameters()) for module in self.model.model_modules[1:]] for item in sblst]
             optimizer_grouped_parameters = [{"params": [p for n, p in param_optimizer]}]
-        # optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.lr, eps=1e-8)
-        optimizer = RangerLars(optimizer_grouped_parameters, lr=self.lr)
+        optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.lr, eps=1e-8)
+        # optimizer = RangerLars(optimizer_grouped_parameters, lr=self.lr)
         return optimizer
 
 
@@ -40,17 +40,17 @@ class BertCRFNERModel(NERModel):
         #                                             num_warmup_steps=len(train_dataloader),
         #                                             num_training_steps=n_epochs*len(train_dataloader),
         #                                             num_cycles=n_epochs/10)
-        # warmup_epochs = 1
-        # scheduler = get_linear_schedule_with_warmup(optimizer,
-        #                                             num_warmup_steps=len(train_dataloader)*warmup_epochs,
-        #                                             num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader))
+        warmup_epochs = 1
+        scheduler = get_linear_schedule_with_warmup(optimizer,
+                                                    num_warmup_steps=len(train_dataloader)*warmup_epochs,
+                                                    num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader))
         # scheduler = get_linear_schedule_with_warmup(optimizer,
         #                                             num_warmup_steps=0,
         #                                             num_training_steps=n_epochs*len(train_dataloader))
-        scheduler = get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
-                                                                       num_warmup_steps=0,
-                                                                       num_training_steps=n_epochs*len(train_dataloader),
-                                                                       num_cycles=n_epochs/5)
+        # scheduler = get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
+        #                                                                num_warmup_steps=0,
+        #                                                                num_training_steps=n_epochs*len(train_dataloader),
+        #                                                                num_cycles=n_epochs/5)
         return scheduler
 
 
@@ -147,9 +147,13 @@ def valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask
 class CRF(nn.Module):
     def __init__(self, tag_names, batch_first):
         super().__init__()
-        penalties = False
+        penalties = True
         # tag names
         self.tag_names = tag_names
+        # tag prefixes
+        self.prefixes = set([tag_name.split('-')[0] for tag_name in self.tag_names])
+        # tag format
+        self.tag_format = 'IOB2'
         # initialize CRF
         self.crf = torchcrf.CRF(num_tags=len(self.tag_names), batch_first=batch_first)
         # initialize weights
@@ -163,12 +167,21 @@ class CRF(nn.Module):
 
     def define_invalid_crf_transitions(self):
         ''' function for establishing valid tagging transitions, assumes BIO or BILUO tagging '''
-        self.prefixes = set([tag_name.split('-')[0] for tag_name in self.tag_names])
-        if self.prefixes == set(['B', 'I', 'O']):
+        if self.tag_format == 'IOB':
             # (B)eginning (I)nside (O)utside
-            # sentence must begin with [CLS] (O)
+            # must begin with O (outside) due to [CLS] token
             self.invalid_begin = ('B', 'I')
-            # sentence must end with [SEP] (O)
+            # must end with O (outside) due to [SEP] token
+            self.invalid_end = ('B', 'I')
+            # prevent B (beginning) going to B (beginning) or O (outside) - B must be followed by I
+            self.invalid_transitions_position = {'B': 'BO'}
+            # prevent B (beginning) going to I (inside) or B (beginning) of a different type
+            self.invalid_transitions_tags = {'B': 'IB'}
+        if self.tag_format == 'IOB2':
+            # (B)eginning (I)nside (O)utside
+            # must begin with O (outside) due to [CLS] token
+            self.invalid_begin = ('B', 'I')
+            # must end with O (outside) due to [SEP] token
             self.invalid_end = ('B', 'I')
             # prevent O (outside) going to I (inside) - O must be followed by B or O
             self.invalid_transitions_position = {'O': 'I'}
@@ -176,11 +189,11 @@ class CRF(nn.Module):
             # prevent I (inside) going to I (inside) of a different type
             self.invalid_transitions_tags = {'B': 'I',
                                              'I': 'I'}
-        if self.prefixes == set(['B', 'I', 'L', 'U', 'O']):
+        if self.tag_format == 'BILOU':
             # (B)eginning (I)nside (L)ast (U)nit (O)utside
-            # sentence must begin with [CLS] (O)
+            # must begin with O (outside) due to [CLS] token
             self.invalid_begin = ('B', 'I', 'L', 'U')
-            # sentence must end with [SEP] (O)
+            # must end with O (outside) due to [SEP] token
             self.invalid_end = ('B', 'I', 'L', 'U')
             # prevent B (beginning) going to B (beginning), O (outside), or U (unit) - B must be followed by I or L
             # prevent I (inside) going to B (beginning), O (outside), or U (unit) - I must be followed by I or L
@@ -196,11 +209,11 @@ class CRF(nn.Module):
             # prevent I (inside) from going to I (inside) or L (last) of a different tpye
             self.invalid_transitions_tags = {'B': 'IL',
                                              'I': 'IL'}
-        if self.prefixes == set(['B', 'I', 'E', 'S', 'O']):
+        if self.tag_format == 'BIOES':
             # (B)eginning (I)nside (E)nd (S)ingle (O)utside
-            # sentence must begin with [CLS] (O)
+            # must begin with O (outside) due to [CLS] token
             self.invalid_begin = ('B', 'I', 'E', 'S')
-            # sentence must end with [SEP] (O)
+            # must end with O (outside) due to [SEP] token
             self.invalid_end = ('B', 'I', 'E', 'S')
             # prevent B (beginning) going to B (beginning), O (outside), or S (single) - B must be followed by I or E
             # prevent I (inside) going to B (beginning), O (outside), or S (single) - I must be followed by I or E

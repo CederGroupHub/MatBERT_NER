@@ -50,7 +50,6 @@ class NERData():
                 elif "PUT" in l or "PVL" in l:
                     label = "O"
                 else:
-                    label = l
                     if len(labels) > 0 and l in labels[-1]:
                         label = "I-{}".format(l)
                     else:
