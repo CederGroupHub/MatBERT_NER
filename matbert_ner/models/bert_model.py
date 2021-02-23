@@ -17,7 +17,7 @@ class BertCRFNERModel(NERModel):
 
 
     def initialize_model(self):
-        ner_model = BertCrfForNer(self.config, self.classes, self.tag_format, self.device).to(self.device)
+        ner_model = BertCrfForNer(self.config, self.classes, self.tag_format, self.crf_penalties, self.device).to(self.device)
         return ner_model
 
 
@@ -56,7 +56,7 @@ class BertCRFNERModel(NERModel):
 
 
 class BertCrfForNer(BertPreTrainedModel):
-    def __init__(self, config, tag_names, tag_format, device):
+    def __init__(self, config, tag_names, tag_format, crf_penalties, device):
         super(BertCrfForNer, self).__init__(config)
         self.bert = BertModel(config).from_pretrained(config.model_name)
         self._device = device
@@ -72,6 +72,7 @@ class BertCrfForNer(BertPreTrainedModel):
             self.model_modules.extend([self.lstm, self.attn, self.dropout_c])
         self.classifier = nn.Linear(128 if self.use_lstm else config.hidden_size, config.num_labels)
         self.crf = CRF(tag_names=tag_names, tag_format=tag_format, batch_first=True)
+        self.crf.initialize(crf_penalties)
         self.model_modules.extend([self.classifier, self.crf])
 
 
@@ -152,12 +153,16 @@ class CRF(nn.Module):
         self.tag_format = tag_format
         # initialize CRF
         self.crf = torchcrf.CRF(num_tags=len(self.tag_names), batch_first=batch_first)
+    
+
+    def initialize(self, penalties=False):
         # initialize weights
         self.crf.reset_parameters()
-        # construct definitions of invalid transitions
-        self.define_invalid_crf_transitions()
-        # initialize transitions
-        self.init_crf_transitions()
+        if penalties:
+            # construct definitions of invalid transitions
+            self.define_invalid_crf_transitions()
+            # initialize transitions
+            self.init_crf_transitions()
     
 
     def define_invalid_crf_transitions(self):
