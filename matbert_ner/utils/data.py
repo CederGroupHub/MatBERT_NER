@@ -8,8 +8,9 @@ from tqdm import tqdm
 
 class NERData():
 
-    def __init__(self, modelname="allenai/scibert_scivocab_cased"):
+    def __init__(self, modelname="allenai/scibert_scivocab_cased", tag_format='IOB2'):
         self.tokenizer = BertTokenizer.from_pretrained(modelname)
+        self.tag_format = tag_format
         self.dataset = None
         self.labels = None
 
@@ -29,7 +30,7 @@ class NERData():
         else:
             data = datafile
 
-        self.__get_iob_tags(data[0]['labels'])
+        self.__get_tags(data[0]['labels'])
 
         data = [[(d['text'],d['annotation']) for d in s] for a in data for s in a['tokens']]
 
@@ -38,6 +39,7 @@ class NERData():
         for i, d in enumerate(data):
             labels = []
             text = []
+            for j in 
             for t,l in d:
 
                 #This causes issues with BERT for some reason
@@ -420,12 +422,15 @@ class NERData():
                 results += (item,)
         return results
 
-    def __get_iob_tags(self, labels):
+    def __get_tags(self, labels):
         classes_raw = labels
         classes = ["O"]
+        if self.tag_format in ['IOB', 'IOB2']:
+            prefixes = ['I', 'O', 'B']
+        elif self.tag_format == 'BIOES':
+            prefixes = ['B', 'I', 'O', 'E', 'S']
         for c in classes_raw:
-            classes.append("B-{}".format(c))
-            classes.append("I-{}".format(c))
+            classes.extend(['{}-{}'.format(p, c) for p in prefixes])
 
         self.classes = classes
 

@@ -17,7 +17,7 @@ class BertCRFNERModel(NERModel):
 
 
     def initialize_model(self):
-        ner_model = BertCrfForNer(self.config, self.classes, self.device).to(self.device)
+        ner_model = BertCrfForNer(self.config, self.classes, self.tag_format, self.device).to(self.device)
         return ner_model
 
 
@@ -25,32 +25,29 @@ class BertCRFNERModel(NERModel):
         if full_finetuning:
             param_optimizer = list(self.model.named_parameters())
             no_decay = ['bias', 'gamma', 'beta']
-            optimizer_grouped_parameters = [{'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay_rate': 0.0},
+            optimizer_grouped_parameters = [{'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay_rate': 0.01},
                                             {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)],'weight_decay_rate': 0.0}]
         else:
             param_optimizer = [item for sblst in [list(module.named_parameters()) for module in self.model.model_modules[1:]] for item in sblst]
             optimizer_grouped_parameters = [{"params": [p for n, p in param_optimizer]}]
-        # optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.lr, eps=1e-8)
-        optimizer = RangerLars(optimizer_grouped_parameters, lr=self.lr)
+        optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.lr, eps=1e-8)
+        # optimizer = RangerLars(optimizer_grouped_parameters, lr=self.lr)
         return optimizer
 
 
     def create_scheduler(self, optimizer, n_epochs, train_dataloader):
-        # scheduler = get_cosine_schedule_with_warmup(optimizer,
-        #                                             num_warmup_steps=len(train_dataloader),
-        #                                             num_training_steps=n_epochs*len(train_dataloader),
-        #                                             num_cycles=n_epochs/10)
         warmup_epochs = 1
-        scheduler = get_linear_schedule_with_warmup(optimizer,
-                                                    num_warmup_steps=len(train_dataloader)*warmup_epochs,
-                                                    num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader))
+        # scheduler = get_cosine_schedule_with_warmup(optimizer,
+        #                                             num_warmup_steps=len(train_dataloader)*warmup_epochs,
+        #                                             num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader),
+        #                                             num_cycles=n_epochs/10)
         # scheduler = get_linear_schedule_with_warmup(optimizer,
-        #                                             num_warmup_steps=0,
-        #                                             num_training_steps=n_epochs*len(train_dataloader))
-        # scheduler = get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
-        #                                                                num_warmup_steps=0,
-        #                                                                num_training_steps=n_epochs*len(train_dataloader),
-        #                                                                num_cycles=n_epochs/5)
+        #                                             num_warmup_steps=len(train_dataloader)*warmup_epochs,
+        #                                             num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader))
+        scheduler = get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
+                                                                       num_warmup_steps=len(train_dataloader)*warmup_epochs,
+                                                                       num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader),
+                                                                       num_cycles=n_epochs/5)
         return scheduler
 
 
@@ -59,7 +56,7 @@ class BertCRFNERModel(NERModel):
 
 
 class BertCrfForNer(BertPreTrainedModel):
-    def __init__(self, config, tag_names, device):
+    def __init__(self, config, tag_names, tag_format, device):
         super(BertCrfForNer, self).__init__(config)
         self.bert = BertModel(config).from_pretrained(config.model_name)
         self._device = device
@@ -74,7 +71,7 @@ class BertCrfForNer(BertPreTrainedModel):
             self.dropout_c = nn.Dropout(0.25)
             self.model_modules.extend([self.lstm, self.attn, self.dropout_c])
         self.classifier = nn.Linear(128 if self.use_lstm else config.hidden_size, config.num_labels)
-        self.crf = CRF(tag_names=tag_names, batch_first=True)
+        self.crf = CRF(tag_names=tag_names, tag_format=tag_format, batch_first=True)
         self.model_modules.extend([self.classifier, self.crf])
 
 
@@ -145,24 +142,22 @@ def valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask
 
 
 class CRF(nn.Module):
-    def __init__(self, tag_names, batch_first):
+    def __init__(self, tag_names, tag_format, batch_first):
         super().__init__()
-        penalties = True
         # tag names
         self.tag_names = tag_names
         # tag prefixes
         self.prefixes = set([tag_name.split('-')[0] for tag_name in self.tag_names])
         # tag format
-        self.tag_format = 'IOB2'
+        self.tag_format = tag_format
         # initialize CRF
         self.crf = torchcrf.CRF(num_tags=len(self.tag_names), batch_first=batch_first)
         # initialize weights
         self.crf.reset_parameters()
-        if penalties:
-            # construct definitions of invalid transitions
-            self.define_invalid_crf_transitions()
-            # initialize transitions
-            self.init_crf_transitions()
+        # construct definitions of invalid transitions
+        self.define_invalid_crf_transitions()
+        # initialize transitions
+        self.init_crf_transitions()
     
 
     def define_invalid_crf_transitions(self):
@@ -189,26 +184,6 @@ class CRF(nn.Module):
             # prevent I (inside) going to I (inside) of a different type
             self.invalid_transitions_tags = {'B': 'I',
                                              'I': 'I'}
-        if self.tag_format == 'BILOU':
-            # (B)eginning (I)nside (L)ast (U)nit (O)utside
-            # must begin with O (outside) due to [CLS] token
-            self.invalid_begin = ('B', 'I', 'L', 'U')
-            # must end with O (outside) due to [SEP] token
-            self.invalid_end = ('B', 'I', 'L', 'U')
-            # prevent B (beginning) going to B (beginning), O (outside), or U (unit) - B must be followed by I or L
-            # prevent I (inside) going to B (beginning), O (outside), or U (unit) - I must be followed by I or L
-            # prevent L (last) going to I (inside) or L(last) - U must be followed by B, O, or U
-            # prevent U (unit) going to I (inside) or L(last) - U must be followed by B, O, or U
-            # prevent O (outside) going to I (inside) or L (last) - O must be followed by B, O, or U
-            self.invalid_transitions_position = {'B': 'BOU',
-                                                 'I': 'BOU',
-                                                 'L': 'IL',
-                                                 'U': 'IL',
-                                                 'O': 'IL'}
-            # prevent B (beginning) from going to I (inside) or L (last) of a different type
-            # prevent I (inside) from going to I (inside) or L (last) of a different tpye
-            self.invalid_transitions_tags = {'B': 'IL',
-                                             'I': 'IL'}
         if self.tag_format == 'BIOES':
             # (B)eginning (I)nside (E)nd (S)ingle (O)utside
             # must begin with O (outside) due to [CLS] token
