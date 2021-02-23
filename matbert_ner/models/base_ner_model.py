@@ -1,3 +1,4 @@
+
 import os
 import json
 import os
@@ -117,7 +118,7 @@ class NERModel(ABC):
                 means = [np.mean(metrics[metric]) for metric in metrics.keys()]
 
                 batch_range.set_description('| training | epoch: {:d}/{:d} | loss: {:.4f} | accuracy: {:.4f} | accuracy score: {:.4f} | f1 score: {:.4f} |'.format(epoch+1, n_epochs, *means))
-
+            
             save_path = os.path.join(save_dir, "epoch_{}.pt".format(epoch))
             torch.save(self.model.state_dict(), save_path)
 
@@ -234,7 +235,7 @@ class NERModel(ABC):
         return metrics
 
     def predict(self, data, trained_model=None, labels=None):
-
+        self.model.eval()
         self.labels = labels
 
         if trained_model:
