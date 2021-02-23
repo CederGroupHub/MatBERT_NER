@@ -39,7 +39,6 @@ class NERData():
         for i, d in enumerate(data):
             labels = []
             text = []
-            for j in 
             for t,l in d:
 
                 #This causes issues with BERT for some reason
