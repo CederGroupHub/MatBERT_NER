@@ -37,7 +37,7 @@ class NERModel(ABC):
         # prediction_list = list(torch.max(predicted,-1)[1].cpu().numpy())
         prediction_list = predicted
 
-        batch_size, max_len, feat_dim = predicted.shape
+        batch_size, max_len = inputs['input_ids'].shape
         valid_attention_mask = np.zeros((batch_size, max_len), dtype=int)
         for i in range(batch_size):
             jj = -1
