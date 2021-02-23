@@ -425,9 +425,9 @@ class NERData():
         classes_raw = labels
         classes = ["O"]
         if self.tag_format in ['IOB', 'IOB2']:
-            prefixes = ['I', 'O', 'B']
+            prefixes = ['I', 'B']
         elif self.tag_format == 'BIOES':
-            prefixes = ['B', 'I', 'O', 'E', 'S']
+            prefixes = ['B', 'I', 'E', 'S']
         for c in classes_raw:
             classes.extend(['{}-{}'.format(p, c) for p in prefixes])
 
