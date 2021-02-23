@@ -8,8 +8,9 @@ from tqdm import tqdm
 
 class NERData():
 
-    def __init__(self, modelname="allenai/scibert_scivocab_cased"):
+    def __init__(self, modelname="allenai/scibert_scivocab_cased", tag_format='IOB'):
         self.tokenizer = BertTokenizer.from_pretrained(modelname)
+        self.tag_format = tag_format
         self.dataset = None
         self.labels = None
 
