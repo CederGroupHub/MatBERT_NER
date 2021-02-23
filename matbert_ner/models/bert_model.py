@@ -30,8 +30,8 @@ class BertCRFNERModel(NERModel):
         else:
             param_optimizer = [item for sblst in [list(module.named_parameters()) for module in self.model.model_modules[1:]] for item in sblst]
             optimizer_grouped_parameters = [{"params": [p for n, p in param_optimizer]}]
-        optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.lr, eps=1e-8)
-        # optimizer = RangerLars(optimizer_grouped_parameters, lr=self.lr)
+        # optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.lr, eps=1e-8)
+        optimizer = RangerLars(optimizer_grouped_parameters, lr=self.lr)
         return optimizer
 
 
@@ -40,17 +40,17 @@ class BertCRFNERModel(NERModel):
         #                                             num_warmup_steps=len(train_dataloader),
         #                                             num_training_steps=n_epochs*len(train_dataloader),
         #                                             num_cycles=n_epochs/10)
-        warmup_epochs = 1
-        scheduler = get_linear_schedule_with_warmup(optimizer,
-                                                     num_warmup_steps=len(train_dataloader)*warmup_epochs,
-                                                     num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader))
+        # warmup_epochs = 1
+        # scheduler = get_linear_schedule_with_warmup(optimizer,
+        #                                             num_warmup_steps=len(train_dataloader)*warmup_epochs,
+        #                                             num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader))
         # scheduler = get_linear_schedule_with_warmup(optimizer,
         #                                             num_warmup_steps=0,
         #                                             num_training_steps=n_epochs*len(train_dataloader))
-        # scheduler = get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
-        #                                                                num_warmup_steps=0,
-        #                                                                num_training_steps=n_epochs*len(train_dataloader),
-        #                                                                num_cycles=n_epochs/5)
+        scheduler = get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
+                                                                       num_warmup_steps=0,
+                                                                       num_training_steps=n_epochs*len(train_dataloader),
+                                                                       num_cycles=n_epochs/5)
         return scheduler
 
 
@@ -92,7 +92,7 @@ class BertCrfForNer(BertPreTrainedModel):
                 attention_mask=None, token_type_ids=None,
                 position_ids=None, head_mask=None,
                 inputs_embeds=None, valid_mask=None,
-                labels=None, decode=True):
+                labels=None):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask,
                             token_type_ids=token_type_ids, position_ids=position_ids,
                             head_mask=head_mask, inputs_embeds=inputs_embeds,
@@ -108,11 +108,8 @@ class BertCrfForNer(BertPreTrainedModel):
             logits = self.classifier(self.dropout_c(attn_out))
         else:
             logits = self.classifier(sequence_output)     
-        if decode:
-            tags = self.crf.decode(logits, mask=attention_mask)
-            outputs = (tags,)
-        else:
-            outputs = (logits,)
+        tags = self.crf.decode(logits, mask=attention_mask)
+        outputs = (tags,)
         if labels is not None:
             labels = torch.where(labels >= 0, labels, torch.zeros_like(labels))
             loss = -self.crf(logits, labels, mask=attention_mask)

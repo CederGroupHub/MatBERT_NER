@@ -426,7 +426,6 @@ class NERData():
         classes_raw = labels
         classes = ["O"]
         for c in classes_raw:
-            # classes.append(c)
             classes.append("B-{}".format(c))
             classes.append("I-{}".format(c))
 
