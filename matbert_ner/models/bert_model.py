@@ -30,8 +30,8 @@ class BertCRFNERModel(NERModel):
         else:
             param_optimizer = [item for sblst in [list(module.named_parameters()) for module in self.model.model_modules[1:]] for item in sblst]
             optimizer_grouped_parameters = [{"params": [p for n, p in param_optimizer]}]
-        # optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.lr, eps=1e-8)
-        optimizer = RangerLars(optimizer_grouped_parameters, lr=self.lr)
+        optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.lr, eps=1e-8)
+        # optimizer = RangerLars(optimizer_grouped_parameters, lr=self.lr)
         return optimizer
 
 

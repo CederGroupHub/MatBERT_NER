@@ -34,7 +34,8 @@ class NERModel(ABC):
 
     def process_tags(self, inputs, predicted, labels):
         labels_list = list(labels.cpu().numpy())
-        prediction_list = list(torch.max(predicted,-1)[1].cpu().numpy())
+        # prediction_list = list(torch.max(predicted,-1)[1].cpu().numpy())
+        prediction_list = predicted
 
         batch_size, max_len, feat_dim = predicted.shape
         valid_attention_mask = np.zeros((batch_size, max_len), dtype=int)
@@ -109,7 +110,7 @@ class NERModel(ABC):
             if val_dataloader is not None:
                 val_metrics = self.evaluate(val_dataloader, validate=True, save_path=os.path.join(save_dir, "best.pt"))
                 epoch_metrics['validation']['epoch_{}'.format(epoch)] = val_metrics
-                
+
         if val_dataloader is not None:
             # Restore weights of best model after training if we can
             save_path = os.path.join(save_dir, "best.pt")
