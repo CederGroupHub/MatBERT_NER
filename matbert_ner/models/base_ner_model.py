@@ -26,6 +26,7 @@ class NERModel(ABC):
         self.classes = classes
         self.config = AutoConfig.from_pretrained(modelname)
         self.config.num_labels = len(self.classes)
+        self.config.model_name = self.modelname
         self.lr = lr
         self.device = device
         self.model = self.initialize_model()
