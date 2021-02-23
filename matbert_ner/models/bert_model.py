@@ -25,13 +25,13 @@ class BertCRFNERModel(NERModel):
         if full_finetuning:
             param_optimizer = list(self.model.named_parameters())
             no_decay = ['bias', 'gamma', 'beta']
-            optimizer_grouped_parameters = [{'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay_rate': 0.01},
+            optimizer_grouped_parameters = [{'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay_rate': 0.0},
                                             {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)],'weight_decay_rate': 0.0}]
         else:
             param_optimizer = [item for sblst in [list(module.named_parameters()) for module in self.model.model_modules[1:]] for item in sblst]
             optimizer_grouped_parameters = [{"params": [p for n, p in param_optimizer]}]
-        optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.lr, eps=1e-8)
-        # optimizer = RangerLars(optimizer_grouped_parameters, lr=self.lr)
+        # optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.lr, eps=1e-8)
+        optimizer = RangerLars(optimizer_grouped_parameters, lr=self.lr)
         return optimizer
 
 
