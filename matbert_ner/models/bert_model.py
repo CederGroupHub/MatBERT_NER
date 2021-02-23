@@ -40,13 +40,17 @@ class BertCRFNERModel(NERModel):
         #                                             num_warmup_steps=len(train_dataloader),
         #                                             num_training_steps=n_epochs*len(train_dataloader),
         #                                             num_cycles=n_epochs/10)
+        warmup_epochs = 1
+        scheduler = get_linear_schedule_with_warmup(optimizer,
+                                                     num_warmup_steps=len(train_dataloader)*warmup_epochs,
+                                                     num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader))
         # scheduler = get_linear_schedule_with_warmup(optimizer,
         #                                             num_warmup_steps=0,
         #                                             num_training_steps=n_epochs*len(train_dataloader))
-        scheduler = get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
-                                                                       num_warmup_steps=0,
-                                                                       num_training_steps=n_epochs*len(train_dataloader),
-                                                                       num_cycles=n_epochs/5)
+        # scheduler = get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
+        #                                                                num_warmup_steps=0,
+        #                                                                num_training_steps=n_epochs*len(train_dataloader),
+        #                                                                num_cycles=n_epochs/5)
         return scheduler
 
 
@@ -72,7 +76,6 @@ class BertCrfForNer(BertPreTrainedModel):
         self.classifier = nn.Linear(128 if self.use_lstm else config.hidden_size, config.num_labels)
         self.crf = CRF(tag_names=tag_names, batch_first=True)
         self.model_modules.extend([self.classifier, self.crf])
-        self.init_weights()
 
 
     @property
@@ -182,11 +185,11 @@ class CRF(nn.Module):
             self.invalid_begin = ('B', 'I', 'L', 'U')
             # sentence must end with [SEP] (O)
             self.invalid_end = ('B', 'I', 'L', 'U')
-            # prevent B (beginning) going to B (beginning), O (outside), U (unit), or P - B must be followed by I or L
-            # prevent I (inside) going to B (beginning), O (outside), U (unit), or P - I must be followed by I or L
-            # prevent L (last) going to I (inside) or L(last) - U must be followed by B, O, U, or P
-            # prevent U (unit) going to I (inside) or L(last) - U must be followed by B, O, U, or P
-            # prevent O (outside) going to I (inside) or L (last) - O must be followed by B, O, U, or P
+            # prevent B (beginning) going to B (beginning), O (outside), or U (unit) - B must be followed by I or L
+            # prevent I (inside) going to B (beginning), O (outside), or U (unit) - I must be followed by I or L
+            # prevent L (last) going to I (inside) or L(last) - U must be followed by B, O, or U
+            # prevent U (unit) going to I (inside) or L(last) - U must be followed by B, O, or U
+            # prevent O (outside) going to I (inside) or L (last) - O must be followed by B, O, or U
             self.invalid_transitions_position = {'B': 'BOU',
                                                  'I': 'BOU',
                                                  'L': 'IL',
@@ -202,11 +205,11 @@ class CRF(nn.Module):
             self.invalid_begin = ('B', 'I', 'E', 'S')
             # sentence must end with [SEP] (O)
             self.invalid_end = ('B', 'I', 'E', 'S')
-            # prevent B (beginning) going to B (beginning), O (outside), S (single), or P - B must be followed by I or E
-            # prevent I (inside) going to B (beginning), O (outside), S (single), or P - I must be followed by I or E
-            # prevent E (end) going to I (inside) or E (end) - U must be followed by B, O, U, or P
-            # prevent S (single) going to I (inside) or E (end) - U must be followed by B, O, U, or P
-            # prevent O (outside) going to I (inside) or E (end) - O must be followed by B, O, U, or P
+            # prevent B (beginning) going to B (beginning), O (outside), or S (single) - B must be followed by I or E
+            # prevent I (inside) going to B (beginning), O (outside), or S (single) - I must be followed by I or E
+            # prevent E (end) going to I (inside) or E (end) - U must be followed by B, O, or U
+            # prevent S (single) going to I (inside) or E (end) - U must be followed by B, O, or U
+            # prevent O (outside) going to I (inside) or E (end) - O must be followed by B, O, or U
             self.invalid_transitions_position = {'B': 'BOS',
                                                  'I': 'BOS',
                                                  'E': 'IE',
