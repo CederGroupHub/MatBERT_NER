@@ -1,6 +1,6 @@
 from torch.nn import CrossEntropyLoss
 from transformers.models.bert.modeling_bert import BertModel
-from transformers.models.bert.modeling_bert import BertPreTrainedModel, BertForTokenClassification
+from transformers.models.bert.modeling_bert import BertPreTrainedModel
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
@@ -11,6 +11,7 @@ import torch.optim as optim
 from torchtools.optim import RangerLars
 from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup, get_cosine_with_hard_restarts_schedule_with_warmup
 import torchcrf
+
 
 class BertCRFNERModel(NERModel):
 
@@ -24,7 +25,7 @@ class BertCRFNERModel(NERModel):
         if full_finetuning:
             param_optimizer = list(self.model.named_parameters())
             no_decay = ['bias', 'gamma', 'beta']
-            optimizer_grouped_parameters = [{'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay_rate': 0.0},
+            optimizer_grouped_parameters = [{'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay_rate': 0.01},
                                             {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)],'weight_decay_rate': 0.0}]
         else:
             param_optimizer = [item for sblst in [list(module.named_parameters()) for module in self.model.model_modules[1:]] for item in sblst]
@@ -39,18 +40,13 @@ class BertCRFNERModel(NERModel):
         #                                             num_warmup_steps=len(train_dataloader),
         #                                             num_training_steps=n_epochs*len(train_dataloader),
         #                                             num_cycles=n_epochs/10)
-        warmup_epochs = 1
-        scheduler = get_linear_schedule_with_warmup(optimizer,
-                                                     num_warmup_steps=len(train_dataloader)*warmup_epochs,
-                                                     num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader))
-
-        #scheduler = get_linear_schedule_with_warmup(optimizer,
-        #                                             num_warmup_steps=warmup_epochs,
-        #                                             num_training_steps=n_epochs-warmup_epochs)
-        #scheduler = get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
-        #                                                               num_warmup_steps=0,
-        #                                                               num_training_steps=n_epochs*len(train_dataloader),
-        #                                                               num_cycles=n_epochs/5)
+        # scheduler = get_linear_schedule_with_warmup(optimizer,
+        #                                             num_warmup_steps=0,
+        #                                             num_training_steps=n_epochs*len(train_dataloader))
+        scheduler = get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
+                                                                       num_warmup_steps=0,
+                                                                       num_training_steps=n_epochs*len(train_dataloader),
+                                                                       num_cycles=n_epochs/5)
         return scheduler
 
 
@@ -61,23 +57,22 @@ class BertCRFNERModel(NERModel):
 class BertCrfForNer(BertPreTrainedModel):
     def __init__(self, config, tag_names, device):
         super(BertCrfForNer, self).__init__(config)
-        self.bert = BertModel(config).from_pretrained(config.model_name)
+        self.bert = BertModel(config)
         self._device = device
         self.use_lstm = False
         self.dropout_b = nn.Dropout(config.hidden_dropout_prob)
         self.model_modules = [self.bert, self.dropout_b]
         if self.use_lstm:
             self.lstm = nn.LSTM(batch_first=True, input_size=config.hidden_size,
-                                hidden_size=64, num_layers=4,
+                                hidden_size=64, num_layers=2,
                                 bidirectional=True, dropout=0.1)
             self.attn = nn.MultiheadAttention(embed_dim=128, num_heads=16, dropout=0.25)
             self.dropout_c = nn.Dropout(0.25)
             self.model_modules.extend([self.lstm, self.attn, self.dropout_c])
         self.classifier = nn.Linear(128 if self.use_lstm else config.hidden_size, config.num_labels)
-        #self.softmax = nn.Softmax()
         self.crf = CRF(tag_names=tag_names, batch_first=True)
         self.model_modules.extend([self.classifier, self.crf])
-        #self.init_weights()
+        self.init_weights()
 
 
     @property
@@ -95,22 +90,21 @@ class BertCrfForNer(BertPreTrainedModel):
                 position_ids=None, head_mask=None,
                 inputs_embeds=None, valid_mask=None,
                 labels=None, decode=False):
-        output = self.bert(input_ids=input_ids, attention_mask=attention_mask,
+        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask,
                             token_type_ids=token_type_ids, position_ids=position_ids,
                             head_mask=head_mask, inputs_embeds=inputs_embeds,
                             output_hidden_states=True)
         # sequence_output = [outputs[2][i] for i in (-1, -2, -3, -4)]
         # sequence_output = torch.mean(torch.stack(sequence_output), dim=0)
-        sequence_output = output[0]
+        sequence_output = outputs[0]
         sequence_output, attention_mask = valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask, self.device)
         sequence_output = self.dropout_b(sequence_output)
         if self.use_lstm:
             lstm_out, _ = self.lstm(sequence_output)
-            #attn_out, attn_weight = self.attn(lstm_out, lstm_out, lstm_out, key_padding_mask=attention_mask.permute(1, 0))
-            logits = self.classifier(self.dropout_c(lstm_out))
+            attn_out, attn_weight = self.attn(lstm_out, lstm_out, lstm_out, key_padding_mask=attention_mask.permute(1, 0))
+            logits = self.classifier(self.dropout_c(attn_out))
         else:
-            logits = self.classifier(sequence_output)
-            #logits = self.softmax(logits)
+            logits = self.classifier(sequence_output)     
         if decode:
             tags = self.crf.decode(logits, mask=attention_mask)
             outputs = (tags,)
@@ -165,10 +159,6 @@ class CRF(nn.Module):
             self.define_invalid_crf_transitions()
             # initialize transitions
             self.init_crf_transitions()
-            print(self.tag_names)
-            print(self.crf.start_transitions)
-            print(self.crf.end_transitions)
-            print(self.crf.transitions)
     
 
     def define_invalid_crf_transitions(self):
