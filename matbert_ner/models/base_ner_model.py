@@ -33,10 +33,8 @@ class NERModel(ABC):
         self.results_file = results_file
 
 
-    def process_tags(self, inputs, predicted, labels):
-        labels_list = list(labels.cpu().numpy())
-        prediction_list = predicted
-
+    def process_tags(self, inputs, predicted):
+        labels = list(inputs['labels'].cpu().numpy())
         batch_size, max_len = inputs['input_ids'].shape
         valid_attention_mask = np.zeros((batch_size, max_len), dtype=int)
         for i in range(batch_size):
@@ -47,10 +45,9 @@ class NERModel(ABC):
                     if inputs['input_ids'][i][j] not in (2, 3):
                         valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
         valid_attention_mask = list(valid_attention_mask)
-
-        prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(prediction_list, valid_attention_mask)]
-        label_tags = [[self.classes[ii] if ii>=0 else self.classes[0] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels_list, valid_attention_mask)]
-        return prediction_tags, label_tags, valid_attention_mask
+        prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(predicted, valid_attention_mask)]
+        label_tags = [[self.classes[ii] if ii>=0 else self.classes[0] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels, valid_attention_mask)]
+        return prediction_tags, label_tags
 
 
     def train(self, train_dataloader, n_epochs, val_dataloader=None, save_dir=None, full_finetuning=True):
@@ -90,9 +87,7 @@ class NERModel(ABC):
                 optimizer.step()
                 scheduler.step()
 
-                labels = inputs['labels']
-
-                prediction_tags, label_tags, valid_attention_mask = self.process_tags(inputs, predicted, labels)
+                prediction_tags, label_tags = self.process_tags(inputs, predicted)
 
                 metrics['loss'].append(loss.item())
                 metrics['accuracy_score'].append(accuracy_score(label_tags, prediction_tags))
@@ -173,16 +168,15 @@ class NERModel(ABC):
                     "labels": batch[4].to(self.device)
                 }
                 loss, predicted = self.model.forward(**inputs)
-                labels = inputs['labels']
 
-                prediction_tags, label_tags, valid_attention_mask = self.process_tags(inputs, predicted, labels)
+                prediction_tags, label_tags = self.process_tags(inputs, predicted)
 
                 metrics['loss'].append(loss.item())
                 metrics['accuracy_score'].append(accuracy_score(label_tags, prediction_tags))
                 metrics['f1_score'].append(f1_score(label_tags, prediction_tags))
                 means = [np.mean(metrics[metric]) for metric in metrics.keys()]
 
-                batch_range.set_description('| {} (rolling average) | loss: {:.4f} | accuracy score: {:.4f} | f1 score: {:.4f} |'.format(mode, *means))
+                batch_range.set_description('| {} | loss: {:.4f} | accuracy score: {:.4f} | f1 score: {:.4f} |'.format(mode, *means))
 
         if validate:
             if means[2] > self.val_f1_best:

@@ -25,7 +25,7 @@ class BertCRFNERModel(NERModel):
         if full_finetuning:
             param_optimizer = list(self.model.named_parameters())
             no_decay = ['bias', 'gamma', 'beta']
-            optimizer_grouped_parameters = [{'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay_rate': 0.01},
+            optimizer_grouped_parameters = [{'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay_rate': 0.0},
                                             {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)],'weight_decay_rate': 0.0}]
         else:
             param_optimizer = [item for sblst in [list(module.named_parameters()) for module in self.model.model_modules[1:]] for item in sblst]
@@ -41,13 +41,13 @@ class BertCRFNERModel(NERModel):
         #                                             num_warmup_steps=len(train_dataloader)*warmup_epochs,
         #                                             num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader),
         #                                             num_cycles=n_epochs/10)
-        # scheduler = get_linear_schedule_with_warmup(optimizer,
-        #                                             num_warmup_steps=len(train_dataloader)*warmup_epochs,
-        #                                             num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader))
-        scheduler = get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
-                                                                       num_warmup_steps=len(train_dataloader)*warmup_epochs,
-                                                                       num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader),
-                                                                       num_cycles=n_epochs/5)
+        scheduler = get_linear_schedule_with_warmup(optimizer,
+                                                    num_warmup_steps=len(train_dataloader)*warmup_epochs,
+                                                    num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader))
+        # scheduler = get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
+        #                                                                num_warmup_steps=len(train_dataloader)*warmup_epochs,
+        #                                                                num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader),
+        #                                                                num_cycles=n_epochs/5)
         return scheduler
 
 

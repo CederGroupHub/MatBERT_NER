@@ -19,7 +19,7 @@ models = {'bert': 'bert-base-uncased',
 
 splits = {'_iob2': [0.8, 0.1, 0.1]}
 for alias, split in splits.items():
-    for model_name in ['matbert']:
+    for model_name in ['matbert', 'scibert', 'bert']:
         save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
 
         ner_data = NERData(models[model_name], tag_format=tag_format)
