@@ -61,7 +61,7 @@ class BertCRFNERModel(NERModel):
 class BertCrfForNer(BertPreTrainedModel):
     def __init__(self, config, tag_names, device):
         super(BertCrfForNer, self).__init__(config)
-        self.bert = BertModel(config)
+        self.bert = BertModel(config).from_pretrained(config.model_name)
         self._device = device
         self.use_lstm = False
         self.dropout_b = nn.Dropout(config.hidden_dropout_prob)
@@ -92,7 +92,7 @@ class BertCrfForNer(BertPreTrainedModel):
                 attention_mask=None, token_type_ids=None,
                 position_ids=None, head_mask=None,
                 inputs_embeds=None, valid_mask=None,
-                labels=None, decode=False):
+                labels=None, decode=True):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask,
                             token_type_ids=token_type_ids, position_ids=position_ids,
                             head_mask=head_mask, inputs_embeds=inputs_embeds,
@@ -104,7 +104,7 @@ class BertCrfForNer(BertPreTrainedModel):
         sequence_output = self.dropout_b(sequence_output)
         if self.use_lstm:
             lstm_out, _ = self.lstm(sequence_output)
-            attn_out, attn_weight = self.attn(lstm_out, lstm_out, lstm_out, key_padding_mask=attention_mask.permute(1, 0))
+            attn_out, attn_weight = self.attn(lstm_out, lstm_out, lstm_out, key_padding_mask=attention_mask)
             logits = self.classifier(self.dropout_c(attn_out))
         else:
             logits = self.classifier(sequence_output)     
