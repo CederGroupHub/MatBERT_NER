@@ -11,20 +11,24 @@ torch.backends.cudnn.deterministic = True
 
 # datafile = 'data/impurityphase_fullparas.json'
 # datafile = 'data/aunpmorph_annotations_fullparas.json'
-# datafile = "data/bc5dr.jsom"
 datafile = "data/ner_annotations.json"
-tag_format = 'IOB2'
-n_epochs = 128
+
+n_epochs = 16
 crf_penalties = True
-full_finetuning = True
 
 device = "cuda"
 models = {'bert': 'bert-base-uncased',
           'scibert': 'allenai/scibert_scivocab_uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
-splits = {'_with_penalties_iob2': [0.8, 0.1, 0.1]}
-for alias, split in splits.items():
+configs = {'iob2_full': {'tag_format': 'IOB2', 'split': [0.8, 0.1, 0.1], 'full_finetuning': True},
+           'iob2_shallow': {'tag_format': 'IOB2', 'split': [0.8, 0.1, 0.1], 'full_finetuning': False},
+           'bioes_full': {'tag_format': 'BIOES', 'split': [0.8, 0.1, 0.1], 'full_finetuning': True},
+           'bioes_shallow': {'tag_format': 'BIOES', 'split': [0.8, 0.1, 0.1], 'full_finetuning': False}}
+for alias, config in configs.items():
+    tag_format = config['tag_format']
+    split = config['split']
+    full_finetuning = config['full_finetuning']
     for model_name in ['matbert', 'scibert', 'bert']:
         save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
 
