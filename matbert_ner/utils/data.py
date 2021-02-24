@@ -70,64 +70,68 @@ class NERData():
         #         max_sequence_length,
         # )
 
-        text = [[d['text'] for d in s] for a in data for s in a['tokens']]
-        annotation = [[d['annotation'] for d in s] for a in data for s in a['tokens']]
+        texts = [[d['text'] for d in s] for a in data for s in a['tokens']]
+        annotations = [[d['annotation'] for d in s] for a in data for s in a['tokens']]
         input_examples = []
         max_sequence_length = 0
-        for n, (txt, annt) in enumerate(zip(text, annotation)):
+        for n, (text, annotation) in enumerate(zip(texts, annotations)):
+            txt = []
             label = []
+            for i in range(sequence_length):
+                if text[i] in ['̄','̊']:
+                    continue
+                txt.append(text[i])
+                if self.tag_format == 'IOB':
+                    if annotation[i] in [None, 'PVL', 'PUT']:
+                        label.append('O')
+                    elif i == 0:
+                        if annotation[i+1] == annotation[i]:
+                            label.append('B-'+annotation[i])
+                        else:
+                            label.append('I-'+annotation[i])
+                    elif i > 0:
+                        if annotation[i-1] == annotation[i]:
+                            label.append('I-'+annotation[i])
+                        else:
+                            if annotation[i+1] == annotation[i]:
+                                label.append('B-'+annotation[i])
+                            else:
+                                label.append('I-'+annotation[i])
+                elif self.tag_format == 'IOB2':
+                    if annotation[i] in [None, 'PVL', 'PUT']:
+                        label.append('O')
+                    elif i == 0:
+                        label.append('B-'+annotation[i])
+                    elif i > 0:
+                        if annotation[i-1] == annotation[i]:
+                            label.append('I-'+annotation[i])
+                        else:
+                            label.append('B-'+annotation[i])
+                elif self.tag_format == 'BIOES':
+                    if annotation[i] in [None, 'PVL', 'PUT']:
+                        label.append('O')
+                    elif i == 0:
+                        if annotation[i+1] == annotation[i]:
+                            label.append('B-'+annotation[i])
+                        else:
+                            label.append('S-'+annotation[i])
+                    elif i > 0 and i < len(annotation)-1:
+                        if annotation[i-1] != annotation[i] and annotation[i+1] == annotation[i]:
+                            label.append('B-'+annotation[i])
+                        elif annotation[i-1] == annotation[i] and annotation[i+1] == annotation[i]:
+                            label.append('I-'+annotation[i])
+                        elif annotation[i-1] == annotation[i] and annotation[i+1] != annotation[i]:
+                            label.append('E-'+annotation[i])
+                        if annotation[i-1] != annotation[i] and annotation[i+1] != annotation[i]:
+                            label.append('S-'+annotation[i])
+                    elif i == len(annotation)-1:
+                        if annotation[i-1] == annotation[i]:
+                            label.append('E-'+annotation[i])
+                        if annotation[i-1] != annotation[i]:
+                            label.append('S-'+annotation[i])
             sequence_length = len(txt)
             if sequence_length > max_sequence_length:
                 max_sequence_length = sequence_length
-            for i in range(sequence_length):
-                if self.tag_format == 'IOB':
-                    if annt[i] in [None, 'PVL', 'PUT']:
-                        label.append('O')
-                    elif i == 0:
-                        if annt[i+1] == annt[i]:
-                            label.append('B-'+annt[i])
-                        else:
-                            label.append('I-'+annt[i])
-                    elif i > 0:
-                        if annt[i-1] == annt[i]:
-                            label.append('I-'+annt[i])
-                        else:
-                            if annt[i+1] == annt[i]:
-                                label.append('B-'+annt[i])
-                            else:
-                                label.append('I-'+annt[i])
-                elif self.tag_format == 'IOB2':
-                    if annt[i] in [None, 'PVL', 'PUT']:
-                        label.append('O')
-                    elif i == 0:
-                        label.append('B-'+annt[i])
-                    elif i > 0:
-                        if annt[i-1] == annt[i]:
-                            label.append('I-'+annt[i])
-                        else:
-                            label.append('B-'+annt[i])
-                elif self.tag_format == 'BIOES':
-                    if annt[i] in [None, 'PVL', 'PUT']:
-                        label.append('O')
-                    elif i == 0:
-                        if annt[i+1] == annt[i]:
-                            label.append('B-'+annt[i])
-                        else:
-                            label.append('S-'+annt[i])
-                    elif i > 0 and i < len(annt)-1:
-                        if annt[i-1] != annt[i] and annt[i+1] == annt[i]:
-                            label.append('B-'+annt[i])
-                        elif annt[i-1] == annt[i] and annt[i+1] == annt[i]:
-                            label.append('I-'+annt[i])
-                        elif annt[i-1] == annt[i] and annt[i+1] != annt[i]:
-                            label.append('E-'+annt[i])
-                        if annt[i-1] != annt[i] and annt[i+1] != annt[i]:
-                            label.append('S-'+annt[i])
-                    elif i == len(annt)-1:
-                        if annt[i-1] == annt[i]:
-                            label.append('E-'+annt[i])
-                        if annt[i-1] != annt[i]:
-                            label.append('S-'+annt[i])
             example = InputExample(n, txt, label)
             input_examples.append(example)
         
