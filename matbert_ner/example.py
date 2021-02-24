@@ -3,6 +3,11 @@ from utils.data import NERData
 import os
 import glob
 import json
+import torch
+
+seed = 256
+torch.manual_seed(seed)
+torch.backends.cudnn.deterministic = True
 
 # datafile = 'data/impurityphase_fullparas.json'
 # datafile = 'data/aunpmorph_annotations_fullparas.json'
@@ -26,7 +31,7 @@ for alias, split in splits.items():
         ner_data = NERData(models[model_name], tag_format=tag_format)
         ner_data.preprocess(datafile)
 
-        train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(train_frac=split[0], val_frac=split[1], dev_frac=split[2], batch_size=32)
+        train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders( batch_size=32, train_frac=split[0], val_frac=split[1], dev_frac=split[2], seed=seed)
         classes = ner_data.classes
 
         ner_model = BertCRFNERModel(modelname=models[model_name], classes=classes, tag_format=tag_format, crf_penalties=crf_penalties, device=device, lr=2e-4)

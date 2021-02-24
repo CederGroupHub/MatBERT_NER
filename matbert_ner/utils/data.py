@@ -144,7 +144,7 @@ class NERData():
         self.dataset = dataset
         return self
 
-    def create_dataloaders(self, batch_size=30, train_frac=None, val_frac=0.1, dev_frac=0.1, shuffle_dataset=True):
+    def create_dataloaders(self, batch_size=30, train_frac=None, val_frac=0.1, dev_frac=0.1, shuffle_dataset=True, seed=None):
         """
         Create train, val, and dev dataloaders from a preprocessed dataset
         Inputs:
@@ -165,7 +165,8 @@ class NERData():
         indices = list(range(dataset_size))
         dev_split = int(np.floor(dev_frac * dataset_size))
         val_split = int(np.floor(val_frac * dataset_size))+dev_split
-        if shuffle_dataset :
+        if shuffle_dataset:
+            np.random.seed(seed)
             np.random.shuffle(indices)
 
         dev_indices, val_indices = indices[:dev_split], indices[dev_split:val_split]
