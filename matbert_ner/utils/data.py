@@ -79,7 +79,7 @@ class NERData():
             sequence_length = len(txt)
             if sequence_length > max_sequence_length:
                 max_sequence_length = sequence_length
-            for i in range(seq_length):
+            for i in range(sequence_length):
                 if self.tag_format == 'IOB':
                     if annt[i] in [None, 'PVL', 'PUT']:
                         label.append('O')
