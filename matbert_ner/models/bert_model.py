@@ -40,14 +40,14 @@ class BertCRFNERModel(NERModel):
         # scheduler = get_cosine_schedule_with_warmup(optimizer,
         #                                             num_warmup_steps=len(train_dataloader)*warmup_epochs,
         #                                             num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader),
-        #                                             num_cycles=n_epochs/10)
+        #                                             num_cycles=(n_epochs-warmup_epochs)/10)
         scheduler = get_linear_schedule_with_warmup(optimizer,
                                                     num_warmup_steps=len(train_dataloader)*warmup_epochs,
                                                     num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader))
         # scheduler = get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
         #                                                                num_warmup_steps=len(train_dataloader)*warmup_epochs,
         #                                                                num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader),
-        #                                                                num_cycles=n_epochs/5)
+        #                                                                num_cycles=(n_epochs-warmup_epochs)/5)
         return scheduler
 
 
@@ -177,7 +177,7 @@ class CRF(nn.Module):
             self.invalid_transitions_position = {'B': 'BO'}
             # prevent B (beginning) going to I (inside) or B (beginning) of a different type
             self.invalid_transitions_tags = {'B': 'IB'}
-        if self.tag_format == 'IOB2':
+        elif self.tag_format == 'IOB2':
             # (B)eginning (I)nside (O)utside
             # must begin with O (outside) due to [CLS] token
             self.invalid_begin = ('B', 'I')
@@ -189,7 +189,7 @@ class CRF(nn.Module):
             # prevent I (inside) going to I (inside) of a different type
             self.invalid_transitions_tags = {'B': 'I',
                                              'I': 'I'}
-        if self.tag_format == 'BIOES':
+        elif self.tag_format == 'BIOES':
             # (B)eginning (I)nside (E)nd (S)ingle (O)utside
             # must begin with O (outside) due to [CLS] token
             self.invalid_begin = ('B', 'I', 'E', 'S')

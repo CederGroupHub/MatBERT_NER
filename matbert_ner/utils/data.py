@@ -32,43 +32,106 @@ class NERData():
 
         self.__get_tags(data[0]['labels'])
 
-        data = [[(d['text'],d['annotation']) for d in s] for a in data for s in a['tokens']]
+        # data = [[(d['text'],d['annotation']) for d in s] for a in data for s in a['tokens']]
 
+        # input_examples = []
+        # max_sequence_length = 0
+        # for i, d in enumerate(data):
+        #     labels = []
+        #     text = []
+        #     for t,l in d:
+
+        #         #This causes issues with BERT for some reason
+        #         if t in ['̄','̊']:
+        #             continue
+
+        #         text.append(t)
+        #         if l is None:
+        #             label = "O"
+        #         elif "PUT" in l or "PVL" in l:
+        #             label = "O"
+        #         else:
+        #             if len(labels) > 0 and l in labels[-1]:
+        #                 label = "I-{}".format(l)
+        #             else:
+        #                 label = "B-{}".format(l)
+        #         labels.append(label)
+
+        #     if len(text) > max_sequence_length:
+        #         max_sequence_length = len(text)
+
+        #     example = InputExample(i, text, labels)
+
+        #     input_examples.append(example)
+
+        # features = self.__convert_examples_to_features(
+        #         input_examples,
+        #         self.classes,
+        #         max_sequence_length,
+        # )
+
+        text = [[d['text'] for d in s] for a in data for s in a['tokens']]
+        annotation = [[d['annotation'] for d in s] for a in data for s in a['tokens']]
         input_examples = []
         max_sequence_length = 0
-        for i, d in enumerate(data):
-            labels = []
-            text = []
-            for t,l in d:
-
-                #This causes issues with BERT for some reason
-                if t in ['̄','̊']:
-                    continue
-
-                text.append(t)
-                if l is None:
-                    label = "O"
-                elif "PUT" in l or "PVL" in l:
-                    label = "O"
-                else:
-                    if len(labels) > 0 and l in labels[-1]:
-                        label = "I-{}".format(l)
-                    else:
-                        label = "B-{}".format(l)
-                labels.append(label)
-
-            if len(text) > max_sequence_length:
-                max_sequence_length = len(text)
-
-            example = InputExample(i, text, labels)
-
+        for n, (txt, annt) in enumerate(zip(text, annotation)):
+            label = []
+            sequence_length = len(txt)
+            if sequence_length > max_sequence_length:
+                max_sequence_length = sequence_length
+            for i in range(seq_length):
+                if self.tag_format == 'IOB':
+                    if annt[i] in [None, 'PVL', 'PUT']:
+                        label.append('O')
+                    elif i == 0:
+                        if annt[i+1] == annt[i]:
+                            label.append('B-'+annt[i])
+                        else:
+                            label.append('I-'+annt[i])
+                    elif i > 0:
+                        if annt[i-1] == annt[i]:
+                            label.append('I-'+annt[i])
+                        else:
+                            if annt[i+1] == annt[i]:
+                                label.append('B-'+annt[i])
+                            else:
+                                label.append('I-'+annt[i])
+                elif self.tag_format == 'IOB2':
+                    if annt[i] in [None, 'PVL', 'PUT']:
+                        label.append('O')
+                    elif i == 0:
+                        label.append('B-'+annt[i])
+                    elif i > 0:
+                        if annt[i-1] == annt[i]:
+                            label.append('I-'+annt[i])
+                        else:
+                            label.append('B-'+annt[i])
+                elif self.tag_format == 'BIOES':
+                    if annt[i] in [None, 'PVL', 'PUT']:
+                        label.append('O')
+                    elif i == 0:
+                        if annt[i+1] == annt[i]:
+                            label.append('B-'+annt[i])
+                        else:
+                            label.append('S-'+annt[i])
+                    elif i > 0 and i < len(annt)-1:
+                        if annt[i-1] != annt[i] and annt[i+1] == annt[i]:
+                            label.append('B-'+annt[i])
+                        elif annt[i-1] == annt[i] and annt[i+1] == annt[i]:
+                            label.append('I-'+annt[i])
+                        elif annt[i-1] == annt[i] and annt[i+1] != annt[i]:
+                            label.append('E-'+annt[i])
+                        if annt[i-1] != annt[i] and annt[i+1] != annt[i]:
+                            label.append('S-'+annt[i])
+                    elif i == len(annt)-1:
+                        if annt[i-1] == annt[i]:
+                            label.append('E-'+annt[i])
+                        if annt[i-1] != annt[i]:
+                            label.append('S-'+annt[i])
+            example = InputExample(n, txt, label)
             input_examples.append(example)
-
-        features = self.__convert_examples_to_features(
-                input_examples,
-                self.classes,
-                max_sequence_length,
-        )
+        
+        features = self.__convert_examples_to_features(input_examples, self.classes, max_sequence_length)
 
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
         all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
@@ -327,20 +390,31 @@ class NERData():
         Returns:
             chunk_end: boolean.
         """
+        # chunk_end = False
+
+        # if prev_tag == 'E': chunk_end = True
+        # if prev_tag == 'S': chunk_end = True
+
+        # if prev_tag == 'B' and tag == 'B': chunk_end = True
+        # if prev_tag == 'B' and tag == 'S': chunk_end = True
+        # if prev_tag == 'B' and tag == 'O': chunk_end = True
+        # if prev_tag == 'I' and tag == 'B': chunk_end = True
+        # if prev_tag == 'I' and tag == 'S': chunk_end = True
+        # if prev_tag == 'I' and tag == 'O': chunk_end = True
+
+        # if prev_tag != 'O' and prev_tag != '.' and prev_type != type_:
+        #     chunk_end = True
+
         chunk_end = False
-
-        if prev_tag == 'E': chunk_end = True
-        if prev_tag == 'S': chunk_end = True
-
-        if prev_tag == 'B' and tag == 'B': chunk_end = True
-        if prev_tag == 'B' and tag == 'S': chunk_end = True
-        if prev_tag == 'B' and tag == 'O': chunk_end = True
-        if prev_tag == 'I' and tag == 'B': chunk_end = True
-        if prev_tag == 'I' and tag == 'S': chunk_end = True
-        if prev_tag == 'I' and tag == 'O': chunk_end = True
-
-        if prev_tag != 'O' and prev_tag != '.' and prev_type != type_:
-            chunk_end = True
+        if self.tag_format == 'IOB':
+            if prev_tag == 'I' and tag in ['B', 'O']: chunk_end = True
+            if prev_tag == 'I' and tag == 'I' and prev_type != type_: chunk_end = True
+        if self.tag_format == 'IOB2':
+            if prev_tag == 'I' and tag in ['B', 'O']: chunk_end = True
+            if prev_tag == 'B' and tag == 'O': chunk_end = True
+            if prev_tag == 'B' and tag == 'B' and prev_type != type_: chunk_end = True
+        if self.tag_format == 'BIOES':
+            if prev_tag in ['E', 'S']: chunk_end = True
 
         return chunk_end
 
@@ -355,20 +429,30 @@ class NERData():
         Returns:
             chunk_start: boolean.
         """
+        # chunk_start = False
+
+        # if tag == 'B': chunk_start = True
+        # if tag == 'S': chunk_start = True
+
+        # if prev_tag == 'E' and tag == 'E': chunk_start = True
+        # if prev_tag == 'E' and tag == 'I': chunk_start = True
+        # if prev_tag == 'S' and tag == 'E': chunk_start = True
+        # if prev_tag == 'S' and tag == 'I': chunk_start = True
+        # if prev_tag == 'O' and tag == 'E': chunk_start = True
+        # if prev_tag == 'O' and tag == 'I': chunk_start = True
+
+        # if tag != 'O' and tag != '.' and prev_type != type_:
+        #     chunk_start = True
+
         chunk_start = False
-
-        if tag == 'B': chunk_start = True
-        if tag == 'S': chunk_start = True
-
-        if prev_tag == 'E' and tag == 'E': chunk_start = True
-        if prev_tag == 'E' and tag == 'I': chunk_start = True
-        if prev_tag == 'S' and tag == 'E': chunk_start = True
-        if prev_tag == 'S' and tag == 'I': chunk_start = True
-        if prev_tag == 'O' and tag == 'E': chunk_start = True
-        if prev_tag == 'O' and tag == 'I': chunk_start = True
-
-        if tag != 'O' and tag != '.' and prev_type != type_:
-            chunk_start = True
+        if self.tag_format == 'IOB':
+            if tag == 'B': chunk_start = True
+            if prev_tag == 'O' and tag == 'I': chunk_start = True
+            if prev_tag == 'I' and tag == 'I' and prev_type != type_: chunk_start = True
+        if self.tag_format == 'IOB2':
+            if tag == 'B': chunk_start = True
+        if self.tag_format == 'BIOES':
+            if tag in ['B', 'S']: chunk_start = True
 
         return chunk_start
 
@@ -428,8 +512,7 @@ class NERData():
             prefixes = ['I', 'B']
         elif self.tag_format == 'BIOES':
             prefixes = ['B', 'I', 'E', 'S']
-        for c in classes_raw:
-            classes.extend(['{}-{}'.format(p, c) for p in prefixes])
+        classes.extend(['{}-{}'.format(p, c) for p in prefixes for c in classes_raw])
 
         self.classes = classes
 

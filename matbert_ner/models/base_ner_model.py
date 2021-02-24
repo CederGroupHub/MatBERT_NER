@@ -95,7 +95,7 @@ class NERModel(ABC):
                 metrics['f1_score'].append(f1_score(label_tags, prediction_tags))
                 means = [np.mean(metrics[metric]) for metric in metrics.keys()]
 
-                batch_range.set_description('| training | epoch: {:d}/{:d} | loss: {:.4f} | accuracy score: {:.4f} | f1 score: {:.4f} |'.format(epoch+1, n_epochs, *means))
+                batch_range.set_description('| epoch: {:d}/{:d} | training | loss: {:.4f} | accuracy score: {:.4f} | f1 score: {:.4f} |'.format(epoch+1, n_epochs, *means))
             
             save_path = os.path.join(save_dir, "epoch_{}.pt".format(epoch))
             torch.save(self.model.state_dict(), save_path)

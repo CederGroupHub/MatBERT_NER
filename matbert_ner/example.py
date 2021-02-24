@@ -10,7 +10,7 @@ import json
 datafile = "data/ner_annotations.json"
 tag_format = 'IOB2'
 n_epochs = 128
-crf_penalties = False
+crf_penalties = True
 full_finetuning = True
 
 device = "cuda"
@@ -18,7 +18,7 @@ models = {'bert': 'bert-base-uncased',
           'scibert': 'allenai/scibert_scivocab_uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
-splits = {'_without_penalties_iob2': [0.8, 0.1, 0.1]}
+splits = {'_with_penalties_iob2': [0.8, 0.1, 0.1]}
 for alias, split in splits.items():
     for model_name in ['matbert', 'scibert', 'bert']:
         save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
