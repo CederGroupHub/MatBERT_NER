@@ -77,6 +77,7 @@ class NERData():
         for n, (text, annotation) in enumerate(zip(texts, annotations)):
             txt = []
             label = []
+            sequence_length = len(text)
             for i in range(sequence_length):
                 if text[i] in ['̄','̊']:
                     continue
