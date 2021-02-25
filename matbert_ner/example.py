@@ -11,7 +11,8 @@ torch.backends.cudnn.deterministic = True
 
 # datafile = 'data/impurityphase_fullparas.json'
 # datafile = 'data/aunpmorph_annotations_fullparas.json'
-datafile = "data/ner_annotations.json"
+# datafile = 'data/ner_annotations.json'
+datafile = 'data/doping.json'
 
 n_epochs = 16
 crf_penalties = True
@@ -21,10 +22,10 @@ models = {'bert': 'bert-base-uncased',
           'scibert': 'allenai/scibert_scivocab_uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
-configs = {'iob2_full': {'tag_format': 'IOB2', 'split': [0.8, 0.1, 0.1], 'full_finetuning': True},
-           'iob2_shallow': {'tag_format': 'IOB2', 'split': [0.8, 0.1, 0.1], 'full_finetuning': False},
-           'bioes_full': {'tag_format': 'BIOES', 'split': [0.8, 0.1, 0.1], 'full_finetuning': True},
-           'bioes_shallow': {'tag_format': 'BIOES', 'split': [0.8, 0.1, 0.1], 'full_finetuning': False}}
+configs = {'_doping_iob2_full': {'tag_format': 'IOB2', 'split': [0.8, 0.1, 0.1], 'full_finetuning': True},
+           '_doping_iob2_shallow': {'tag_format': 'IOB2', 'split': [0.8, 0.1, 0.1], 'full_finetuning': False},
+           '_doping_bioes_full': {'tag_format': 'BIOES', 'split': [0.8, 0.1, 0.1], 'full_finetuning': True},
+           '_doping_bioes_shallow': {'tag_format': 'BIOES', 'split': [0.8, 0.1, 0.1], 'full_finetuning': False}}
 for alias, config in configs.items():
     tag_format = config['tag_format']
     split = config['split']
