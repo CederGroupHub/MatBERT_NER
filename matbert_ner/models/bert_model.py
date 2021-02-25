@@ -29,6 +29,7 @@ class BertCRFNERModel(NERModel):
         else:
             param_optimizer = [item for sblst in [list(module.named_parameters()) for module in self.model.model_modules[1:]] for item in sblst]
             optimizer_grouped_parameters = [{"params": [p for n, p in param_optimizer]}]
+
         optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.lr, eps=1e-8)
         return optimizer
 
@@ -62,7 +63,7 @@ class BertCrfForNer(BertPreTrainedModel):
         self.model_modules = [self.bert, self.dropout_b]
         if self.use_lstm:
             self.lstm = nn.LSTM(batch_first=True, input_size=config.hidden_size,
-                                hidden_size=64, num_layers=2,
+                                hidden_size=64, num_layers=4,
                                 bidirectional=True, dropout=0.1)
             self.attn = nn.MultiheadAttention(embed_dim=128, num_heads=16, dropout=0.25)
             self.dropout_c = nn.Dropout(0.25)
@@ -91,7 +92,7 @@ class BertCrfForNer(BertPreTrainedModel):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask,
                             token_type_ids=token_type_ids, position_ids=position_ids,
                             head_mask=head_mask, inputs_embeds=inputs_embeds,
-                            output_hidden_states=True)
+                            output_hidden_states=False)
         # sequence_output = [outputs[2][i] for i in (-1, -2, -3, -4)]
         # sequence_output = torch.mean(torch.stack(sequence_output), dim=0)
         sequence_output = outputs[0]
@@ -99,8 +100,9 @@ class BertCrfForNer(BertPreTrainedModel):
         sequence_output = self.dropout_b(sequence_output)
         if self.use_lstm:
             lstm_out, _ = self.lstm(sequence_output)
-            attn_out, attn_weight = self.attn(lstm_out, lstm_out, lstm_out, key_padding_mask=attention_mask.permute(1, 0))
-            logits = self.classifier(self.dropout_c(attn_out))
+            # attn_out, attn_weight = self.attn(lstm_out, lstm_out, lstm_out, key_padding_mask=attention_mask.permute(1, 0))
+            logits = self.classifier(self.dropout_c(lstm_out))
+            # print(logits.shape)
         else:
             logits = self.classifier(sequence_output)     
         if decode:
