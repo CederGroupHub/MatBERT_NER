@@ -32,44 +32,6 @@ class NERData():
 
         self.__get_tags(data[0]['labels'])
 
-        # data = [[(d['text'],d['annotation']) for d in s] for a in data for s in a['tokens']]
-
-        # input_examples = []
-        # max_sequence_length = 0
-        # for i, d in enumerate(data):
-        #     labels = []
-        #     text = []
-        #     for t,l in d:
-
-        #         #This causes issues with BERT for some reason
-        #         if t in ['̄','̊']:
-        #             continue
-
-        #         text.append(t)
-        #         if l is None:
-        #             label = "O"
-        #         elif "PUT" in l or "PVL" in l:
-        #             label = "O"
-        #         else:
-        #             if len(labels) > 0 and l in labels[-1]:
-        #                 label = "I-{}".format(l)
-        #             else:
-        #                 label = "B-{}".format(l)
-        #         labels.append(label)
-
-        #     if len(text) > max_sequence_length:
-        #         max_sequence_length = len(text)
-
-        #     example = InputExample(i, text, labels)
-
-        #     input_examples.append(example)
-
-        # features = self.__convert_examples_to_features(
-        #         input_examples,
-        #         self.classes,
-        #         max_sequence_length,
-        # )
-
         texts = [[d['text'] for d in s] for a in data for s in a['tokens']]
         annotations = [[d['annotation'] for d in s] for a in data for s in a['tokens']]
         input_examples = []
@@ -396,20 +358,6 @@ class NERData():
         Returns:
             chunk_end: boolean.
         """
-        # chunk_end = False
-
-        # if prev_tag == 'E': chunk_end = True
-        # if prev_tag == 'S': chunk_end = True
-
-        # if prev_tag == 'B' and tag == 'B': chunk_end = True
-        # if prev_tag == 'B' and tag == 'S': chunk_end = True
-        # if prev_tag == 'B' and tag == 'O': chunk_end = True
-        # if prev_tag == 'I' and tag == 'B': chunk_end = True
-        # if prev_tag == 'I' and tag == 'S': chunk_end = True
-        # if prev_tag == 'I' and tag == 'O': chunk_end = True
-
-        # if prev_tag != 'O' and prev_tag != '.' and prev_type != type_:
-        #     chunk_end = True
 
         chunk_end = False
         if self.tag_format == 'IOB':
@@ -435,20 +383,6 @@ class NERData():
         Returns:
             chunk_start: boolean.
         """
-        # chunk_start = False
-
-        # if tag == 'B': chunk_start = True
-        # if tag == 'S': chunk_start = True
-
-        # if prev_tag == 'E' and tag == 'E': chunk_start = True
-        # if prev_tag == 'E' and tag == 'I': chunk_start = True
-        # if prev_tag == 'S' and tag == 'E': chunk_start = True
-        # if prev_tag == 'S' and tag == 'I': chunk_start = True
-        # if prev_tag == 'O' and tag == 'E': chunk_start = True
-        # if prev_tag == 'O' and tag == 'I': chunk_start = True
-
-        # if tag != 'O' and tag != '.' and prev_type != type_:
-        #     chunk_start = True
 
         chunk_start = False
         if self.tag_format == 'IOB':

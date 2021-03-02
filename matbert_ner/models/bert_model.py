@@ -17,7 +17,7 @@ class BertCRFNERModel(NERModel):
 
 
     def initialize_model(self):
-        ner_model = BertCrfForNer(self.config, self.classes, self.tag_format, self.crf_penalties, self.device).to(self.device)
+        ner_model = BertCrfForNer(self.config, self.classes, self.tag_format, self.crf_decode, self.crf_penalties, self.device).to(self.device)
         return ner_model
 
 
@@ -56,11 +56,13 @@ class BertCRFNERModel(NERModel):
 
 
 class BertCrfForNer(BertPreTrainedModel):
-    def __init__(self, config, tag_names, tag_format, crf_penalties, device):
+    def __init__(self, config, tag_names, tag_format, crf_decode, crf_penalties, device):
         super(BertCrfForNer, self).__init__(config)
         self.bert = BertModel(config).from_pretrained(config.model_name)
         self._device = device
         self.use_lstm = False
+        self.crf_decode = crf_decode
+        self.crf_penalties = crf_penalties
         self.dropout_b = nn.Dropout(config.hidden_dropout_prob)
         self.model_modules = [self.bert, self.dropout_b]
         if self.use_lstm:
@@ -71,9 +73,10 @@ class BertCrfForNer(BertPreTrainedModel):
             self.dropout_c = nn.Dropout(0.25)
             self.model_modules.extend([self.lstm, self.attn, self.dropout_c])
         self.classifier = nn.Linear(128 if self.use_lstm else config.hidden_size, config.num_labels)
+        self.model_modules.append(self.classifier)
         self.crf = CRF(tag_names=tag_names, tag_format=tag_format, batch_first=True)
-        self.crf.initialize(crf_penalties)
-        self.model_modules.extend([self.classifier, self.crf])
+        self.crf.initialize(self.crf_penalties)
+        self.model_modules.append(self.crf)
 
 
     @property
@@ -105,14 +108,17 @@ class BertCrfForNer(BertPreTrainedModel):
             attn_out, attn_weight = self.attn(lstm_out, lstm_out, lstm_out, key_padding_mask=attention_mask)
             logits = self.classifier(self.dropout_c(attn_out))
         else:
-            logits = self.classifier(sequence_output)     
-        tags = self.crf.decode(logits, mask=attention_mask)
-        outputs = (tags,)
+            logits = self.classifier(sequence_output)
+        if self.crf_decode:
+            preditions = self.crf.decode(logits, mask=attention_mask)
+            outputs = (predictions,)
+        else:
+            outputs = (logits,)
         if labels is not None:
             labels = torch.where(labels >= 0, labels, torch.zeros_like(labels))
             loss = -self.crf(logits, labels, mask=attention_mask)
             outputs = (loss,) + outputs
-        return outputs  # loss, scores
+        return outputs  # loss, logits/predictions
 
 
     def document_embedding(self, input_ids,
@@ -189,7 +195,7 @@ class CRF(nn.Module):
             # prevent I (inside) going to I (inside) of a different type
             self.invalid_transitions_tags = {'B': 'I',
                                              'I': 'I'}
-        elif self.tag_format == 'BIOES':
+        elif self.tag_format == 'IOBES':
             # (B)eginning (I)nside (E)nd (S)ingle (O)utside
             # must begin with O (outside) due to [CLS] token
             self.invalid_begin = ('B', 'I', 'E', 'S')
@@ -246,6 +252,6 @@ class CRF(nn.Module):
         return crf_out
 
 
-    def forward(self, emissions, tags, mask, reduction='sum'):
+    def forward(self, emissions, tags, mask, reduction='mean'):
         crf_loss = self.crf(emissions, tags=tags, mask=mask, reduction=reduction)
         return crf_loss

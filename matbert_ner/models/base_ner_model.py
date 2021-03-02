@@ -9,7 +9,8 @@ from itertools import product
 from transformers import BertTokenizer, AutoConfig, get_linear_schedule_with_warmup
 from tqdm import tqdm
 from utils.metrics import accuracy
-from seqeval.metrics import accuracy_score, f1_score
+from seqeval.metrics import accuracy_score, precision_score, recall_score, f1_score
+from seqeval.scheme import IOB1, IOB2, IOBES
 import torch.optim as optim
 import numpy as np
 from abc import ABC, abstractmethod
@@ -19,11 +20,19 @@ class NERModel(ABC):
     A wrapper class for transformers models, implementing train, predict, and evaluate methods
     """
 
-    def __init__(self, modelname="allenai/scibert_scivocab_cased", classes = ["O"], tag_format='IOB2', crf_penalties=False, device="cpu", lr=5e-5, results_file=None):
+    def __init__(self, modelname="allenai/scibert_scivocab_cased", classes = ["O"], tag_format='IOB2', crf_decode=True, crf_penalties=True, device="cpu", lr=5e-5, results_file=None):
         self.modelname = modelname
         self.tokenizer = BertTokenizer.from_pretrained(modelname)
         self.classes = classes
         self.tag_format = tag_format
+        self.metric_mode = 'strict'
+        if self.tag_format == 'IOB1':
+            self.metric_scheme = IOB1
+        elif self.tag_format == 'IOB2':
+            self.metric_scheme = IOB2
+        elif self.tag_format == 'IOBES':
+            self.metric_scheme = IOBES
+        self.crf_decode = crf_decode
         self.crf_penalties = crf_penalties
         self.config = AutoConfig.from_pretrained(modelname)
         self.config.num_labels = len(self.classes)
@@ -51,7 +60,7 @@ class NERModel(ABC):
         return prediction_tags, label_tags
 
 
-    def train(self, train_dataloader, n_epochs, val_dataloader=None, save_dir=None, full_finetuning=True):
+    def train(self, train_dataloader, n_epochs, val_dataloader=None, dev_dataloader=None, save_dir=None, full_finetuning=True):
         """
         Train the model
         Inputs:
@@ -72,7 +81,7 @@ class NERModel(ABC):
         for epoch in range(n_epochs):
             self.model.train()
 
-            metrics = {'loss': [], 'accuracy_score': [], 'f1_score': []}
+            metrics = {'loss': [], 'accuracy_score': [], 'precision_score': [], 'recall_score': [], 'f1_score': []}
             batch_range = tqdm(train_dataloader, desc='')
 
             for i, batch in enumerate(batch_range):
@@ -82,7 +91,12 @@ class NERModel(ABC):
                           "labels": batch[4].to(self.device, non_blocking=True)}
 
                 optimizer.zero_grad()
-                loss, predicted = self.model.forward(**inputs)
+                if self.crf_decode:
+                    loss, predicted = self.model.forward(**inputs)
+                else:
+                    loss, logit = self.model.forward(**inputs)
+                    logit = logit.detach().cpu().numpy()
+                    predicted = [list(p) for p in np.argmax(logit, axis=2)]
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(parameters=self.model.parameters(), max_norm=1.0)
                 optimizer.step()
@@ -92,10 +106,12 @@ class NERModel(ABC):
 
                 metrics['loss'].append(loss.item())
                 metrics['accuracy_score'].append(accuracy_score(label_tags, prediction_tags))
-                metrics['f1_score'].append(f1_score(label_tags, prediction_tags))
+                metrics['precision_score'].append(accuracy_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme))
+                metrics['recall_score'].append(accuracy_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme))
+                metrics['f1_score'].append(f1_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme))
                 means = [np.mean(metrics[metric]) for metric in metrics.keys()]
 
-                batch_range.set_description('| epoch: {:d}/{:d} | training | loss: {:.4f} | accuracy score: {:.4f} | f1 score: {:.4f} |'.format(epoch+1, n_epochs, *means))
+                batch_range.set_description('| epoch: {:d}/{:d} | training | loss: {:.4f} | accuracy: {:.4f} | precision: {:.4f} | recall: {:.4f} | f1: {:.4f} |'.format(epoch+1, n_epochs, *means))
             
             save_path = os.path.join(save_dir, "epoch_{}.pt".format(epoch))
             torch.save(self.model.state_dict(), save_path)
@@ -106,11 +122,13 @@ class NERModel(ABC):
                 val_metrics = self.evaluate(val_dataloader, validate=True, save_path=os.path.join(save_dir, "best.pt"))
                 epoch_metrics['validation']['epoch_{}'.format(epoch)] = val_metrics
 
-        if val_dataloader is not None:
+        if dev_dataloader is not None:
             # Restore weights of best model after training if we can
             save_path = os.path.join(save_dir, "best.pt")
             self.model.load_state_dict(torch.load(save_path))
-            self.evaluate(val_dataloader, validate=False)
+            dev_metrics, dev_predictions, dev_labels = self.evaluate(dev_dataloader, validate=False)
+            test_save_path = os.path.join(save_dir, 'test.pt')
+            torch.save((dev_metrics, dev_predictions, dev_labels), test_save_path)
         
         history_save_path = os.path.join(save_dir, 'history.pt')
         torch.save(epoch_metrics, history_save_path)
@@ -158,7 +176,10 @@ class NERModel(ABC):
             mode = 'validation'
         else:
             mode = 'test'
-        metrics = {'loss': [], 'accuracy_score': [], 'f1_score': []}
+        if mode == 'test':
+            prediction_tags_all = []
+            label_tags_all = []
+        metrics = {'loss': [], 'accuracy_score': [], 'precision_score': [], 'recall_score': [], 'f1_score': []}
         batch_range = tqdm(dataloader, desc='')
         with torch.no_grad():
             for batch in batch_range:
@@ -168,27 +189,40 @@ class NERModel(ABC):
                     "valid_mask": batch[2].to(self.device),
                     "labels": batch[4].to(self.device)
                 }
-                loss, predicted = self.model.forward(**inputs)
+                if self.crf_decode:
+                    loss, predicted = self.model.forward(**inputs)
+                else:
+                    loss, logit = self.model.forward(**inputs)
+                    logit = logit.detach().cpu().numpy()
+                    predicted = [list(p) for p in np.argmax(logit, axis=2)]
 
                 prediction_tags, label_tags = self.process_tags(inputs, predicted)
+                if mode == 'test':
+                    prediction_tags_all.extend(prediction_tags)
+                    label_tags_all.extend(label_tags)
 
                 metrics['loss'].append(loss.item())
                 metrics['accuracy_score'].append(accuracy_score(label_tags, prediction_tags))
-                metrics['f1_score'].append(f1_score(label_tags, prediction_tags))
+                metrics['precision_score'].append(accuracy_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme))
+                metrics['recall_score'].append(accuracy_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme))
+                metrics['f1_score'].append(f1_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme))
                 means = [np.mean(metrics[metric]) for metric in metrics.keys()]
 
-                batch_range.set_description('| {} | loss: {:.4f} | accuracy score: {:.4f} | f1 score: {:.4f} |'.format(mode, *means))
+                batch_range.set_description('| {} | loss: {:.4f} | accuracy: {:.4f} | precision: {:.4f} | recall: {:.4f} | f1: {:.4f} |'.format(mode, *means))
 
         if validate:
-            if means[2] > self.val_f1_best:
+            if means[4] > self.val_f1_best:
                 torch.save(self.model.state_dict(), save_path)
-                self.val_f1_best = means[2]
+                self.val_f1_best = means[4]
         elif self.results_file is not None:
             eval_loss
             with open(self.results_file, "a+") as f:
-                f.write("{}\t{}\t{}\t{}\t{}\t{}\n".format(self.model[0], lr, n_epochs, *means))
+                f.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(self.model[0], lr, n_epochs, *means))
 
-        return metrics
+        if mode == 'test':
+            return metrics, prediction_tags_all, label_tags_all
+        else:
+            return metrics
 
     def predict(self, data, trained_model=None, labels=None):
         self.model.eval()
