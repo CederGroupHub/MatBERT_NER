@@ -93,7 +93,7 @@ class BertCrfForNer(BertPreTrainedModel):
                 attention_mask=None, token_type_ids=None,
                 position_ids=None, head_mask=None,
                 inputs_embeds=None, valid_mask=None,
-                labels=None, decode=False):
+                labels=None, decode=False, reduction='sum'):
         output = self.bert(input_ids=input_ids, attention_mask=attention_mask,
                             token_type_ids=token_type_ids, position_ids=position_ids,
                             head_mask=head_mask, inputs_embeds=inputs_embeds,
@@ -120,7 +120,7 @@ class BertCrfForNer(BertPreTrainedModel):
         if labels is not None:
             labels = torch.where(labels >= 0, labels, torch.zeros_like(labels))
             # loss = -self.crf(logits[:, 1:], labels[:, 1:], mask=attention_mask[:, 1:])
-            loss = -self.crf(logits, labels, mask=attention_mask)
+            loss = -self.crf(logits, labels, mask=attention_mask,reduction=reduction)
             outputs = (loss,) + outputs
         return outputs  # loss, scores
 
@@ -133,8 +133,9 @@ class BertCrfForNer(BertPreTrainedModel):
                             token_type_ids=token_type_ids, position_ids=position_ids,
                             head_mask=head_mask, inputs_embeds=inputs_embeds,
                             output_hidden_states=True)
-        sequence_output = [outputs[2][i] for i in (-1, -2, -3, -4)]
-        sequence_output = torch.mean(torch.mean(torch.stack(sequence_output), dim=0), dim=1)
+        # sequence_output = [outputs[2][i] for i in (-1, -2, -3, -4)]
+        # sequence_output = torch.mean(torch.mean(torch.stack(sequence_output), dim=0), dim=1)
+        sequence_output = torch.mean(outputs[0], dim=1)
         return sequence_output
 
 
