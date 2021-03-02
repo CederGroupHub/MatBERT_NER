@@ -110,7 +110,7 @@ class BertCrfForNer(BertPreTrainedModel):
         else:
             logits = self.classifier(sequence_output)
         if self.crf_decode:
-            preditions = self.crf.decode(logits, mask=attention_mask)
+            predictions = self.crf.decode(logits, mask=attention_mask)
             outputs = (predictions,)
         else:
             outputs = (logits,)
