@@ -8,9 +8,9 @@ import json
 import numpy as np
 
 # datafile = 'data/impurityphase_fullparas.json'
-# datafile = 'data/aunpmorph_annotations_fullparas.json'
+datafile = 'data/aunpmorph_annotations_fullparas.json'
 #datafile = "data/bc5dr.json"
-datafile = "data/ner_annotations.json"
+# datafile = "data/ner_annotations.json"
 n_epochs = 2
 full_finetuning = True
 
@@ -79,9 +79,16 @@ dev_doc_dots = torch.einsum("ij,kj->ik", dev_doc_embs, train_doc_embs)
 
 dev_doc_cosine_sims = torch.div(dev_doc_dots, norms) 
 
-dev_doc_dots = torch.max(dev_doc_dots, dim=1)[0]
-dev_doc_cosine_sims = torch.max(dev_doc_cosine_sims, dim=1)[0]
-print(dev_doc_dots)
+knn = 5
+
+dev_doc_dots = torch.sort(dev_doc_dots,descending=True)[0][:,:5]
+dev_doc_dots = torch.mean(dev_doc_dots,dim=1)   
+
+dev_doc_cosine_sims = torch.sort(dev_doc_cosine_sims,descending=True)[0][:,:5]
+dev_doc_cosine_sims = torch.mean(dev_doc_cosine_sims,dim=1)   
+
+# dev_doc_dots = torch.max(dev_doc_dots, dim=1)[0]
+# dev_doc_cosine_sims = torch.max(dev_doc_cosine_sims, dim=1)[0]
 
 # dev_doc_dots = torch.einsum("ij,j->i", dev_doc_embs, mean_train_doc_emb)
 
