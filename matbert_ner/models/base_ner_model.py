@@ -106,8 +106,8 @@ class NERModel(ABC):
 
                 metrics['loss'].append(loss.item())
                 metrics['accuracy_score'].append(accuracy_score(label_tags, prediction_tags))
-                metrics['precision_score'].append(accuracy_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme))
-                metrics['recall_score'].append(accuracy_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme))
+                metrics['precision_score'].append(precision_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme))
+                metrics['recall_score'].append(recall_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme))
                 metrics['f1_score'].append(f1_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme))
                 means = [np.mean(metrics[metric]) for metric in metrics.keys()]
 
@@ -203,8 +203,8 @@ class NERModel(ABC):
 
                 metrics['loss'].append(loss.item())
                 metrics['accuracy_score'].append(accuracy_score(label_tags, prediction_tags))
-                metrics['precision_score'].append(accuracy_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme))
-                metrics['recall_score'].append(accuracy_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme))
+                metrics['precision_score'].append(precision_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme))
+                metrics['recall_score'].append(recall_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme))
                 metrics['f1_score'].append(f1_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme))
                 means = [np.mean(metrics[metric]) for metric in metrics.keys()]
 
