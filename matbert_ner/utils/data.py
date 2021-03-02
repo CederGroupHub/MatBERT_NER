@@ -70,7 +70,7 @@ class NERData():
                             label.append('I-'+annotation[i])
                         else:
                             label.append('B-'+annotation[i])
-                elif self.tag_format == 'BIOES':
+                elif self.tag_format == 'IOBES:
                     if annotation[i] in [None, 'PVL', 'PUT']:
                         label.append('O')
                     elif i == 0:
@@ -367,7 +367,7 @@ class NERData():
             if prev_tag == 'I' and tag in ['B', 'O']: chunk_end = True
             if prev_tag == 'B' and tag == 'O': chunk_end = True
             if prev_tag == 'B' and tag == 'B' and prev_type != type_: chunk_end = True
-        if self.tag_format == 'BIOES':
+        if self.tag_format == 'IOBES':
             if prev_tag in ['E', 'S']: chunk_end = True
 
         return chunk_end
@@ -391,7 +391,7 @@ class NERData():
             if prev_tag == 'I' and tag == 'I' and prev_type != type_: chunk_start = True
         if self.tag_format == 'IOB2':
             if tag == 'B': chunk_start = True
-        if self.tag_format == 'BIOES':
+        if self.tag_format == 'IOBES':
             if tag in ['B', 'S']: chunk_start = True
 
         return chunk_start
@@ -450,7 +450,7 @@ class NERData():
         classes = ["O"]
         if self.tag_format in ['IOB', 'IOB2']:
             prefixes = ['I', 'B']
-        elif self.tag_format == 'BIOES':
+        elif self.tag_format == 'IOBES':
             prefixes = ['B', 'I', 'E', 'S']
         classes.extend(['{}-{}'.format(p, c) for p in prefixes for c in classes_raw])
 
