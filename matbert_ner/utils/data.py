@@ -70,7 +70,7 @@ class NERData():
                             label.append('I-'+annotation[i])
                         else:
                             label.append('B-'+annotation[i])
-                elif self.tag_format == 'IOBES:
+                elif self.tag_format == 'IOBES':
                     if annotation[i] in [None, 'PVL', 'PUT']:
                         label.append('O')
                     elif i == 0:
