@@ -9,9 +9,9 @@ import numpy as np
 from itertools import product
 
 # datafile = 'data/impurityphase_fullparas.json'
-# datafile = 'data/aunpmorph_annotations_fullparas.json'
+datafile = 'data/aunpmorph_annotations_fullparas.json'
 #datafile = "data/bc5dr.json"
-datafile = "data/ner_annotations.json"
+# datafile = "data/ner_annotations.json"
 n_epochs = 4
 full_finetuning = True
 
@@ -26,11 +26,32 @@ ner_data.preprocess(datafile)
 train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(train_frac=0.7, val_frac=0.01, dev_frac=0.29 , batch_size=20)
 classes = ner_data.classes
 
+def flatten(x):
+    return [y for z in x for y in z]
 ner_model = BertCRFNERModel(modelname=model, classes=classes, device=device, lr=2e-4)
 print('{} classes: {}'.format(len(ner_model.classes),' '.join(ner_model.classes)))
 print(ner_model.model)
-dev_doc_embs = []
 ner_model.model.eval()
+
+train_doc_embs = []
+ner_model.model.eval()
+train_vocab = set()
+
+with torch.no_grad():
+    for batch in train_dataloader:
+        inputs = {
+            "input_ids": batch[0].to(device),
+            "attention_mask": batch[1].to(device),
+        }
+        train_vocab.update(flatten(batch[0].detach().cpu().tolist()))
+        doc_embs = ner_model.document_embeddings(**inputs)
+        train_doc_embs.append(doc_embs.detach().cpu())
+train_doc_embs = torch.cat(train_doc_embs)
+mean_train_doc_emb = torch.mean(train_doc_embs, dim=0)
+
+
+dev_doc_embs = []
+dev_unique_tokens = []
 with torch.no_grad():
     for batch in dev_dataloader:
         inputs = {
@@ -39,19 +60,10 @@ with torch.no_grad():
         }
         doc_embs = ner_model.document_embeddings(**inputs)
         dev_doc_embs.append(doc_embs.detach().cpu())
+        tokens = set(flatten(batch[0].detach().cpu().tolist()))
+        unique_tokens = tokens - tokens.intersection(train_vocab)
+        dev_unique_tokens.append(len(unique_tokens))
 dev_doc_embs = torch.cat(dev_doc_embs)
-train_doc_embs = []
-ner_model.model.eval()
-with torch.no_grad():
-    for batch in train_dataloader:
-        inputs = {
-            "input_ids": batch[0].to(device),
-            "attention_mask": batch[1].to(device),
-        }
-        doc_embs = ner_model.document_embeddings(**inputs)
-        train_doc_embs.append(doc_embs.detach().cpu())
-train_doc_embs = torch.cat(train_doc_embs)
-mean_train_doc_emb = torch.mean(train_doc_embs, dim=0)
 
 # , val_dataloader=val_dataloader
 ner_model.train(train_dataloader, n_epochs=n_epochs, save_dir=save_dir, full_finetuning=full_finetuning)
@@ -111,6 +123,6 @@ dev_dists_knn = torch.mean(dev_dists_knn,dim=1)
 # dev_doc_cosine_sims = torch.nn.CosineSimilarity(dim=1)(dev_doc_embs, torch.unsqueeze(mean_train_doc_emb, dim=0))
 
 
-with open("dev_losses_dot_top_4.csv",'w') as f:
-    for l,d,c,k in zip(dev_losses.cpu().numpy(), dev_doc_dots.cpu().numpy(), dev_dists_mins.cpu().numpy(), dev_dists_knn.cpu().numpy()):
-        f.write("{},{},{},{}\n".format(l,d,c,k))
+with open("dev_losses_dot.csv",'w') as f:
+    for l,d,c,k,t in zip(dev_losses.cpu().numpy(), dev_doc_dots.cpu().numpy(), dev_dists_mins.cpu().numpy(), dev_dists_knn.cpu().numpy(), dev_unique_tokens):
+        f.write("{},{},{},{}\n".format(l,d,c,k,t))
