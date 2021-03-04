@@ -16,7 +16,7 @@ datafile = 'data/ner_annotations.json'
 
 split = (0.8, 0.1, 0.1)
 n_epochs = 16
-lr = 5e-2
+lr = 1e-3
 
 device = "cuda"
 models = {'bert': 'bert-base-uncased',
