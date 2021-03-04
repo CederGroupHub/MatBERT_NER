@@ -1,4 +1,5 @@
 from models.bert_model import BertCRFNERModel
+from models.bilstm_model import BiLSTMNERModel
 from utils.data import NERData
 import os
 import glob

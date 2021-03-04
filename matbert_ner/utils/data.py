@@ -1,6 +1,6 @@
 from transformers import BertTokenizer
 from chemdataextractor.doc import Paragraph
-from torch.utils.data import DataLoader, SubsetRandomSampler, TensorDataset
+from torch.utils.data import DataLoader, SubsetRandomSampler, TensorDataset, SequentialSampler
 import json
 import torch
 import numpy as np
@@ -146,8 +146,8 @@ class NERData():
 
         # Creating PT data samplers and loaders:
         train_sampler = SubsetRandomSampler(train_indices)
-        val_sampler = SubsetRandomSampler(val_indices)
-        dev_sampler = SubsetRandomSampler(dev_indices)
+        val_sampler = SequentialSampler(val_indices)
+        dev_sampler = SequentialSampler(dev_indices)
 
         self.train_dataloader = DataLoader(self.dataset, batch_size=batch_size,
             num_workers=0, sampler=train_sampler, pin_memory=True)

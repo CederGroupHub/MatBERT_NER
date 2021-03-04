@@ -30,6 +30,7 @@ class BertCRFNERModel(NERModel):
         else:
             param_optimizer = [item for sblst in [list(module.named_parameters()) for module in self.model.model_modules[1:]] for item in sblst]
             optimizer_grouped_parameters = [{"params": [p for n, p in param_optimizer]}]
+
         optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.lr, eps=1e-8)
         # optimizer = RangerLars(optimizer_grouped_parameters, lr=self.lr)
         return optimizer
@@ -97,7 +98,7 @@ class BertCrfForNer(BertPreTrainedModel):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask,
                             token_type_ids=token_type_ids, position_ids=position_ids,
                             head_mask=head_mask, inputs_embeds=inputs_embeds,
-                            output_hidden_states=True)
+                            output_hidden_states=False)
         # sequence_output = [outputs[2][i] for i in (-1, -2, -3, -4)]
         # sequence_output = torch.mean(torch.stack(sequence_output), dim=0)
         sequence_output = outputs[0]
@@ -129,8 +130,9 @@ class BertCrfForNer(BertPreTrainedModel):
                             token_type_ids=token_type_ids, position_ids=position_ids,
                             head_mask=head_mask, inputs_embeds=inputs_embeds,
                             output_hidden_states=True)
-        sequence_output = [outputs[2][i] for i in (-1, -2, -3, -4)]
-        sequence_output = torch.mean(torch.mean(torch.stack(sequence_output), dim=0), dim=1)
+        # sequence_output = [outputs[2][i] for i in (-1, -2, -3, -4)]
+        # sequence_output = torch.mean(torch.mean(torch.stack(sequence_output), dim=0), dim=1)
+        sequence_output = torch.mean(outputs[0], dim=1)
         return sequence_output
 
 

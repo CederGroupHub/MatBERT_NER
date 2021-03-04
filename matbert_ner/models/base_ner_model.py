@@ -75,7 +75,7 @@ class NERModel(ABC):
         scheduler = self.create_scheduler(optimizer, n_epochs, train_dataloader)
 
         epoch_metrics = {'training': {}, 'validation': {}}
-        if not os.path.exists(save_dir):
+        if save_dir is not None and not os.path.exists(save_dir):
             os.makedirs(save_dir)          
 
         for epoch in range(n_epochs):
@@ -113,8 +113,9 @@ class NERModel(ABC):
 
                 batch_range.set_description('| epoch: {:d}/{:d} | training | loss: {:.4f} | accuracy: {:.4f} | precision: {:.4f} | recall: {:.4f} | f1: {:.4f} |'.format(epoch+1, n_epochs, *means))
             
-            save_path = os.path.join(save_dir, "epoch_{}.pt".format(epoch))
-            torch.save(self.model.state_dict(), save_path)
+            if save_dir is not None:
+                save_path = os.path.join(save_dir, "epoch_{}.pt".format(epoch))
+                torch.save(self.model.state_dict(), save_path)
 
             epoch_metrics['training']['epoch_{}'.format(epoch)] = metrics
 
