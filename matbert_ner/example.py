@@ -24,11 +24,11 @@ models = {'bert': 'bert-base-uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
 configs = {}
-configs['_ner_annotations_full_crf_decode_penalties_iobes_rangerlars{}'.format(seed)] = {'full_finetuning': True,
+configs['_ner_annotations_full_crf_decode_penalties_iobes_rangerlars_{}'.format(seed)] = {'full_finetuning': True,
                                                                                          'format': 'IOBES',
                                                                                          'crf_decode': True,
                                                                                          'crf_penalties': True}
-configs['_ner_annotations_shallow_crf_decode_penalties_iobes_rangerlars{}'.format(seed)] = {'full_finetuning': False,
+configs['_ner_annotations_shallow_crf_decode_penalties_iobes_rangerlars_{}'.format(seed)] = {'full_finetuning': False,
                                                                                             'format': 'IOBES',
                                                                                             'crf_decode': True,
                                                                                             'crf_penalties': True}
