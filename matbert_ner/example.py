@@ -16,7 +16,7 @@ datafile = 'data/ner_annotations.json'
 
 split = (0.8, 0.1, 0.1)
 n_epochs = 16
-lr = 2e-4
+lr = 5e-2
 
 device = "cuda"
 models = {'bert': 'bert-base-uncased',
@@ -24,71 +24,47 @@ models = {'bert': 'bert-base-uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
 configs = {}
-configs['_ner_annotations_full_crf_decode_penalties_iobes_{}'.format(seed)] = {'full_finetuning': True,
-                                                                               'format': 'IOBES',
-                                                                               'crf_decode': True,
-                                                                               'crf_penalties': True}
-configs['_ner_annotations_full_crf_decode_penalties_iob2_{}'.format(seed)] = {'full_finetuning': True,
-                                                                              'format': 'IOB2',
-                                                                              'crf_decode': True,
-                                                                              'crf_penalties': True}
-configs['_ner_annotations_full_crf_decode_no_penalties_iobes_{}'.format(seed)] = {'full_finetuning': True,
-                                                                                  'format': 'IOBES',
-                                                                                  'crf_decode': True,
-                                                                                  'crf_penalties': False}
-configs['_ner_annotations_full_crf_decode_no_penalties_iob2_{}'.format(seed)] = {'full_finetuning': True,
-                                                                                 'format': 'IOB2',
-                                                                                 'crf_decode': True,
-                                                                                 'crf_penalties': False}
-configs['_ner_annotations_full_crf_no_decode_penalties_iobes_{}'.format(seed)] = {'full_finetuning': True,
-                                                                                  'format': 'IOBES',
-                                                                                  'crf_decode': False,
-                                                                                  'crf_penalties': True}
-configs['_ner_annotations_full_crf_no_decode_penalties_iob2_{}'.format(seed)] = {'full_finetuning': True,
-                                                                                 'format': 'IOB2',
-                                                                                 'crf_decode': False,
-                                                                                 'crf_penalties': True}
-configs['_ner_annotations_full_crf_no_decode_no_penalties_iobes_{}'.format(seed)] = {'full_finetuning': True,
-                                                                                     'format': 'IOBES',
-                                                                                     'crf_decode': False,
-                                                                                     'crf_penalties': False}
-configs['_ner_annotations_full_crf_no_decode_no_penalties_iob2_{}'.format(seed)] = {'full_finetuning': True,
-                                                                                    'format': 'IOB2',
-                                                                                    'crf_decode': False,
-                                                                                    'crf_penalties': False}
+configs['_ner_annotations_full_crf_decode_penalties_iobes_rangerlars{}'.format(seed)] = {'full_finetuning': True,
+                                                                                         'format': 'IOBES',
+                                                                                         'crf_decode': True,
+                                                                                         'crf_penalties': True}
+configs['_ner_annotations_shallow_crf_decode_penalties_iobes_rangerlars{}'.format(seed)] = {'full_finetuning': False,
+                                                                                            'format': 'IOBES',
+                                                                                            'crf_decode': True,
+                                                                                            'crf_penalties': True}
+# configs['_ner_annotations_full_crf_decode_penalties_iobes_{}'.format(seed)] = {'full_finetuning': True,
+#                                                                                'format': 'IOBES',
+#                                                                                'crf_decode': True,
+#                                                                                'crf_penalties': True}
+# configs['_ner_annotations_full_crf_decode_penalties_iob2_{}'.format(seed)] = {'full_finetuning': True,
+#                                                                               'format': 'IOB2',
+#                                                                               'crf_decode': True,
+#                                                                               'crf_penalties': True}
+# configs['_ner_annotations_full_crf_decode_no_penalties_iobes_{}'.format(seed)] = {'full_finetuning': True,
+#                                                                                   'format': 'IOBES',
+#                                                                                   'crf_decode': True,
+#                                                                                   'crf_penalties': False}
+# configs['_ner_annotations_full_crf_decode_no_penalties_iob2_{}'.format(seed)] = {'full_finetuning': True,
+#                                                                                  'format': 'IOB2',
+#                                                                                  'crf_decode': True,
+#                                                                                  'crf_penalties': False}
 
-configs['_ner_annotations_shallow_crf_decode_penalties_iobes_{}'.format(seed)] = {'full_finetuning': False,
-                                                                                  'format': 'IOBES',
-                                                                                  'crf_decode': True,
-                                                                                  'crf_penalties': True}
-configs['_ner_annotations_shallow_crf_decode_penalties_iob2_{}'.format(seed)] = {'full_finetuning': False,
-                                                                                 'format': 'IOB2',
-                                                                                 'crf_decode': True,
-                                                                                 'crf_penalties': True}
-configs['_ner_annotations_shallow_crf_decode_no_penalties_iobes_{}'.format(seed)] = {'full_finetuning': False,
-                                                                                     'format': 'IOBES',
-                                                                                     'crf_decode': True,
-                                                                                     'crf_penalties': False}
-configs['_ner_annotations_shallow_crf_decode_no_penalties_iob2_{}'.format(seed)] = {'full_finetuning': False,
-                                                                                    'format': 'IOB2',
-                                                                                    'crf_decode': True,
-                                                                                    'crf_penalties': False}
-configs['_ner_annotations_shallow_crf_no_decode_penalties_iobes_{}'.format(seed)] = {'full_finetuning': False,
-                                                                                     'format': 'IOBES',
-                                                                                     'crf_decode': False,
-                                                                                     'crf_penalties': True}
-configs['_ner_annotations_shallow_crf_no_decode_penalties_iob2_{}'.format(seed)] = {'full_finetuning': False,
-                                                                                    'format': 'IOB2',
-                                                                                    'crf_decode': False,
-                                                                                    'crf_penalties': True}
-configs['_ner_annotations_shallow_crf_no_decode_no_penalties_iobes_{}'.format(seed)] = {'full_finetuning': False,
-                                                                                        'format': 'IOBES',
-                                                                                        'crf_decode': False,
-                                                                                        'crf_penalties': False}
-configs['_ner_annotations_shallow_crf_no_decode_no_penalties_iob2_{}'.format(seed)] = {'full_finetuning': False,
-                                                                                       'format': 'IOB2',
-                                                                                       'crf_decode': False,
-                                                                                       'crf_penalties': False}
+# configs['_ner_annotations_shallow_crf_decode_penalties_iobes_{}'.format(seed)] = {'full_finetuning': False,
+#                                                                                   'format': 'IOBES',
+#                                                                                   'crf_decode': True,
+#                                                                                   'crf_penalties': True}
+# configs['_ner_annotations_shallow_crf_decode_penalties_iob2_{}'.format(seed)] = {'full_finetuning': False,
+#                                                                                  'format': 'IOB2',
+#                                                                                  'crf_decode': True,
+#                                                                                  'crf_penalties': True}
+# configs['_ner_annotations_shallow_crf_decode_no_penalties_iobes_{}'.format(seed)] = {'full_finetuning': False,
+#                                                                                      'format': 'IOBES',
+#                                                                                      'crf_decode': True,
+#                                                                                      'crf_penalties': False}
+# configs['_ner_annotations_shallow_crf_decode_no_penalties_iob2_{}'.format(seed)] = {'full_finetuning': False,
+#                                                                                     'format': 'IOB2',
+#                                                                                     'crf_decode': True,
+#                                                                                     'crf_penalties': False}
 
 for alias, config in configs.items():
     for model_name in ['matbert', 'scibert', 'bert']:
