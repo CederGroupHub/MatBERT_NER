@@ -38,13 +38,13 @@ class BertCRFNERModel(NERModel):
 
     def create_scheduler(self, optimizer, n_epochs, train_dataloader):
         warmup_epochs = 1
+        scheduler = get_linear_schedule_with_warmup(optimizer,
+                                                    num_warmup_steps=len(train_dataloader)*warmup_epochs,
+                                                    num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader))
         # scheduler = get_cosine_schedule_with_warmup(optimizer,
         #                                             num_warmup_steps=len(train_dataloader)*warmup_epochs,
         #                                             num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader),
         #                                             num_cycles=(n_epochs-warmup_epochs)/10)
-        scheduler = get_linear_schedule_with_warmup(optimizer,
-                                                    num_warmup_steps=len(train_dataloader)*warmup_epochs,
-                                                    num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader))
         # scheduler = get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
         #                                                                num_warmup_steps=len(train_dataloader)*warmup_epochs,
         #                                                                num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader),

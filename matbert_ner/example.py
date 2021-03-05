@@ -42,7 +42,7 @@ for alias, config in configs.items():
         ner_data = NERData(models[model_name], tag_format=config['format'])
         ner_data.preprocess(datafile)
 
-        train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders( batch_size=32, train_frac=split[0], val_frac=split[1], dev_frac=split[2], seed=seed)
+        train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(batch_size=32, train_frac=split[0], val_frac=split[1], dev_frac=split[2], seed=seed)
         classes = ner_data.classes
 
         ner_model = BertCRFNERModel(modelname=models[model_name], classes=classes, tag_format=config['format'], device=device, lr=lr)
