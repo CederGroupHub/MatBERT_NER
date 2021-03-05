@@ -7,13 +7,15 @@ import glob
 import json
 import numpy as np
 from itertools import product
+from torch.utils.data import DataLoader, SubsetRandomSampler, TensorDataset, SequentialSampler
 
 # datafile = 'data/impurityphase_fullparas.json'
-datafile = 'data/aunpmorph_annotations_fullparas.json'
+# datafile = 'data/aunpmorph_annotations_fullparas.json'
 #datafile = "data/bc5dr.json"
-# datafile = "data/ner_annotations.json"
+datafile = "data/ner_annotations.json"
 n_epochs = 4
 full_finetuning = True
+batch_size = 20
 
 device = "cuda"
 model = 'allenai/scibert_scivocab_uncased'
@@ -23,7 +25,6 @@ save_dir = os.getcwd()+'/{}_results{}/'.format("scibert", "doc_emb")
 ner_data = NERData(model)
 ner_data.preprocess(datafile)
 
-train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(train_frac=0.7, val_frac=0.01, dev_frac=0.29 , batch_size=20)
 classes = ner_data.classes
 
 def flatten(x):
@@ -32,6 +33,54 @@ ner_model = BertCRFNERModel(modelname=model, classes=classes, device=device, lr=
 print('{} classes: {}'.format(len(ner_model.classes),' '.join(ner_model.classes)))
 print(ner_model.model)
 ner_model.model.eval()
+
+train_frac = 0.2
+all_dataloader = DataLoader(ner_data.dataset, batch_size=batch_size,
+            num_workers=0, pin_memory=True)
+train_set_size = int(train_frac*len(all_dataloader)*batch_size)
+doc_embs = []
+with torch.no_grad():
+    for batch in all_dataloader:
+        inputs = {
+            "input_ids": batch[0].to(device),
+            "attention_mask": batch[1].to(device),
+        }
+        doc_emb = ner_model.document_embeddings(**inputs)
+        doc_embs.append(doc_emb.detach().cpu())
+
+doc_embs = torch.cat(doc_embs)
+
+dists = torch.zeros((doc_embs.shape[0],doc_embs.shape[0]), dtype=torch.double)
+
+for i,j in product(range(doc_embs.shape[0]),range(doc_embs.shape[0])):
+    dists[i,j] = torch.linalg.norm(doc_embs[i,:] - doc_embs[j,:],dtype=torch.double)
+
+train_mask = torch.full((doc_embs.shape[0],doc_embs.shape[0]), False, dtype=torch.bool)
+
+train_indices = [0]
+last_train_index = train_indices[-1]
+while len(train_indices) < train_set_size:
+    train_mask[:,last_train_index] = True
+    dists[last_train_index,:] = float(1e6)
+
+    masked_dists = torch.where(train_mask, dists, float(1e6))
+    masked_mins = torch.min(masked_dists, dim=1)[0]
+    last_train_index = torch.min(masked_mins,dim=0)[1]
+    train_indices.append(int(last_train_index))
+
+dev_indices = [x for x in range(len(all_dataloader)*batch_size) if not x in train_indices]
+
+print(len(train_indices), len(dev_indices))
+train_sampler = SubsetRandomSampler(train_indices)
+dev_sampler = SequentialSampler(dev_indices)
+
+train_dataloader = DataLoader(ner_data.dataset, batch_size=batch_size,
+    num_workers=0, sampler=train_sampler, pin_memory=True)
+
+dev_dataloader = DataLoader(ner_data.dataset, batch_size=batch_size,
+    num_workers=0, sampler=dev_sampler, pin_memory=True)
+
+# train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(train_frac=0.7, val_frac=0.01, dev_frac=0.29 , batch_size=20)
 
 train_doc_embs = []
 ner_model.model.eval()
@@ -66,7 +115,7 @@ with torch.no_grad():
 dev_doc_embs = torch.cat(dev_doc_embs)
 
 # , val_dataloader=val_dataloader
-ner_model.train(train_dataloader, n_epochs=n_epochs, save_dir=save_dir, full_finetuning=full_finetuning)
+ner_model.train(train_dataloader, val_dataloader=dev_dataloader, n_epochs=n_epochs, save_dir=save_dir, full_finetuning=full_finetuning)
 
 ner_model.model.eval()
 dev_losses = []
@@ -123,6 +172,6 @@ dev_dists_knn = torch.mean(dev_dists_knn,dim=1)
 # dev_doc_cosine_sims = torch.nn.CosineSimilarity(dim=1)(dev_doc_embs, torch.unsqueeze(mean_train_doc_emb, dim=0))
 
 
-with open("dev_losses_dot.csv",'w') as f:
-    for l,d,c,k,t in zip(dev_losses.cpu().numpy(), dev_doc_dots.cpu().numpy(), dev_dists_mins.cpu().numpy(), dev_dists_knn.cpu().numpy(), dev_unique_tokens):
-        f.write("{},{},{},{}\n".format(l,d,c,k,t))
+# with open("dev_losses_dot.csv",'w') as f:
+    # for l,d,c,k,t in zip(dev_losses.cpu().numpy(), dev_doc_dots.cpu().numpy(), dev_dists_mins.cpu().numpy(), dev_dists_knn.cpu().numpy(), dev_unique_tokens):
+        # f.write("{},{},{},{}\n".format(l,d,c,k,t))
