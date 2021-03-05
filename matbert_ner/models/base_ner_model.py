@@ -14,6 +14,7 @@ from seqeval.metrics import accuracy_score, f1_score
 import torch.optim as optim
 import numpy as np
 from abc import ABC, abstractmethod
+from pprint import pprint
 
 class NERModel(ABC):
     """
@@ -236,14 +237,42 @@ class NERModel(ABC):
 
         return metrics
 
-    def predict(self, data, trained_model=None, labels=None):
-        self.model.eval()
-        self.labels = labels
+    def predict(self, data, labels=None, trained_model=None):
+        """
+            Method for predicting NER labels based on trained model
+            input: text in a string or list format, labels for entities (optional), trained model (optional)
+            returns: token set with predicted labels
+        """
+
+        if labels:
+            self.labels = labels
+        else:
+            self.labels = []
+
+        if type(data) == str:
+            data = [data]
+
+        ner_data = NERData(self.modelname)
+
+        tokenized_dataset = []
+        for para in data:
+            token_set = ner_data.create_tokenset(para)
+            token_set['labels'] = self.labels
+            tokenized_dataset.append(token_set)
+
+        ner_data.preprocess(tokenized_dataset, is_file=False)
+        tensor_dataset = ner_data.dataset
+        pred_dataloader = DataLoader(tensor_dataset)
+
+        self.classes = ner_data.classes
+        self.config.num_labels = len(self.classes)
+        self.model = self.initialize_model()
 
         if trained_model:
-            self.model.load_state_dict(torch.load(trained_model))
-
-        tokenized_dataset, pred_dataloader = self._data_to_dataloader(data)
+            try:
+                self.model.load_state_dict(torch.load(trained_model))
+            except:
+                self.model.load_state_dict(torch.load(trained_model, map_location=torch.device('cpu')))
 
         # run predictions
         with torch.no_grad():
@@ -271,14 +300,14 @@ class NERModel(ABC):
                     "labels": batch[4].to(self.device),
                     "decode": True
                 }
-                loss, predicted = self.model.forward(**inputs)
-                predictions = predicted.to('cpu').numpy()[0]
+
+                loss, predictions = self.model.forward(**inputs)
 
                 # assign predictions to dataset
-                for tok in sentence:
-                    tok_idx = torch.tensor([sentence.index(tok)])
-                    pred_idx = predictions[tok_idx]
-                    tok['annotation'] = self.classes[pred_idx]
+                for i, tok in enumerate(sentence):
+                    if i < len(sentence)-1:
+                        pred_idx = predictions[0][1:][i]
+                        tok['annotation'] = self.classes[pred_idx]
                 tokenized_dataset[para_i]['tokens'][sent_i] = sentence
         return tokenized_dataset
 

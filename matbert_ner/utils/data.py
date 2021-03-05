@@ -137,42 +137,60 @@ class NERData():
         return self.train_dataloader, self.val_dataloader, self.dev_dataloader
 
     def create_tokenset(self, text):
-
-        tokenset = {
-            "text" : text,
-            "tokens" : []
-        }
-
         idx = 0
-
-        para = Paragraph(text)
-        sentences = para.raw_sentences
-
-        for sentence in sentences:
-            tokens = self.tokenizer.tokenize(sentence)
-            sent_toks = []
-            for token in tokens:
-                if token.startswith('##'):
-                    tok_length = len(token) - 2
-                else:
-                    tok_length = len(token)
-                tok = {
-                    "text" : token,
-                    "start" : idx,
-                    "end" : idx + tok_length,
+        tokens = Paragraph(text).tokens
+        sentences = []
+        sentence = []
+        for sent in tokens:
+            for tok in sent:
+                tok_dict = {
+                    "text" : tok.text,
+                    "start" : tok.start,
+                    "end" : tok.end,
                     "annotation" : None
                 }
+                sentence.append(tok_dict)
+            sentences.append(sentence)
+            sentence = []
 
-                if idx + tok_length >= len(sentence):
-                    sent_toks.append(tok)
-                    break
-                elif sentence[idx + tok_length] == " ":
-                    idx += tok_length + 1
+        tokenset = dict(
+            text=text,
+            tokens=sentences
+        )
+
+        cleaned_tokenset = self._clean_tokenset(tokenset)
+
+        return cleaned_tokenset
+
+    def _clean_tokenset(self, tokenset):
+        bad_chars = ['\xa0', '\u2009', '\u202f', '\u200c', '\u2fff', 'ͦ', '\u2061', '\ue5f8']
+
+        problem_child = False
+
+        start = 0
+        good_sentences = []
+        for sent in tokenset['tokens']:
+            good_toks = []
+            for tok in sent:
+                if tok['text'] not in bad_chars:
+                    if tok['start'] == start:
+                        good_toks.append(tok)
+                    else:
+                        tok['start'] = start
+                        tok['end'] = start + len(tok['text'])
+                        good_toks.append(tok)
+
+                    start = tok['end'] + 1
+
                 else:
-                    idx += tok_length
-                sent_toks.append(tok)
+                    problem_child = True
 
-            tokenset["tokens"].append(sent_toks)
+            good_sentences.append(good_toks)
+
+            if problem_child:
+                problem_child = False
+
+        tokenset['tokens'] = good_sentences
 
         return tokenset
 
