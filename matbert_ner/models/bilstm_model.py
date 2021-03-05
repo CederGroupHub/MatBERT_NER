@@ -9,8 +9,8 @@ import numpy as np
 from models.base_ner_model import NERModel
 import torch.optim as optim
 from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup, get_cosine_with_hard_restarts_schedule_with_warmup
-from crf_layer import CRF
-from valid_sequence_output import valid_sequence_output
+from models.crf_layer import CRF
+from models.valid_sequence_output import valid_sequence_output
 
 
 class BiLSTMNERModel(NERModel):
