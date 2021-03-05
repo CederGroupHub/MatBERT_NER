@@ -17,7 +17,7 @@ class BertCRFNERModel(NERModel):
 
 
     def initialize_model(self):
-        ner_model = BertCrfForNer(self.config, self.classes, self.tag_format, self.crf_decode, self.crf_penalties, self.device).to(self.device)
+        ner_model = BertCrfForNer(self.config, self.classes, self.tag_format, self.device).to(self.device)
         return ner_model
 
 
@@ -57,13 +57,11 @@ class BertCRFNERModel(NERModel):
 
 
 class BertCrfForNer(BertPreTrainedModel):
-    def __init__(self, config, tag_names, tag_format, crf_decode, crf_penalties, device):
+    def __init__(self, config, tag_names, tag_format, device):
         super(BertCrfForNer, self).__init__(config)
         self.bert = BertModel(config).from_pretrained(config.model_name)
         self._device = device
         self.use_lstm = False
-        self.crf_decode = crf_decode
-        self.crf_penalties = crf_penalties
         self.dropout_b = nn.Dropout(config.hidden_dropout_prob)
         self.model_modules = [self.bert, self.dropout_b]
         if self.use_lstm:
@@ -76,7 +74,7 @@ class BertCrfForNer(BertPreTrainedModel):
         self.classifier = nn.Linear(128 if self.use_lstm else config.hidden_size, config.num_labels)
         self.model_modules.append(self.classifier)
         self.crf = CRF(tag_names=tag_names, tag_format=tag_format, batch_first=True)
-        self.crf.initialize(self.crf_penalties)
+        self.crf.initialize()
         self.model_modules.append(self.crf)
 
 
@@ -110,11 +108,8 @@ class BertCrfForNer(BertPreTrainedModel):
             logits = self.classifier(self.dropout_c(attn_out))
         else:
             logits = self.classifier(sequence_output)
-        if self.crf_decode:
-            predictions = self.crf.decode(logits, mask=attention_mask)
-            outputs = (predictions,)
-        else:
-            outputs = (logits,)
+        predictions = self.crf.decode(logits, mask=attention_mask)
+        outputs = (predictions,)
         if labels is not None:
             labels = torch.where(labels >= 0, labels, torch.zeros_like(labels))
             loss = -self.crf(logits, labels, mask=attention_mask)
@@ -163,14 +158,13 @@ class CRF(nn.Module):
         self.crf = torchcrf.CRF(num_tags=len(self.tag_names), batch_first=batch_first)
     
 
-    def initialize(self, penalties=False):
+    def initialize(self):
         # initialize weights
         self.crf.reset_parameters()
-        if penalties:
-            # construct definitions of invalid transitions
-            self.define_invalid_crf_transitions()
-            # initialize transitions
-            self.init_crf_transitions()
+        # construct definitions of invalid transitions
+        self.define_invalid_crf_transitions()
+        # initialize transitions
+        self.init_crf_transitions()
     
 
     def define_invalid_crf_transitions(self):

@@ -20,7 +20,7 @@ class NERModel(ABC):
     A wrapper class for transformers models, implementing train, predict, and evaluate methods
     """
 
-    def __init__(self, modelname="allenai/scibert_scivocab_cased", classes = ["O"], tag_format='IOB2', crf_decode=True, crf_penalties=True, device="cpu", lr=5e-5, results_file=None):
+    def __init__(self, modelname="allenai/scibert_scivocab_cased", classes = ["O"], tag_format='IOB2', device="cpu", lr=5e-5, results_file=None):
         self.modelname = modelname
         self.tokenizer = BertTokenizer.from_pretrained(modelname)
         self.classes = classes
@@ -32,8 +32,6 @@ class NERModel(ABC):
             self.metric_scheme = IOB2
         elif self.tag_format == 'IOBES':
             self.metric_scheme = IOBES
-        self.crf_decode = crf_decode
-        self.crf_penalties = crf_penalties
         self.config = AutoConfig.from_pretrained(modelname)
         self.config.num_labels = len(self.classes)
         self.config.model_name = self.modelname
@@ -91,12 +89,7 @@ class NERModel(ABC):
                           "labels": batch[4].to(self.device, non_blocking=True)}
 
                 optimizer.zero_grad()
-                if self.crf_decode:
-                    loss, predicted = self.model.forward(**inputs)
-                else:
-                    loss, logit = self.model.forward(**inputs)
-                    logit = logit.detach().cpu().numpy()
-                    predicted = [list(p) for p in np.argmax(logit, axis=2)]
+                loss, predicted = self.model.forward(**inputs)
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(parameters=self.model.parameters(), max_norm=1.0)
                 optimizer.step()
@@ -190,12 +183,7 @@ class NERModel(ABC):
                     "valid_mask": batch[2].to(self.device),
                     "labels": batch[4].to(self.device)
                 }
-                if self.crf_decode:
-                    loss, predicted = self.model.forward(**inputs)
-                else:
-                    loss, logit = self.model.forward(**inputs)
-                    logit = logit.detach().cpu().numpy()
-                    predicted = [list(p) for p in np.argmax(logit, axis=2)]
+                loss, predicted = self.model.forward(**inputs)
 
                 prediction_tags, label_tags = self.process_tags(inputs, predicted)
                 if mode == 'test':

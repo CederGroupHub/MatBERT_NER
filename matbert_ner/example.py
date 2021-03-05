@@ -25,47 +25,15 @@ models = {'bert': 'bert-base-uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
 configs = {}
-# configs['_ner_annotations_full_crf_decode_penalties_iobes_rangerlars_{}'.format(seed)] = {'full_finetuning': True,
-#                                                                                          'format': 'IOBES',
-#                                                                                          'crf_decode': True,
-#                                                                                          'crf_penalties': True}
-# configs['_ner_annotations_shallow_crf_decode_penalties_iobes_rangerlars_{}'.format(seed)] = {'full_finetuning': False,
-#                                                                                             'format': 'IOBES',
-#                                                                                             'crf_decode': True,
-#                                                                                             'crf_penalties': True}
-configs['_ner_annotations_full_crf_decode_penalties_iobes_{}'.format(seed)] = {'full_finetuning': True,
-                                                                               'format': 'IOBES',
-                                                                               'crf_decode': True,
-                                                                               'crf_penalties': True}
-configs['_ner_annotations_full_crf_decode_penalties_iob2_{}'.format(seed)] = {'full_finetuning': True,
-                                                                              'format': 'IOB2',
-                                                                              'crf_decode': True,
-                                                                              'crf_penalties': True}
-configs['_ner_annotations_full_crf_decode_no_penalties_iobes_{}'.format(seed)] = {'full_finetuning': True,
-                                                                                  'format': 'IOBES',
-                                                                                  'crf_decode': True,
-                                                                                  'crf_penalties': False}
-configs['_ner_annotations_full_crf_decode_no_penalties_iob2_{}'.format(seed)] = {'full_finetuning': True,
-                                                                                 'format': 'IOB2',
-                                                                                 'crf_decode': True,
-                                                                                 'crf_penalties': False}
+configs['_ner_annotations_full_crf_iobes_{}'.format(seed)] = {'full_finetuning': True,
+                                                              'format': 'IOBES'}
+configs['_ner_annotations_full_crf_iob2_{}'.format(seed)] = {'full_finetuning': True,
+                                                             'format': 'IOB2'}
 
-configs['_ner_annotations_shallow_crf_decode_penalties_iobes_{}'.format(seed)] = {'full_finetuning': False,
-                                                                                  'format': 'IOBES',
-                                                                                  'crf_decode': True,
-                                                                                  'crf_penalties': True}
-configs['_ner_annotations_shallow_crf_decode_penalties_iob2_{}'.format(seed)] = {'full_finetuning': False,
-                                                                                 'format': 'IOB2',
-                                                                                 'crf_decode': True,
-                                                                                 'crf_penalties': True}
-configs['_ner_annotations_shallow_crf_decode_no_penalties_iobes_{}'.format(seed)] = {'full_finetuning': False,
-                                                                                     'format': 'IOBES',
-                                                                                     'crf_decode': True,
-                                                                                     'crf_penalties': False}
-configs['_ner_annotations_shallow_crf_decode_no_penalties_iob2_{}'.format(seed)] = {'full_finetuning': False,
-                                                                                    'format': 'IOB2',
-                                                                                    'crf_decode': True,
-                                                                                    'crf_penalties': False}
+configs['_ner_annotations_shallow_crf_iobes_{}'.format(seed)] = {'full_finetuning': False,
+                                                                 'format': 'IOBES'}
+configs['_ner_annotations_shallow_crf_iob2_{}'.format(seed)] = {'full_finetuning': False,
+                                                                'format': 'IOB2'}
 
 for alias, config in configs.items():
     for model_name in ['matbert', 'scibert', 'bert']:
@@ -77,9 +45,7 @@ for alias, config in configs.items():
         train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders( batch_size=32, train_frac=split[0], val_frac=split[1], dev_frac=split[2], seed=seed)
         classes = ner_data.classes
 
-        ner_model = BertCRFNERModel(modelname=models[model_name], classes=classes,
-                                    tag_format=config['format'], crf_decode=config['crf_decode'], crf_penalties=config['crf_penalties'],
-                                    device=device, lr=lr)
+        ner_model = BertCRFNERModel(modelname=models[model_name], classes=classes, tag_format=config['format'], device=device, lr=lr)
         print('{} classes: {}'.format(len(ner_model.classes),' '.join(ner_model.classes)))
         print(ner_model.model)
         ner_model.train(train_dataloader, n_epochs=n_epochs, val_dataloader=val_dataloader, dev_dataloader=dev_dataloader, save_dir=save_dir, full_finetuning=config['full_finetuning'])
