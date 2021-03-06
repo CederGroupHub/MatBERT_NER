@@ -10,10 +10,10 @@ seed = 256
 torch.manual_seed(seed)
 torch.backends.cudnn.deterministic = True
 
-datafiles = {'_ner_annotations': 'data/ner_annotations.json',
-             '_doping': 'data/doping.json',
-             '_impurityphase': 'data/impurityphase_fullparas.json',
-             '_aupnmorph': 'data/aunpmorph_annotations_fullparas.json'}
+datafiles = {'ner_annotations': 'data/ner_annotations.json',
+             'doping': 'data/doping.json',
+             'impurityphase': 'data/impurityphase_fullparas.json',
+             'aupnmorph': 'data/aunpmorph_annotations_fullparas.json'}
 
 split = (0.8, 0.1, 0.1)
 n_epochs = 16
@@ -24,16 +24,16 @@ models = {'bert': 'bert-base-uncased',
           'scibert': 'allenai/scibert_scivocab_uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
-data = '_doping'
+data = 'aupnmorph'
 configs = {}
-configs['{}_full_crf_iobes_{}'.format(data, seed)] = {'full_finetuning': True,
+configs['_{}_full_crf_iobes_{}'.format(data, seed)] = {'full_finetuning': True,
                                                       'format': 'IOBES'}
-configs['{}_full_crf_iob2_{}'.format(data, seed)] = {'full_finetuning': True,
+configs['_{}_full_crf_iob2_{}'.format(data, seed)] = {'full_finetuning': True,
                                                      'format': 'IOB2'}
 
-configs['{}_shallow_crf_iobes_{}'.format(data, seed)] = {'full_finetuning': False,
+configs['_{}_shallow_crf_iobes_{}'.format(data, seed)] = {'full_finetuning': False,
                                                          'format': 'IOBES'}
-configs['{}_shallow_crf_iob2_{}'.format(data, seed)] = {'full_finetuning': False,
+configs['_{}_shallow_crf_iob2_{}'.format(data, seed)] = {'full_finetuning': False,
                                                         'format': 'IOB2'}
 
 for alias, config in configs.items():
