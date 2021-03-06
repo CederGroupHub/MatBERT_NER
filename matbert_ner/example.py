@@ -12,8 +12,8 @@ torch.backends.cudnn.deterministic = True
 
 # datafile = 'data/impurityphase_fullparas.json'
 # datafile = 'data/aunpmorph_annotations_fullparas.json'
-datafile = 'data/ner_annotations.json'
-# datafile = 'data/doping.json'
+# datafile = 'data/ner_annotations.json'
+datafile = 'data/doping.json'
 
 split = (0.8, 0.1, 0.1)
 n_epochs = 16
