@@ -24,17 +24,17 @@ models = {'bert': 'bert-base-uncased',
           'scibert': 'allenai/scibert_scivocab_uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
-data = 'aupnmorph'
+data = 'impurityphase'
 configs = {}
 configs['_{}_full_crf_iobes_{}'.format(data, seed)] = {'full_finetuning': True,
-                                                      'format': 'IOBES'}
+                                                       'format': 'IOBES'}
 configs['_{}_full_crf_iob2_{}'.format(data, seed)] = {'full_finetuning': True,
-                                                     'format': 'IOB2'}
+                                                      'format': 'IOB2'}
 
 configs['_{}_shallow_crf_iobes_{}'.format(data, seed)] = {'full_finetuning': False,
-                                                         'format': 'IOBES'}
+                                                          'format': 'IOBES'}
 configs['_{}_shallow_crf_iob2_{}'.format(data, seed)] = {'full_finetuning': False,
-                                                        'format': 'IOB2'}
+                                                         'format': 'IOB2'}
 
 for alias, config in configs.items():
     for model_name in ['matbert', 'scibert', 'bert']:
