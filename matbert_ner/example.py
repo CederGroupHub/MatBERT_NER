@@ -10,10 +10,10 @@ seed = 256
 torch.manual_seed(seed)
 torch.backends.cudnn.deterministic = True
 
-# datafile = 'data/impurityphase_fullparas.json'
-# datafile = 'data/aunpmorph_annotations_fullparas.json'
-# datafile = 'data/ner_annotations.json'
-datafile = 'data/doping.json'
+datafiles = {'_ner_annotations': 'data/ner_annotations.json',
+             '_doping': 'data/doping.json',
+             '_impurityphase': 'data/impurityphase_fullparas.json',
+             '_aupnmorph': 'data/aunpmorph_annotations_fullparas.json'}
 
 split = (0.8, 0.1, 0.1)
 n_epochs = 16
@@ -24,23 +24,24 @@ models = {'bert': 'bert-base-uncased',
           'scibert': 'allenai/scibert_scivocab_uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
+data = '_doping'
 configs = {}
-configs['_ner_annotations_full_crf_iobes_{}'.format(seed)] = {'full_finetuning': True,
-                                                              'format': 'IOBES'}
-configs['_ner_annotations_full_crf_iob2_{}'.format(seed)] = {'full_finetuning': True,
-                                                             'format': 'IOB2'}
+configs['{}_full_crf_iobes_{}'.format(data, seed)] = {'full_finetuning': True,
+                                                      'format': 'IOBES'}
+configs['{}_full_crf_iob2_{}'.format(data, seed)] = {'full_finetuning': True,
+                                                     'format': 'IOB2'}
 
-configs['_ner_annotations_shallow_crf_iobes_{}'.format(seed)] = {'full_finetuning': False,
-                                                                 'format': 'IOBES'}
-configs['_ner_annotations_shallow_crf_iob2_{}'.format(seed)] = {'full_finetuning': False,
-                                                                'format': 'IOB2'}
+configs['{}_shallow_crf_iobes_{}'.format(data, seed)] = {'full_finetuning': False,
+                                                         'format': 'IOBES'}
+configs['{}_shallow_crf_iob2_{}'.format(data, seed)] = {'full_finetuning': False,
+                                                        'format': 'IOB2'}
 
 for alias, config in configs.items():
     for model_name in ['matbert', 'scibert', 'bert']:
         save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
 
         ner_data = NERData(models[model_name], tag_format=config['format'])
-        ner_data.preprocess(datafile)
+        ner_data.preprocess(datafiles[data])
 
         train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(batch_size=32, train_frac=split[0], val_frac=split[1], dev_frac=split[2], seed=seed)
         classes = ner_data.classes
