@@ -1,10 +1,7 @@
 from models.bert_model import BertCRFNERModel
 from pprint import pprint
 
-""" Sequence of events:
-    1. input sentence(s), labels, and trained_model
-    2. tokenize sentence(s) and prepare in dataset
-    3. preprocess """
+
 sentence = """The gold nanorods were synthesized using the typical citrate reduction method. First, spherical Au 
     nanoparticle seeds were added to a beaker."""
 sentences = ["""The morphology of the gold nanorods was investigated using TEM. Figure X reveals the dumbbell-like

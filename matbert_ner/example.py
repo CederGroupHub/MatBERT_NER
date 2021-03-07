@@ -6,9 +6,9 @@ import glob
 import json
 
 # datafile = 'data/impurityphase_fullparas.json'
-datafile = 'data/aunpmorph_annotations_fullparas.json'
+# datafile = 'data/aunpmorph_annotations_fullparas.json'
 #datafile = "data/bc5dr.json"
-#datafile = "data/ner_annotations.json"
+datafile = "data/ner_annotations.json"
 n_epochs = 4
 full_finetuning = True
 

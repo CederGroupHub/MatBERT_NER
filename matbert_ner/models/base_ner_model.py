@@ -240,7 +240,8 @@ class NERModel(ABC):
     def predict(self, data, labels=None, trained_model=None):
         """
             Method for predicting NER labels based on trained model
-            input: text in a string or list format, labels for entities (optional), trained model (optional)
+            input: data to be predicted (single string, list of strings, or preprocessed dataloader objects),
+            labels for entities (optional), trained model (optional)
             returns: token set with predicted labels
         """
 
@@ -251,22 +252,26 @@ class NERModel(ABC):
 
         if type(data) == str:
             data = [data]
+        elif type(data[0]) == str:
 
-        ner_data = NERData(self.modelname)
+            ner_data = NERData(self.modelname)
 
-        tokenized_dataset = []
-        for para in data:
-            token_set = ner_data.create_tokenset(para)
-            token_set['labels'] = self.labels
-            tokenized_dataset.append(token_set)
+            tokenized_dataset = []
+            for para in data:
+                token_set = ner_data.create_tokenset(para)
+                token_set['labels'] = self.labels
+                tokenized_dataset.append(token_set)
 
-        ner_data.preprocess(tokenized_dataset, is_file=False)
-        tensor_dataset = ner_data.dataset
-        pred_dataloader = DataLoader(tensor_dataset)
+            ner_data.preprocess(tokenized_dataset, is_file=False)
+            tensor_dataset = ner_data.dataset
+            pred_dataloader = DataLoader(tensor_dataset)
 
-        self.classes = ner_data.classes
-        self.config.num_labels = len(self.classes)
-        self.model = self.initialize_model()
+            self.classes = ner_data.classes
+            self.config.num_labels = len(self.classes)
+            self.model = self.initialize_model()
+
+        else:
+            pred_dataloader = data
 
         if trained_model:
             try:
@@ -297,8 +302,7 @@ class NERModel(ABC):
                     "input_ids": batch[0].to(self.device),
                     "attention_mask": batch[1].to(self.device),
                     "valid_mask": batch[2].to(self.device),
-                    "labels": batch[4].to(self.device),
-                    "decode": True
+                    "labels": batch[4].to(self.device)
                 }
 
                 loss, predictions = self.model.forward(**inputs)
