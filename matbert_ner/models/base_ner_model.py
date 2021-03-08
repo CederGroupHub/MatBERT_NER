@@ -14,6 +14,7 @@ from seqeval.scheme import IOB1, IOB2, IOBES
 import torch.optim as optim
 import numpy as np
 from abc import ABC, abstractmethod
+from pprint import pprint
 
 class NERModel(ABC):
     """
@@ -213,14 +214,49 @@ class NERModel(ABC):
         else:
             return metrics
 
-    def predict(self, data, trained_model=None, labels=None):
-        self.model.eval()
-        self.labels = labels
+    def predict(self, data, labels=None, trained_model=None, tok_dataset=None):
+        """
+            Method for predicting NER labels based on trained model
+            input: data to be predicted (single string, list of strings, or preprocessed dataloader objects),
+            labels for entities (optional), trained model (optional), tokenized_dataset (optional, needed if loading
+            preprocessed dataloader).
+            returns: token set with predicted labels
+        """
+
+        if labels:
+            self.labels = labels
+        else:
+            self.labels = []
+
+        if type(data) == torch.utils.data.dataloader.DataLoader:
+            pred_dataloader = data
+            tokenized_dataset = tok_dataset
+
+        else:
+            if type(data) == str:
+                data = [data]
+
+            ner_data = NERData(self.modelname)
+
+            tokenized_dataset = []
+            for para in data:
+                token_set = ner_data.create_tokenset(para)
+                token_set['labels'] = self.labels
+                tokenized_dataset.append(token_set)
+
+            ner_data.preprocess(tokenized_dataset, is_file=False)
+            tensor_dataset = ner_data.dataset
+            pred_dataloader = DataLoader(tensor_dataset)
+
+            self.classes = ner_data.classes
+            self.config.num_labels = len(self.classes)
+            self.model = self.initialize_model()
 
         if trained_model:
-            self.model.load_state_dict(torch.load(trained_model))
-
-        tokenized_dataset, pred_dataloader = self._data_to_dataloader(data)
+            try:
+                self.model.load_state_dict(torch.load(trained_model))
+            except:
+                self.model.load_state_dict(torch.load(trained_model, map_location=torch.device('cpu')))
 
         # run predictions
         with torch.no_grad():
@@ -247,14 +283,15 @@ class NERModel(ABC):
                     "valid_mask": batch[2].to(self.device),
                     "labels": batch[4].to(self.device)
                 }
+
                 loss, predicted = self.model.forward(**inputs)
-                predictions = predicted.to('cpu').numpy()[0]
+                predictions = torch.max(predicted, -1)[1]
 
                 # assign predictions to dataset
-                for tok in sentence:
-                    tok_idx = torch.tensor([sentence.index(tok)])
-                    pred_idx = predictions[tok_idx]
-                    tok['annotation'] = self.classes[pred_idx]
+                for i, tok in enumerate(sentence):
+                    if i < len(sentence)-1:
+                        pred_idx = predictions[0][1:][i]
+                        tok['annotation'] = self.classes[pred_idx]
                 tokenized_dataset[para_i]['tokens'][sent_i] = sentence
         return tokenized_dataset
 
