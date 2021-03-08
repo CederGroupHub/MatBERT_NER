@@ -8,8 +8,9 @@ from tqdm import tqdm
 
 class NERData():
 
-    def __init__(self, modelname="allenai/scibert_scivocab_cased"):
+    def __init__(self, modelname="allenai/scibert_scivocab_cased", tag_format='IOB2'):
         self.tokenizer = BertTokenizer.from_pretrained(modelname)
+        self.tag_format = tag_format
         self.dataset = None
         self.labels = None
 
@@ -29,46 +30,75 @@ class NERData():
         else:
             data = datafile
 
-        self.__get_iob_tags(data[0]['labels'])
+        self.__get_tags(data[0]['labels'])
 
-        data = [[(d['text'],d['annotation']) for d in s] for a in data for s in a['tokens']]
-
+        texts = [[d['text'] for d in s] for a in data for s in a['tokens']]
+        annotations = [[d['annotation'] for d in s] for a in data for s in a['tokens']]
         input_examples = []
         max_sequence_length = 0
-        for i, d in enumerate(data):
-            labels = []
-            text = []
-            for t,l in d:
-
-                #This causes issues with BERT for some reason
-                if t in ['̄','̊']:
+        for n, (text, annotation) in enumerate(zip(texts, annotations)):
+            txt = []
+            label = []
+            sequence_length = len(text)
+            for i in range(sequence_length):
+                if text[i] in ['̄','̊']:
                     continue
-
-                text.append(t)
-                if l is None:
-                    label = "O"
-                elif "PUT" in l or "PVL" in l:
-                    label = "O"
-                else:
-                    label = l
-                    if len(labels) > 0 and l in labels[-1]:
-                        label = "I-{}".format(l)
-                    else:
-                        label = "B-{}".format(l)
-                labels.append(label)
-
-            if len(text) > max_sequence_length:
-                max_sequence_length = len(text)
-
-            example = InputExample(i, text, labels)
-
+                txt.append(text[i])
+                if self.tag_format == 'IOB':
+                    if annotation[i] in [None, 'PVL', 'PUT']:
+                        label.append('O')
+                    elif i == 0:
+                        if annotation[i+1] == annotation[i]:
+                            label.append('B-'+annotation[i])
+                        else:
+                            label.append('I-'+annotation[i])
+                    elif i > 0:
+                        if annotation[i-1] == annotation[i]:
+                            label.append('I-'+annotation[i])
+                        else:
+                            if annotation[i+1] == annotation[i]:
+                                label.append('B-'+annotation[i])
+                            else:
+                                label.append('I-'+annotation[i])
+                elif self.tag_format == 'IOB2':
+                    if annotation[i] in [None, 'PVL', 'PUT']:
+                        label.append('O')
+                    elif i == 0:
+                        label.append('B-'+annotation[i])
+                    elif i > 0:
+                        if annotation[i-1] == annotation[i]:
+                            label.append('I-'+annotation[i])
+                        else:
+                            label.append('B-'+annotation[i])
+                elif self.tag_format == 'IOBES':
+                    if annotation[i] in [None, 'PVL', 'PUT']:
+                        label.append('O')
+                    elif i == 0:
+                        if annotation[i+1] == annotation[i]:
+                            label.append('B-'+annotation[i])
+                        else:
+                            label.append('S-'+annotation[i])
+                    elif i > 0 and i < len(annotation)-1:
+                        if annotation[i-1] != annotation[i] and annotation[i+1] == annotation[i]:
+                            label.append('B-'+annotation[i])
+                        elif annotation[i-1] == annotation[i] and annotation[i+1] == annotation[i]:
+                            label.append('I-'+annotation[i])
+                        elif annotation[i-1] == annotation[i] and annotation[i+1] != annotation[i]:
+                            label.append('E-'+annotation[i])
+                        if annotation[i-1] != annotation[i] and annotation[i+1] != annotation[i]:
+                            label.append('S-'+annotation[i])
+                    elif i == len(annotation)-1:
+                        if annotation[i-1] == annotation[i]:
+                            label.append('E-'+annotation[i])
+                        if annotation[i-1] != annotation[i]:
+                            label.append('S-'+annotation[i])
+            sequence_length = len(txt)
+            if sequence_length > max_sequence_length:
+                max_sequence_length = sequence_length
+            example = InputExample(n, txt, label)
             input_examples.append(example)
-
-        features = self.__convert_examples_to_features(
-                input_examples,
-                self.classes,
-                max_sequence_length,
-        )
+        
+        features = self.__convert_examples_to_features(input_examples, self.classes, max_sequence_length)
 
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
         all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
@@ -81,7 +111,7 @@ class NERData():
         self.dataset = dataset
         return self
 
-    def create_dataloaders(self, batch_size=30, train_frac=None, val_frac=0.1, dev_frac=0.1, shuffle_dataset=True):
+    def create_dataloaders(self, batch_size=30, train_frac=None, val_frac=0.1, dev_frac=0.1, shuffle_dataset=True, seed=None):
         """
         Create train, val, and dev dataloaders from a preprocessed dataset
         Inputs:
@@ -102,8 +132,8 @@ class NERData():
         indices = list(range(dataset_size))
         dev_split = int(np.floor(dev_frac * dataset_size))
         val_split = int(np.floor(val_frac * dataset_size))+dev_split
-        if shuffle_dataset :
-            np.random.seed(107)
+        if shuffle_dataset:
+            np.random.seed(seed)
             np.random.shuffle(indices)
 
         dev_indices, val_indices = indices[:dev_split], indices[dev_split:val_split]
@@ -328,20 +358,17 @@ class NERData():
         Returns:
             chunk_end: boolean.
         """
+
         chunk_end = False
-
-        if prev_tag == 'E': chunk_end = True
-        if prev_tag == 'S': chunk_end = True
-
-        if prev_tag == 'B' and tag == 'B': chunk_end = True
-        if prev_tag == 'B' and tag == 'S': chunk_end = True
-        if prev_tag == 'B' and tag == 'O': chunk_end = True
-        if prev_tag == 'I' and tag == 'B': chunk_end = True
-        if prev_tag == 'I' and tag == 'S': chunk_end = True
-        if prev_tag == 'I' and tag == 'O': chunk_end = True
-
-        if prev_tag != 'O' and prev_tag != '.' and prev_type != type_:
-            chunk_end = True
+        if self.tag_format == 'IOB':
+            if prev_tag == 'I' and tag in ['B', 'O']: chunk_end = True
+            if prev_tag == 'I' and tag == 'I' and prev_type != type_: chunk_end = True
+        if self.tag_format == 'IOB2':
+            if prev_tag == 'I' and tag in ['B', 'O']: chunk_end = True
+            if prev_tag == 'B' and tag == 'O': chunk_end = True
+            if prev_tag == 'B' and tag == 'B' and prev_type != type_: chunk_end = True
+        if self.tag_format == 'IOBES':
+            if prev_tag in ['E', 'S']: chunk_end = True
 
         return chunk_end
 
@@ -356,20 +383,16 @@ class NERData():
         Returns:
             chunk_start: boolean.
         """
+
         chunk_start = False
-
-        if tag == 'B': chunk_start = True
-        if tag == 'S': chunk_start = True
-
-        if prev_tag == 'E' and tag == 'E': chunk_start = True
-        if prev_tag == 'E' and tag == 'I': chunk_start = True
-        if prev_tag == 'S' and tag == 'E': chunk_start = True
-        if prev_tag == 'S' and tag == 'I': chunk_start = True
-        if prev_tag == 'O' and tag == 'E': chunk_start = True
-        if prev_tag == 'O' and tag == 'I': chunk_start = True
-
-        if tag != 'O' and tag != '.' and prev_type != type_:
-            chunk_start = True
+        if self.tag_format == 'IOB':
+            if tag == 'B': chunk_start = True
+            if prev_tag == 'O' and tag == 'I': chunk_start = True
+            if prev_tag == 'I' and tag == 'I' and prev_type != type_: chunk_start = True
+        if self.tag_format == 'IOB2':
+            if tag == 'B': chunk_start = True
+        if self.tag_format == 'IOBES':
+            if tag in ['B', 'S']: chunk_start = True
 
         return chunk_start
 
@@ -422,13 +445,14 @@ class NERData():
                 results += (item,)
         return results
 
-    def __get_iob_tags(self, labels):
+    def __get_tags(self, labels):
         classes_raw = labels
         classes = ["O"]
-        for c in classes_raw:
-            classes.append(c)
-            classes.append("B-{}".format(c))
-            classes.append("I-{}".format(c))
+        if self.tag_format in ['IOB', 'IOB2']:
+            prefixes = ['I', 'B']
+        elif self.tag_format == 'IOBES':
+            prefixes = ['B', 'I', 'E', 'S']
+        classes.extend(['{}-{}'.format(p, c) for p in prefixes for c in classes_raw])
 
         self.classes = classes
 
