@@ -237,11 +237,12 @@ class NERModel(ABC):
 
         return metrics
 
-    def predict(self, data, labels=None, trained_model=None):
+    def predict(self, data, labels=None, trained_model=None, tok_dataset=None):
         """
             Method for predicting NER labels based on trained model
             input: data to be predicted (single string, list of strings, or preprocessed dataloader objects),
-            labels for entities (optional), trained model (optional)
+            labels for entities (optional), trained model (optional), tokenized_dataset (optional, needed if loading
+            preprocessed dataloader).
             returns: token set with predicted labels
         """
 
@@ -250,9 +251,13 @@ class NERModel(ABC):
         else:
             self.labels = []
 
-        if type(data) == str:
-            data = [data]
-        elif type(data[0]) == str:
+        if type(data) == torch.utils.data.dataloader.DataLoader:
+            pred_dataloader = data
+            tokenized_dataset = tok_dataset
+
+        else:
+            if type(data) == str:
+                data = [data]
 
             ner_data = NERData(self.modelname)
 
@@ -269,9 +274,6 @@ class NERModel(ABC):
             self.classes = ner_data.classes
             self.config.num_labels = len(self.classes)
             self.model = self.initialize_model()
-
-        else:
-            pred_dataloader = data
 
         if trained_model:
             try:
@@ -305,7 +307,8 @@ class NERModel(ABC):
                     "labels": batch[4].to(self.device)
                 }
 
-                loss, predictions = self.model.forward(**inputs)
+                loss, predicted = self.model.forward(**inputs)
+                predictions = torch.max(predicted, -1)[1]
 
                 # assign predictions to dataset
                 for i, tok in enumerate(sentence):
