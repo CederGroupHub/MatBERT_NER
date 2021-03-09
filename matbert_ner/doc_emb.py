@@ -85,6 +85,13 @@ for write_file in [('train', train_indices), ('test', dev_indices)]:
             print(l)
             f.write(json.dumps(raw_data[l])+"\n")
 
+np.random.shuffle(raw_data)
+
+for write_file in [('rand_train', train_indices), ('rand_test', dev_indices)]:
+    with open("data/{}_ner_annotations.json".format(write_file[0]), 'w') as f:
+        for l in write_file[1]:
+            print(l)
+            f.write(json.dumps(raw_data[l])+"\n")
 
 ner_data = NERData(model)
 ner_data.preprocess("data/train_ner_annotations.json", split_on_sentences=True)
@@ -97,9 +104,25 @@ ner_data.preprocess("data/test_ner_annotations.json", split_on_sentences=True)
 
 _, dev_dataloader, _ = ner_data.create_dataloaders(train_frac=0.0, val_frac=1.0, dev_frac=0.0 , batch_size=20)
 
+ner_model.train(train_dataloader, val_dataloader=dev_dataloader, n_epochs=n_epochs, save_dir=save_dir, full_finetuning=full_finetuning)
+
+ner_model = BertCRFNERModel(modelname=model, classes=classes, device=device, lr=2e-4)
+
+ner_data = NERData(model)
+ner_data.preprocess("data/rand_train_ner_annotations.json", split_on_sentences=True)
+
+train_dataloader, _, _ = ner_data.create_dataloaders(train_frac=1.0, val_frac=0.0, dev_frac=0.0 , batch_size=20)
+
+
+ner_data = NERData(model)
+ner_data.preprocess("data/rand_test_ner_annotations.json", split_on_sentences=True)
+
+_, dev_dataloader, _ = ner_data.create_dataloaders(train_frac=0.0, val_frac=1.0, dev_frac=0.0 , batch_size=20)
 
 # train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(train_frac=0.7, val_frac=0.01, dev_frac=0.29 , batch_size=20)
+ner_model.train(train_dataloader, val_dataloader=dev_dataloader, n_epochs=n_epochs, save_dir=save_dir, full_finetuning=full_finetuning)
 
+exit(0)
 train_doc_embs = []
 ner_model.model.eval()
 train_vocab = set()
