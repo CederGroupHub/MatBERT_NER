@@ -126,7 +126,7 @@ class BertCrfForNer(BertPreTrainedModel):
                             token_type_ids=token_type_ids, position_ids=position_ids,
                             head_mask=head_mask, inputs_embeds=inputs_embeds,
                             output_hidden_states=True)
-        # sequence_output = [outputs[2][i] for i in (-1, -2, -3, -4)]
-        # sequence_output = torch.mean(torch.mean(torch.stack(sequence_output), dim=0), dim=1)
-        sequence_output = torch.mean(outputs[0], dim=1)
+        sequence_output = [outputs[2][i] for i in (-1, -2, -3, -4)]
+        sequence_output = torch.mean(torch.mean(torch.stack(sequence_output), dim=0), dim=1)
+        #sequence_output = torch.mean(outputs[0], dim=1)
         return sequence_output
