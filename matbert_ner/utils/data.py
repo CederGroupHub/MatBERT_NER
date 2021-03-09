@@ -23,7 +23,7 @@ class NERData():
 
         return data
 
-    def preprocess(self, datafile, is_file=True):
+    def preprocess(self, datafile, is_file=True, split_on_sentences=True):
 
         if is_file:
             data = self.load_from_file(datafile)
@@ -32,8 +32,12 @@ class NERData():
 
         self.__get_tags(data[0]['labels'])
 
-        texts = [[d['text'] for d in s] for a in data for s in a['tokens']]
-        annotations = [[d['annotation'] for d in s] for a in data for s in a['tokens']]
+        if split_on_sentences:
+            texts = [[d['text'] for d in s] for a in data for s in a['tokens']]
+            annotations = [[d['annotation'] for d in s] for a in data for s in a['tokens']]
+        else:
+            texts = [[d['text'] for s in a['tokens'] for d in s][:512] for a in data]
+            annotations = [[d['annotation'] for s in a['tokens'] for d in s][:512] for a in data]
         input_examples = []
         max_sequence_length = 0
         for n, (text, annotation) in enumerate(zip(texts, annotations)):

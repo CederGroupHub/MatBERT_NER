@@ -13,17 +13,24 @@ from torch.utils.data import DataLoader, SubsetRandomSampler, TensorDataset, Seq
 # datafile = 'data/aunpmorph_annotations_fullparas.json'
 #datafile = "data/bc5dr.json"
 datafile = "data/ner_annotations.json"
+raw_data = []
+with open(datafile, 'r') as f:
+    for l in f:
+        raw_data.append(json.loads(l))
+print(len(raw_data))
 n_epochs = 4
 full_finetuning = True
 batch_size = 20
 
 device = "cuda"
-model = 'allenai/scibert_scivocab_uncased'
+model = '/home/amalie/MatBERT/matbert-base-uncased'
+# model = 'allenai/scibert_scivocab_uncased'
+model = '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'
 save_dir = os.getcwd()+'/{}_results{}/'.format("scibert", "doc_emb")
 # save_dir = None
 
 ner_data = NERData(model)
-ner_data.preprocess(datafile)
+ner_data.preprocess(datafile, split_on_sentences=False)
 
 classes = ner_data.classes
 
@@ -37,7 +44,7 @@ ner_model.model.eval()
 train_frac = 0.2
 all_dataloader = DataLoader(ner_data.dataset, batch_size=batch_size,
             num_workers=0, pin_memory=True)
-train_set_size = int(train_frac*len(all_dataloader)*batch_size)
+train_set_size = int(train_frac*len(raw_data))
 doc_embs = []
 with torch.no_grad():
     for batch in all_dataloader:
@@ -68,17 +75,28 @@ while len(train_indices) < train_set_size:
     last_train_index = torch.min(masked_mins,dim=0)[1]
     train_indices.append(int(last_train_index))
 
-dev_indices = [x for x in range(len(all_dataloader)*batch_size) if not x in train_indices]
+dev_indices = [x for x in range(len(raw_data)) if not x in train_indices]
 
 print(len(train_indices), len(dev_indices))
-train_sampler = SubsetRandomSampler(train_indices)
-dev_sampler = SequentialSampler(dev_indices)
 
-train_dataloader = DataLoader(ner_data.dataset, batch_size=batch_size,
-    num_workers=0, sampler=train_sampler, pin_memory=True)
+for write_file in [('train', train_indices), ('test', dev_indices)]:
+    with open("data/{}_ner_annotations.json".format(write_file[0]), 'w') as f:
+        for l in write_file[1]:
+            print(l)
+            f.write(json.dumps(raw_data[l])+"\n")
 
-dev_dataloader = DataLoader(ner_data.dataset, batch_size=batch_size,
-    num_workers=0, sampler=dev_sampler, pin_memory=True)
+
+ner_data = NERData(model)
+ner_data.preprocess("data/train_ner_annotations.json", split_on_sentences=True)
+
+train_dataloader, _, _ = ner_data.create_dataloaders(train_frac=1.0, val_frac=0.0, dev_frac=0.0 , batch_size=20)
+
+
+ner_data = NERData(model)
+ner_data.preprocess("data/test_ner_annotations.json", split_on_sentences=True)
+
+_, dev_dataloader, _ = ner_data.create_dataloaders(train_frac=0.0, val_frac=1.0, dev_frac=0.0 , batch_size=20)
+
 
 # train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(train_frac=0.7, val_frac=0.01, dev_frac=0.29 , batch_size=20)
 
