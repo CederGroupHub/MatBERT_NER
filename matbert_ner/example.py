@@ -16,8 +16,8 @@ datafiles = {'solid_state': 'data/ner_annotations.json',
              'impurityphase': 'data/impurityphase_fullparas.json',
              'aupnmorph': 'data/aunpmorph_annotations_fullparas.json'}
 
-split = (0.8, 0.1, 0.1)
-# split = np.array((0.8, 0.1, 0.1))*2190/11123
+# split = (0.8, 0.1, 0.1)
+split = np.array((0.8, 0.1, 0.1))*2190/11123
 n_epochs = 16
 lr = 2e-4
 
@@ -28,14 +28,14 @@ models = {'bert': 'bert-base-uncased',
 
 data = 'solid_state'
 configs = {}
-configs['_{}_full_crf_iobes_{}'.format(data, seed)] = {'full_finetuning': True,
+configs['_{}_reduced_full_crf_iobes_{}'.format(data, seed)] = {'full_finetuning': True,
                                                        'format': 'IOBES'}
-configs['_{}_full_crf_iob2_{}'.format(data, seed)] = {'full_finetuning': True,
+configs['_{}_reduced_full_crf_iob2_{}'.format(data, seed)] = {'full_finetuning': True,
                                                       'format': 'IOB2'}
 
-configs['_{}_shallow_crf_iobes_{}'.format(data, seed)] = {'full_finetuning': False,
+configs['_{}_reduced_shallow_crf_iobes_{}'.format(data, seed)] = {'full_finetuning': False,
                                                           'format': 'IOBES'}
-configs['_{}_shallow_crf_iob2_{}'.format(data, seed)] = {'full_finetuning': False,
+configs['_{}_reduced_shallow_crf_iob2_{}'.format(data, seed)] = {'full_finetuning': False,
                                                          'format': 'IOB2'}
 
 for alias, config in configs.items():
