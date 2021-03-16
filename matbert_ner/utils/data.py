@@ -5,6 +5,7 @@ import json
 import torch
 import numpy as np
 from tqdm import tqdm
+from sklearn.model_selection import KFold
 
 class NERData():
 
@@ -169,6 +170,62 @@ class NERData():
             self.dev_dataloader = None
 
         return self.train_dataloader, self.val_dataloader, self.dev_dataloader
+
+
+    def create_kfold_dataloaders(self, batch_size=30, val_frac=0.1, shuffle_dataset=True, seed=None, splits=5):
+        """
+        Create train, val, and dev dataloaders from a preprocessed dataset
+        Inputs:
+            batch_size (int) :: Minibatch size for training
+            val_frac (float) :: Fraction of data to use for validation
+            shuffle_dataset (bool) :: Whether to randomize ordering of data samples
+            splits (int) :: Number of folds to use for Kfold cross validation
+        Returns:
+            dataloaders (list of tuples of torch.utils.data.Dataloader) :: list of train, val, and dev dataloaders for each fold
+        """
+
+        if self.dataset is None:
+            print("No preprocessed dataset available")
+            return None
+
+        dataset_size = len(self.dataset)
+        indices = list(range(dataset_size))
+        if shuffle_dataset:
+            np.random.seed(seed)
+            np.random.shuffle(indices)
+
+        dataloaders = []
+        if splits > 1:
+            kfold = KFold(splits, random_state=seed, shuffle=True)
+            index_splits = kfold.split(indices)
+        else:
+            index_splits = [(indices, [])]
+
+        for train_indices, dev_indices in index_splits: 
+            val_split = int(np.floor(val_frac * len(train_indices)))
+            val_indices = train_indices[:val_split]
+            train_indices = train_indices[val_split:]
+
+            # Creating PT data samplers and loaders:
+            train_sampler = SubsetRandomSampler(train_indices)
+            val_sampler = SequentialSampler(val_indices)
+            dev_sampler = SequentialSampler(dev_indices)
+
+            train_dataloader = DataLoader(self.dataset, batch_size=batch_size,
+                num_workers=0, sampler=train_sampler, pin_memory=True)
+
+            if val_frac > 0:
+                val_dataloader = DataLoader(self.dataset, batch_size=batch_size,
+                    num_workers=0, sampler=val_sampler, pin_memory=True)
+            else:
+                val_dataloader = None
+
+            dev_dataloader = DataLoader(self.dataset, batch_size=batch_size,
+                num_workers=0, sampler=dev_sampler, pin_memory=True)
+
+            dataloaders.append((train_dataloader, val_dataloader, dev_dataloader))
+
+        return dataloaders
 
     def create_tokenset(self, text):
         idx = 0
