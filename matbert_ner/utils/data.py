@@ -220,7 +220,8 @@ class NERData():
             else:
                 val_dataloader = None
 
-            dev_dataloader = DataLoader(self.dataset, batch_size=batch_size,
+            #Batch size 1 on the dev dataloader for ease of prediction
+            dev_dataloader = DataLoader(self.dataset, batch_size=1,
                 num_workers=0, sampler=dev_sampler, pin_memory=True)
 
             dataloaders.append((train_dataloader, val_dataloader, dev_dataloader))
