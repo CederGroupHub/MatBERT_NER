@@ -93,7 +93,7 @@ class BertCrfForNer(BertPreTrainedModel):
                 attention_mask=None, token_type_ids=None,
                 position_ids=None, head_mask=None,
                 inputs_embeds=None, valid_mask=None,
-                labels=None):
+                labels=None, return_logits=False):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask,
                             token_type_ids=token_type_ids, position_ids=position_ids,
                             head_mask=head_mask, inputs_embeds=inputs_embeds,
@@ -110,7 +110,9 @@ class BertCrfForNer(BertPreTrainedModel):
         else:
             logits = self.classifier(sequence_output)
         predictions = self.crf.decode(logits, mask=attention_mask)
-        outputs = (predictions,)
+        outputs = (predictions, )
+        if return_logits:
+            outputs = outputs + (logits, )
         if labels is not None:
             labels = torch.where(labels >= 0, labels, torch.zeros_like(labels))
             loss = -self.crf(logits, labels, mask=attention_mask)

@@ -214,12 +214,13 @@ class NERModel(ABC):
         else:
             return metrics
 
-    def predict(self, data, labels=None, trained_model=None, tok_dataset=None):
+    def predict(self, data, labels=None, trained_model=None, tok_dataset=None, return_tags=False):
         """
             Method for predicting NER labels based on trained model
             input: data to be predicted (single string, list of strings, or preprocessed dataloader objects),
             labels for entities (optional), trained model (optional), tokenized_dataset (optional, needed if loading
             preprocessed dataloader).
+            return_tags :: whether to return prediction and label tag tensors
             returns: token set with predicted labels
         """
 
@@ -259,6 +260,9 @@ class NERModel(ABC):
                 self.model.load_state_dict(torch.load(trained_model, map_location=torch.device('cpu')))
 
         # run predictions
+        all_prediction_tags = []
+        all_label_tags = []
+        all_losses = []
         with torch.no_grad():
             for i, batch in enumerate(pred_dataloader):
                 # set up cursors for paragraphs and sentences in dataset since
@@ -285,15 +289,24 @@ class NERModel(ABC):
                 }
 
                 loss, predicted = self.model.forward(**inputs)
-                predictions = torch.max(predicted, -1)[1]
+
+                if return_tags:
+                    prediction_tags, label_tags = self.process_tags(inputs, predicted)
+                    all_prediction_tags.append(prediction_tags)
+                    all_label_tags.append(label_tags)
+                    all_losses.append(loss)
+                # predictions = torch.max(predicted, -1)[1]
 
                 # assign predictions to dataset
                 for i, tok in enumerate(sentence):
                     if i < len(sentence)-1:
-                        pred_idx = predictions[0][1:][i]
+                        pred_idx = predicted[0][i]
                         tok['annotation'] = self.classes[pred_idx]
                 tokenized_dataset[para_i]['tokens'][sent_i] = sentence
-        return tokenized_dataset
+        if return_tags:
+            return tokenized_dataset, [x for k in all_prediction_tags for x in k], [x for k in all_label_tags for x in k], torch.stack(all_losses)
+        else:
+            return tokenized_dataset
 
     def _data_to_dataloader(self, data):
         # check for input data type
