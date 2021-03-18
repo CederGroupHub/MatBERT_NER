@@ -31,7 +31,7 @@ data = 'solid_state'
 configs = {'_{}_full_crf_iobes_{}_{}'.format(data, seed, 100*split): {'full_finetuning': True, 'format': 'IOBES', 'split': [split, 0.1, 0.1]} for split in splits}
 
 for alias, config in configs.items():
-    for model_name in ['matbert', 'scibert', 'bert']:
+    for model_name in ['matbert']:
         save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
 
         ner_data = NERData(models[model_name], tag_format=config['format'])
