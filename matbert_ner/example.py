@@ -17,7 +17,8 @@ datafiles = {'solid_state': 'data/ner_annotations.json',
              'aupnmorph': 'data/aunpmorph_annotations_fullparas.json'}
 
 # split = (0.8, 0.1, 0.1)
-split = np.array((0.8, 0.1, 0.1))*2190/11123
+# split = np.array((0.8, 0.1, 0.1))*2190/11123
+splits = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
 n_epochs = 16
 lr = 2e-4
 
@@ -27,16 +28,7 @@ models = {'bert': 'bert-base-uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
 data = 'solid_state'
-configs = {}
-configs['_{}_reduced_full_crf_iobes_{}'.format(data, seed)] = {'full_finetuning': True,
-                                                       'format': 'IOBES'}
-configs['_{}_reduced_full_crf_iob2_{}'.format(data, seed)] = {'full_finetuning': True,
-                                                      'format': 'IOB2'}
-
-configs['_{}_reduced_shallow_crf_iobes_{}'.format(data, seed)] = {'full_finetuning': False,
-                                                          'format': 'IOBES'}
-configs['_{}_reduced_shallow_crf_iob2_{}'.format(data, seed)] = {'full_finetuning': False,
-                                                         'format': 'IOB2'}
+configs = {'_{}_full_crf_iobes_{}_{}'.format(data, seed, 100*split): {'full_finetuning': True, 'format': 'IOBES', 'split': [split, 0.1, 0.1]} for split in splits}
 
 for alias, config in configs.items():
     for model_name in ['matbert', 'scibert', 'bert']:
@@ -45,7 +37,7 @@ for alias, config in configs.items():
         ner_data = NERData(models[model_name], tag_format=config['format'])
         ner_data.preprocess(datafiles[data])
 
-        train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(batch_size=32, train_frac=split[0], val_frac=split[1], dev_frac=split[2], seed=seed)
+        train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(batch_size=32, train_frac=config['split'][0], val_frac=config['split'][1], dev_frac=config['split'][2], seed=seed)
         classes = ner_data.classes
 
         ner_model = BertCRFNERModel(modelname=models[model_name], classes=classes, tag_format=config['format'], device=device, lr=lr)
