@@ -28,7 +28,7 @@ models = {'bert': 'bert-base-uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
 data = 'solid_state'
-configs = {'_{}_full_crf_iobes_{}_{}'.format(data, seed, 100*split): {'full_finetuning': True, 'format': 'IOBES', 'split': [split, 0.1, 0.1]} for split in splits}
+configs = {'_{}_full_crf_iobes_{}_{}'.format(data, seed, int(100*split)): {'full_finetuning': True, 'format': 'IOBES', 'split': [split, 0.1, 0.1]} for split in splits}
 
 for alias, config in configs.items():
     for model_name in ['matbert']:
