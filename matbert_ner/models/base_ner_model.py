@@ -251,7 +251,7 @@ class NERModel(ABC):
 
             self.classes = ner_data.classes
             self.config.num_labels = len(self.classes)
-            self.model = self.initialize_model()
+            # self.model = self.initialize_model()
 
         if trained_model:
             try:
