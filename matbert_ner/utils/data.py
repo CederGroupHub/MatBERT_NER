@@ -102,7 +102,9 @@ class NERData():
                 max_sequence_length = sequence_length
             example = InputExample(n, txt, label)
             input_examples.append(example)
-        
+
+        #bonus tokens
+        max_sequence_length += 2
         features = self.__convert_examples_to_features(input_examples, self.classes, max_sequence_length)
 
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
