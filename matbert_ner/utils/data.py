@@ -149,6 +149,11 @@ class NERData():
         else:
              train_indices = indices[val_split:]
 
+        print(indices)
+        print(train_indices)
+        print(val_indices)
+        print(dev_indices)
+        exit(1)
         # Creating PT data samplers and loaders:
         train_sampler = SubsetRandomSampler(train_indices)
         val_sampler = SequentialSampler(val_indices)
@@ -172,7 +177,7 @@ class NERData():
         return self.train_dataloader, self.val_dataloader, self.dev_dataloader
 
 
-    def create_kfold_dataloaders(self, batch_size=30, val_frac=0.1, shuffle_dataset=True, seed=None, splits=5):
+    def create_kfold_dataloaders(self, batch_size=30, val_frac=0.1, shuffle_dataset=True, seed=None, splits=5, frac=1.0):
         """
         Create train, val, and dev dataloaders from a preprocessed dataset
         Inputs:
@@ -194,18 +199,27 @@ class NERData():
             np.random.seed(seed)
             np.random.shuffle(indices)
 
+        #indices = indices[:int(min(frac*dataset_size,dataset_size))]
+        
+        #print(indices)
         dataloaders = []
         if splits > 1:
-            kfold = KFold(splits, random_state=seed, shuffle=True)
-            index_splits = kfold.split(indices)
+            kfold = KFold(splits, random_state=seed, shuffle=False)
+            index_splits = kfold.split(indices[:int(min(frac*dataset_size,dataset_size))])
         else:
             index_splits = [(indices, [])]
 
-        for train_indices, dev_indices in index_splits: 
-            val_split = int(np.floor(val_frac * len(train_indices)))
-            val_indices = train_indices[:val_split]
-            train_indices = train_indices[val_split:]
+        for vis_indices, dev_indices in index_splits:
+            np.random.shuffle(indices)
+            val_split = int(np.floor(val_frac * len(vis_indices)))
+            val_indices = [indices[i] for i in vis_indices[:val_split]]
+            train_indices = [indices[i] for i in vis_indices[val_split:]]
+            dev_indices = [indices[i] for i in dev_indices]
 
+            #print(train_indices)
+            #print(val_indices)
+            #print(dev_indices)
+            #exit(1)
             # Creating PT data samplers and loaders:
             train_sampler = SubsetRandomSampler(train_indices)
             val_sampler = SequentialSampler(val_indices)

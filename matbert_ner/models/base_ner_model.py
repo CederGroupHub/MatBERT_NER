@@ -68,7 +68,7 @@ class NERModel(ABC):
             val_dataloader :: dataloader with validation data - if provided the model with the best performance on the validation set will be saved
             save_dir :: directory to save models
         """
-        self.val_f1_best = 0
+        self.val_f1_best = -1
 
         optimizer = self.create_optimizer(full_finetuning)
         scheduler = self.create_scheduler(optimizer, n_epochs, train_dataloader)
