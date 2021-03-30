@@ -149,11 +149,6 @@ class NERData():
         else:
              train_indices = indices[val_split:]
 
-        print(indices)
-        print(train_indices)
-        print(val_indices)
-        print(dev_indices)
-        exit(1)
         # Creating PT data samplers and loaders:
         train_sampler = SubsetRandomSampler(train_indices)
         val_sampler = SequentialSampler(val_indices)
