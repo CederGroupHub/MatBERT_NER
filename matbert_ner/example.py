@@ -16,14 +16,14 @@ datafiles = {'solid_state': 'data/ner_annotations.json',
              'impurityphase': 'data/impurityphase_fullparas.json',
              'aupnmorph': 'data/aunpmorph_annotations_fullparas.json'}
 
-# split = (0.8, 0.1, 0.1)
-# split = np.array((0.8, 0.1, 0.1))*2190/11123
-splits = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+# splits = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+splits = [0.8]
 n_epochs = 16
 lr = 2e-4
 
 device = "cuda"
-models = {'bert': 'bert-base-uncased',
+models = {'bilstm': 'bert-base-uncased',
+          'bert': 'bert-base-uncased',
           'scibert': 'allenai/scibert_scivocab_uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
@@ -31,7 +31,7 @@ data = 'solid_state'
 configs = {'_{}_shallow_crf_iobes_{}_{}'.format(data, seed, int(100*split)): {'full_finetuning': False, 'format': 'IOBES', 'split': [split, 0.1, 0.1]} for split in splits}
 
 for alias, config in configs.items():
-    for model_name in ['bert', 'scibert', 'matbert']:
+    for model_name in ['bilstm', 'bert', 'scibert', 'matbert']:
         save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
 
         ner_data = NERData(models[model_name], tag_format=config['format'])
@@ -40,7 +40,10 @@ for alias, config in configs.items():
         train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(batch_size=32, train_frac=config['split'][0], val_frac=config['split'][1], dev_frac=config['split'][2], seed=seed)
         classes = ner_data.classes
 
-        ner_model = BertCRFNERModel(modelname=models[model_name], classes=classes, tag_format=config['format'], device=device, lr=lr)
+        if model_name == 'bilstm':
+            ner_model = BiLSTMNERModel(modelname=models[model_name], classes=classes, tag_format=config['format'], device=device, lr=lr)
+        else:
+            ner_model = BertCRFNERModel(modelname=models[model_name], classes=classes, tag_format=config['format'], device=device, lr=lr)
         print('{} classes: {}'.format(len(ner_model.classes),' '.join(ner_model.classes)))
         print(ner_model.model)
         ner_model.train(train_dataloader, n_epochs=n_epochs, val_dataloader=val_dataloader, dev_dataloader=dev_dataloader, save_dir=save_dir, full_finetuning=config['full_finetuning'])
