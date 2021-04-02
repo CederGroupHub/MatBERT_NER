@@ -17,7 +17,7 @@ class BiLSTMNERModel(NERModel):
 
 
     def initialize_model(self):
-        ner_model = BiLSTM(self.config, self.classes, self.device).to(self.device)
+        ner_model = BiLSTM(self.config, self.classes, self.tag_format, self.device).to(self.device)
         return ner_model
 
 
@@ -46,7 +46,7 @@ class BiLSTMNERModel(NERModel):
 
 
 class BiLSTM(nn.Module):
-    def __init__(self, config, tag_names, device):
+    def __init__(self, config, tag_names, tag_format, device):
         super().__init__()
         self._device = device
         self.lstm_hidden_size = 64
@@ -59,7 +59,7 @@ class BiLSTM(nn.Module):
         self.attn = nn.MultiheadAttention(embed_dim=self.lstm_hidden_size*2, num_heads=self.attn_heads, dropout=0.25)
         self.dropout_c = nn.Dropout(0.25)
         self.classifier = nn.Linear(2*self.lstm_hidden_size, config.num_labels)
-        self.crf = CRF(tag_names=tag_names, batch_first=True)
+        self.crf = CRF(tag_names=tag_names, tag_format=tag_format, batch_first=True)
         self.crf.initialize()
 
 
