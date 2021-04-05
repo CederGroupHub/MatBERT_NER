@@ -81,7 +81,7 @@ class BiLSTM(nn.Module):
         sequence_output = self.embedding(input_ids)
         sequence_output, _ = self.lstm(sequence_output)
         sequence_output, attention_mask = valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask, self.device)
-        sequence_output, sequence_weight = self.attn(sequence_output, sequence_output, sequence_output, attn_mask=attention_mask))
+        sequence_output, sequence_weight = self.attn(sequence_output, sequence_output, sequence_output, attn_mask=attention_mask)
         sequence_output = self.dropout_b(sequence_output)
         logits = self.classifier(sequence_output)     
         predictions = self.crf.decode(logits, mask=attention_mask)
