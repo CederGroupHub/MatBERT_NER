@@ -35,6 +35,10 @@ for model_name in model_names:
             configs = {'_{}_full_crf_iobes_{}_{}'.format(data, seed, split): {'full_finetuning': True, 'format': 'IOBES', 'split': [split/100, split/800, 0.1]} for split in splits}
             for alias, config in configs.items():
                 save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
+                try:
+                    os.mkdir(save_dir)
+                except:
+                    pass
 
                 ner_data = NERData(models[model_name], tag_format=config['format'])
                 ner_data.preprocess(datafiles[data])
