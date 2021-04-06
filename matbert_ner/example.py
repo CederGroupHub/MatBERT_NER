@@ -26,7 +26,7 @@ models = {'bilstm': 'bert-base-uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
 model_names = ['bert']
-data = ['solid_state', 'aunpmorph', 'doping']
+data_names = ['solid_state', 'aunpmorph', 'doping']
 
 for model_name in model_names:
     for data in data_names:
