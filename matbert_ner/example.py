@@ -41,7 +41,7 @@ for model_name in model_names:
 
                 train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(batch_size=32, train_frac=config['split'][0], val_frac=config['split'][1], dev_frac=config['split'][2], seed=seed)
                 classes = ner_data.classes
-                torch.save(save_dir+'classes.pt', classes)
+                torch.save(classes, save_dir+'classes.pt')
 
                 if model_name == 'bilstm':
                     ner_model = BiLSTMNERModel(modelname=models[model_name], classes=classes, tag_format=config['format'], device=device, lr=lr)
