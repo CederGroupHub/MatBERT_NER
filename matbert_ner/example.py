@@ -13,7 +13,7 @@ torch.backends.cudnn.deterministic = True
 datafiles = {'solid_state': 'data/ner_annotations.json',
              'doping': 'data/doping.json',
              'impurityphase': 'data/impurityphase_fullparas.json',
-             'aupnmorph': 'data/aunpmorph_annotations_fullparas.json'}
+             'aunpmorph': 'data/aunpmorph_annotations_fullparas.json'}
 
 splits = np.arange(10, 85, 5)
 n_epochs = 16
@@ -25,8 +25,8 @@ models = {'bilstm': 'bert-base-uncased',
           'scibert': 'allenai/scibert_scivocab_uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
-model_names = ['matbert']
-data_names = ['solid_state', 'aunpmorph', 'doping']
+model_names = ['bert']
+data_names = ['aunpmorph', 'doping']
 
 for model_name in model_names:
     for data in data_names:
