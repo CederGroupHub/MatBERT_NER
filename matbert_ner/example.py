@@ -7,7 +7,7 @@ import json
 import torch
 import numpy as np
 
-seeds = [2**x for x in np.arange(8)]
+seeds = [2**x for x in np.arange(8, 16)]
 torch.backends.cudnn.deterministic = True
 
 datafiles = {'solid_state': 'data/ner_annotations.json',
@@ -26,13 +26,13 @@ models = {'bilstm': 'bert-base-uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
 model_names = ['bert']
-data_names = ['doping']
+data_names = ['aunpmorph', 'doping', 'solid_state']
 
 for model_name in model_names:
     for data in data_names:
         for seed in seeds:
             torch.manual_seed(seed)
-            configs = {'_{}_full_crf_iobes_{}_{}'.format(data, seed, split): {'full_finetuning': True, 'format': 'IOBES', 'split': [split/100, split/800, 0.1]} for split in splits}
+            configs = {'_{}_full_crf_iobes_{}_{}'.format(data, seed, split): {'full_finetuning': False, 'format': 'IOBES', 'split': [split/100, split/800, 0.1]} for split in splits}
             for alias, config in configs.items():
                 save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
                 try:
