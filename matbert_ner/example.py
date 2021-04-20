@@ -30,7 +30,7 @@ data_names = ['doping', 'solid_state']
 
 for model_name in model_names:
     for data in data_names:
-        if model_name == 'doping':
+        if data_name == 'doping':
             seeds = [2**x for x in np.arange(13, 16)]
         else:
             seeds = [2**x for x in np.arange(8, 16)]
