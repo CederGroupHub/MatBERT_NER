@@ -1,6 +1,6 @@
 from transformers import BertTokenizer
 from chemdataextractor.doc import Paragraph
-from torch.utils.data import DataLoader, SubsetRandomSampler, TensorDataset, SequentialSampler
+from torch.utils.data import DataLoader, SubsetRandomSampler, TensorDataset, SequentialSampler, Subset, RandomSampler
 import json
 import torch
 import numpy as np
@@ -102,7 +102,9 @@ class NERData():
                 max_sequence_length = sequence_length
             example = InputExample(n, txt, label)
             input_examples.append(example)
-        
+
+        #bonus tokens
+        max_sequence_length += 2
         features = self.__convert_examples_to_features(input_examples, self.classes, max_sequence_length)
 
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
@@ -148,23 +150,30 @@ class NERData():
             train_indices = indices[val_split:train_split]
         else:
              train_indices = indices[val_split:]
+        train_set = set(train_indices)
+        val_set = set(val_indices)
+        dev_set = set(dev_indices)
 
         # Creating PT data samplers and loaders:
-        train_sampler = SubsetRandomSampler(train_indices)
-        val_sampler = SequentialSampler(val_indices)
-        dev_sampler = SequentialSampler(dev_indices)
+        train_dataset = Subset(self.dataset, train_indices)
+        val_dataset = Subset(self.dataset, val_indices)
+        dev_dataset = Subset(self.dataset, dev_indices)
 
-        self.train_dataloader = DataLoader(self.dataset, batch_size=batch_size,
+        train_sampler = RandomSampler(train_dataset)
+        val_sampler = SequentialSampler(val_dataset)
+        dev_sampler = SequentialSampler(dev_dataset)
+
+        self.train_dataloader = DataLoader(train_dataset, batch_size=batch_size,
             num_workers=0, sampler=train_sampler, pin_memory=True)
 
         if val_frac > 0:
-            self.val_dataloader = DataLoader(self.dataset, batch_size=batch_size,
+            self.val_dataloader = DataLoader(val_dataset, batch_size=batch_size,
                 num_workers=0, sampler=val_sampler, pin_memory=True)
         else:
             self.val_dataloader = None
 
         if dev_frac > 0:
-            self.dev_dataloader = DataLoader(self.dataset, batch_size=batch_size,
+            self.dev_dataloader = DataLoader(dev_dataset, batch_size=batch_size,
                 num_workers=0, sampler=dev_sampler, pin_memory=True)
         else:
             self.dev_dataloader = None
@@ -172,7 +181,7 @@ class NERData():
         return self.train_dataloader, self.val_dataloader, self.dev_dataloader
 
 
-    def create_kfold_dataloaders(self, batch_size=30, val_frac=0.1, shuffle_dataset=True, seed=None, splits=5):
+    def create_kfold_dataloaders(self, batch_size=30, val_frac=0.1, shuffle_dataset=True, seed=None, splits=5, frac=1.0):
         """
         Create train, val, and dev dataloaders from a preprocessed dataset
         Inputs:
@@ -194,34 +203,43 @@ class NERData():
             np.random.seed(seed)
             np.random.shuffle(indices)
 
+        #indices = indices[:int(min(frac*dataset_size,dataset_size))]
+        
+        #print(indices)
         dataloaders = []
         if splits > 1:
-            kfold = KFold(splits, random_state=seed, shuffle=True)
-            index_splits = kfold.split(indices)
+            kfold = KFold(splits, random_state=seed, shuffle=False)
+            index_splits = kfold.split(indices[:int(min(frac*dataset_size,dataset_size))])
         else:
             index_splits = [(indices, [])]
 
-        for train_indices, dev_indices in index_splits: 
-            val_split = int(np.floor(val_frac * len(train_indices)))
-            val_indices = train_indices[:val_split]
-            train_indices = train_indices[val_split:]
+        for vis_indices, dev_indices in index_splits:
+            np.random.shuffle(indices)
+            val_split = int(np.floor(val_frac * len(vis_indices)))
+            val_indices = [indices[i] for i in vis_indices[:val_split]]
+            train_indices = [indices[i] for i in vis_indices[val_split:]]
+            dev_indices = [indices[i] for i in dev_indices]
 
             # Creating PT data samplers and loaders:
-            train_sampler = SubsetRandomSampler(train_indices)
-            val_sampler = SequentialSampler(val_indices)
-            dev_sampler = SequentialSampler(dev_indices)
+            train_dataset = Subset(self.dataset, train_indices)
+            val_dataset = Subset(self.dataset, val_indices)
+            dev_dataset = Subset(self.dataset, dev_indices)
 
-            train_dataloader = DataLoader(self.dataset, batch_size=batch_size,
+            train_sampler = RandomSampler(train_dataset)
+            val_sampler = SequentialSampler(val_dataset)
+            dev_sampler = SequentialSampler(dev_dataset)
+
+            train_dataloader = DataLoader(train_dataset, batch_size=batch_size,
                 num_workers=0, sampler=train_sampler, pin_memory=True)
 
             if val_frac > 0:
-                val_dataloader = DataLoader(self.dataset, batch_size=batch_size,
+                val_dataloader = DataLoader(val_dataset, batch_size=batch_size,
                     num_workers=0, sampler=val_sampler, pin_memory=True)
             else:
                 val_dataloader = None
 
             #Batch size 1 on the dev dataloader for ease of prediction
-            dev_dataloader = DataLoader(self.dataset, batch_size=1,
+            dev_dataloader = DataLoader(dev_dataset, batch_size=1,
                 num_workers=0, sampler=dev_sampler, pin_memory=True)
 
             dataloaders.append((train_dataloader, val_dataloader, dev_dataloader))

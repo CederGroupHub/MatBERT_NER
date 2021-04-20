@@ -68,7 +68,7 @@ class NERModel(ABC):
             val_dataloader :: dataloader with validation data - if provided the model with the best performance on the validation set will be saved
             save_dir :: directory to save models
         """
-        self.val_f1_best = 0
+        self.val_f1_best = -1
 
         optimizer = self.create_optimizer(full_finetuning)
         scheduler = self.create_scheduler(optimizer, n_epochs, train_dataloader)
@@ -249,9 +249,9 @@ class NERModel(ABC):
             tensor_dataset = ner_data.dataset
             pred_dataloader = DataLoader(tensor_dataset)
 
-            self.classes = ner_data.classes
+            #self.classes = ner_data.classes
             self.config.num_labels = len(self.classes)
-            self.model = self.initialize_model()
+            # self.model = self.initialize_model()
 
         if trained_model:
             try:
@@ -296,11 +296,16 @@ class NERModel(ABC):
                     all_label_tags.append(label_tags)
                     all_losses.append(loss)
                 # predictions = torch.max(predicted, -1)[1]
-
+                predicted = predicted[0][1:-1]
                 # assign predictions to dataset
-                for i, tok in enumerate(sentence):
+                #print(predicted)
+                #print(sentence)
+                #print(len(predicted))
+                #print(len(sentence))
+                for i, pred_idx in enumerate(predicted):
                     if i < len(sentence)-1:
-                        pred_idx = predicted[0][i]
+                        tok = sentence[i]
+                        #pred_idx = predicted[i]
                         tok['annotation'] = self.classes[pred_idx]
                 tokenized_dataset[para_i]['tokens'][sent_i] = sentence
         if return_tags:
