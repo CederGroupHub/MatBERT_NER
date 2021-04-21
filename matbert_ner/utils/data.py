@@ -17,15 +17,19 @@ class NERData():
 
 
     def load_from_file(self,datafile):
-        dois = []
+        identifiers = []
         data = []
         with open(datafile, 'r') as f:
             for l in f:
                 d = json.loads(l)
-                if d['doi'] in dois:
+                if 'ner_annotations' in datafile:
+                    identifier = d['doi']
+                elif 'doping' in datafile or 'aunpmorph_annotations_fullparas' in datafile or 'impurityphase_fullparas' in datafile:
+                    identifier = d['text']
+                if identifier in identifiers:
                     pass
                 else:
-                    dois.append(d['doi'])
+                    identifiers.append(identifier)
                     data.append(d)
 
         return data
