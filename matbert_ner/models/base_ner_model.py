@@ -214,13 +214,14 @@ class NERModel(ABC):
         else:
             return metrics
 
-    def predict(self, data, labels=None, trained_model=None, tok_dataset=None, return_tags=False):
+    def predict(self, data, labels=None, trained_model=None, tok_dataset=None, return_tags=False, threshold=None):
         """
             Method for predicting NER labels based on trained model
             input: data to be predicted (single string, list of strings, or preprocessed dataloader objects),
             labels for entities (optional), trained model (optional), tokenized_dataset (optional, needed if loading
             preprocessed dataloader).
             return_tags :: whether to return prediction and label tag tensors
+            threshold :: Threshold for classification of an entity. If None, Viterbi decoding is used
             returns: token set with predicted labels
         """
 
@@ -285,10 +286,11 @@ class NERModel(ABC):
                     "input_ids": batch[0].to(self.device),
                     "attention_mask": batch[1].to(self.device),
                     "valid_mask": batch[2].to(self.device),
-                    "labels": batch[4].to(self.device)
+                    "labels": batch[4].to(self.device),
+                    "return_logits": True
                 }
 
-                loss, predicted = self.model.forward(**inputs)
+                loss, predicted, logits = self.model.forward(**inputs)
 
                 if return_tags:
                     prediction_tags, label_tags = self.process_tags(inputs, predicted)
@@ -296,7 +298,18 @@ class NERModel(ABC):
                     all_label_tags.append(label_tags)
                     all_losses.append(loss)
                 # predictions = torch.max(predicted, -1)[1]
-                predicted = predicted[0][1:-1]
+                if threshold is None:
+                    predicted = predicted[0][1:-1]
+                else:
+                    m = torch.nn.Softmax(dim=-1)
+                    preds = m(logits)
+                    max_pred = torch.max(preds, dim=-1)
+                    max_pred_values = max_pred[0]
+                    max_pred_indices = max_pred[1]
+                    above_threshold_mask = (max_pred_values > threshold)
+                    predicted = torch.where(above_threshold_mask, max_pred_indices, torch.zeros_like(max_pred_indices))
+                    predicted = predicted.tolist()[0][1:-1] 
+
                 # assign predictions to dataset
                 #print(predicted)
                 #print(sentence)
