@@ -201,7 +201,7 @@ class NERModel(ABC):
                 batch_range.set_description('| {} | loss: {:.4f} | accuracy: {:.4f} | precision: {:.4f} | recall: {:.4f} | f1: {:.4f} |'.format(mode, *means))
 
         if validate:
-            if means[4] > self.val_f1_best:
+            if means[4] >= self.val_f1_best:
                 torch.save(self.model.state_dict(), save_path)
                 self.val_f1_best = means[4]
         elif self.results_file is not None:

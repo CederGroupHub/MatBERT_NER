@@ -17,7 +17,7 @@ class BiLSTMNERModel(NERModel):
 
 
     def initialize_model(self):
-        ner_model = BiLSTM(self.config, self.classes, self.device).to(self.device)
+        ner_model = BiLSTM(self.config, self.classes, self.tag_format, self.device).to(self.device)
         return ner_model
 
 
@@ -46,18 +46,20 @@ class BiLSTMNERModel(NERModel):
 
 
 class BiLSTM(nn.Module):
-    def __init__(self, config, tag_names, device):
+    def __init__(self, config, tag_names, tag_format, device):
         super().__init__()
         self._device = device
         self.lstm_hidden_size = 64
+        self.attn_heads = 16
         self.embedding = nn.Embedding(30522, config.hidden_size)
         self.dropout_b = nn.Dropout(config.hidden_dropout_prob)
         self.lstm = nn.LSTM(batch_first=True, input_size=config.hidden_size,
                             hidden_size=self.lstm_hidden_size, num_layers=4,
                             bidirectional=True, dropout=0.1)
+        self.attn = nn.MultiheadAttention(embed_dim=self.lstm_hidden_size*2, num_heads=self.attn_heads, dropout=0.25)
         self.dropout_c = nn.Dropout(0.25)
         self.classifier = nn.Linear(2*self.lstm_hidden_size, config.num_labels)
-        self.crf = CRF(tag_names=tag_names, batch_first=True)
+        self.crf = CRF(tag_names=tag_names, tag_format=tag_format, batch_first=True)
         self.crf.initialize()
 
 
@@ -77,12 +79,9 @@ class BiLSTM(nn.Module):
                 inputs_embeds=None, valid_mask=None,
                 labels=None):
         sequence_output = self.embedding(input_ids)
-        # sequence_output = [outputs[2][i] for i in (-1, -2, -3, -4)]
-        # sequence_output = torch.mean(torch.stack(sequence_output), dim=0)
-        # sequence_output = outputs[0]
-        # print(sequence_output.shape)
         sequence_output, _ = self.lstm(sequence_output)
         sequence_output, attention_mask = valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask, self.device)
+        sequence_output, sequence_weight = self.attn(sequence_output, sequence_output, sequence_output, attn_mask=attention_mask)
         sequence_output = self.dropout_b(sequence_output)
         logits = self.classifier(sequence_output)     
         predictions = self.crf.decode(logits, mask=attention_mask)
