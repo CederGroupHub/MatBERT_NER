@@ -25,7 +25,7 @@ models = {'bilstm': 'bert-base-uncased',
           'scibert': 'allenai/scibert_scivocab_uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
-model_names = ['matbert']
+model_names = ['bert']
 data_names = ['aunpmorph', 'doping', 'solid_state']
 
 for model_name in model_names:
