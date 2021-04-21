@@ -11,13 +11,19 @@ sentences = ["""The morphology of the gold nanorods was investigated using TEM. 
              """Cubic gold nanoparticles were synthesized according to the literature. Precursors were purchased from 
              Sigma\xa0Aldrich, and the spherical Au seeds were synthesized the previous night."""]
 
-modelname = "../../Scrap/matbert-base-uncased"
-trained_model = "../../Scrap/best.pt"
+modelname = 'allenai/scibert_scivocab_uncased'
+trained_model = "best.pt"
+datafile = 'data/aupnmorph_preshuffled.json'
+threshold = 0.8
 
-labels = ['MOR', 'DES']
+ner_data = NERData(modelname, tag_format="IOB2")
+ner_data.preprocess(datafile)
+
+
+labels = ner_data.classes
 
 model = BertCRFNERModel(
-    modelname=modelname
+    modelname=modelname, classes=labels
 )
 
 # test single sentence
@@ -26,19 +32,31 @@ print("Single sentence predictions: \n")
 pprint(preds)
 print("\n")
 
-# test list of sentences
-preds = model.predict(sentences, labels=['MOR', 'DES'], trained_model=trained_model)
-print("Single sentence predictions: \n")
+preds = model.predict(sentence, labels=['MOR', 'DES'], trained_model=trained_model, threshold=0.8)
+print("Single sentence predictions with threshold: \n")
 pprint(preds)
 print("\n")
 
+# test list of sentences
+preds = model.predict(sentences, labels=['MOR', 'DES'], trained_model=trained_model)
+print("Sentence list predictions: \n")
+pprint(preds)
+print("\n")
+
+preds = model.predict(sentences, labels=['MOR', 'DES'], trained_model=trained_model, threshold=0.8)
+print("Sentence list predictions with threshold: \n")
+pprint(preds)
+print("\n")
+
+exit(0)
 # test preprocessed dataloader
 ner_data = NERData(modelname)
 
 tokenized_dataset = []
 for para in sentences:
     token_set = ner_data.create_tokenset(para)
-    token_set['labels'] = labels
+    token_set['labels'] = list(set([x[-3:] for x in labels if len(x) > 3]))
+    print(token_set['labels'])
     tokenized_dataset.append(token_set)
 
 ner_data.preprocess(tokenized_dataset, is_file=False)
