@@ -17,10 +17,16 @@ class NERData():
 
 
     def load_from_file(self,datafile):
+        dois = []
         data = []
         with open(datafile, 'r') as f:
             for l in f:
-                data.append(json.loads(l))
+                d = json.loads(l)
+                if d['doi'] in dois:
+                    pass
+                else:
+                    dois.append(d['doi'])
+                    data.append(d)
 
         return data
 
