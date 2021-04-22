@@ -66,7 +66,7 @@ for model_name in model_names:
                         os.remove(f)
                     except:
                         print('error while deleting file: {}'.format(f))
-                try:
-                    os.remove(save_dir+'best.pt')
-                except:
-                    print('error while deleting file: {}best.pt'.format(savedir))
+                # try:
+                #     os.remove(save_dir+'best.pt')
+                # except:
+                #     print('error while deleting file: {}best.pt'.format(savedir))
