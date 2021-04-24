@@ -29,7 +29,7 @@ models = {'bilstm': 'bert-base-uncased',
           'scibert': 'allenai/scibert_scivocab_uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
-model_names = ['matbert']
+model_names = ['scibert']
 data_names = ['aunpmorph', 'doping', 'solid_state']
 # data_names = ['solid_state']
 
