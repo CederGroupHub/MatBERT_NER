@@ -41,32 +41,39 @@ for model_name in model_names:
             for alias, config in configs.items():
                 save_dir = os.getcwd()+'/{}_results{}/'.format(model_name, alias)
                 try:
-                    os.mkdir(save_dir)
+                    if os.path.exists(save_dir+'test.pt'):
+                        print('already calculated {}, skipping'.format(alias))
+                    else:
+                        try:
+                            os.mkdir(save_dir)
+                        except:
+                            print('path {} already exists'.format(dave_dir))
+                        ner_data = NERData(models[model_name], tag_format=config['format'])
+                        ner_data.preprocess(datafiles[data])
+
+                        train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(batch_size=32, train_frac=config['split'][0], val_frac=config['split'][1], dev_frac=config['split'][2], seed=seed)
+                        classes = ner_data.classes
+                        torch.save(classes, save_dir+'classes.pt')
+
+                        if model_name == 'bilstm':
+                            ner_model = BiLSTMNERModel(modelname=models[model_name], classes=classes, tag_format=config['format'], device=device, lr=lr)
+                        else:
+                            ner_model = BertCRFNERModel(modelname=models[model_name], classes=classes, tag_format=config['format'], device=device, lr=lr)
+                        print('{} classes: {}'.format(len(ner_model.classes),' '.join(ner_model.classes)))
+                        print(ner_model.model)
+                        ner_model.train(train_dataloader, n_epochs=n_epochs, val_dataloader=val_dataloader, dev_dataloader=dev_dataloader, save_dir=save_dir, full_finetuning=config['full_finetuning'])
+
+                        fs = glob.glob(save_dir+'epoch_*pt')
+                        for f in fs:
+                            try:
+                                os.remove(f)
+                            except:
+                                print('error while deleting file: {}'.format(f))
+                        try:
+                            os.remove(save_dir+'best.pt')
+                        except:
+                            print('error while deleting file: {}best.pt'.format(savedir))
                 except:
-                    pass
+                    print('error calculating {}'.format(alias))
 
-                ner_data = NERData(models[model_name], tag_format=config['format'])
-                ner_data.preprocess(datafiles[data])
-
-                train_dataloader, val_dataloader, dev_dataloader = ner_data.create_dataloaders(batch_size=32, train_frac=config['split'][0], val_frac=config['split'][1], dev_frac=config['split'][2], seed=seed)
-                classes = ner_data.classes
-                torch.save(classes, save_dir+'classes.pt')
-
-                if model_name == 'bilstm':
-                    ner_model = BiLSTMNERModel(modelname=models[model_name], classes=classes, tag_format=config['format'], device=device, lr=lr)
-                else:
-                    ner_model = BertCRFNERModel(modelname=models[model_name], classes=classes, tag_format=config['format'], device=device, lr=lr)
-                print('{} classes: {}'.format(len(ner_model.classes),' '.join(ner_model.classes)))
-                print(ner_model.model)
-                ner_model.train(train_dataloader, n_epochs=n_epochs, val_dataloader=val_dataloader, dev_dataloader=dev_dataloader, save_dir=save_dir, full_finetuning=config['full_finetuning'])
-
-                fs = glob.glob(save_dir+'epoch_*pt')
-                for f in fs:
-                    try:
-                        os.remove(f)
-                    except:
-                        print('error while deleting file: {}'.format(f))
-                try:
-                    os.remove(save_dir+'best.pt')
-                except:
-                    print('error while deleting file: {}best.pt'.format(savedir))
+                
