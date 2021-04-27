@@ -39,10 +39,10 @@ for model_name in model_names:
         if model_name == 'matbert':
             seeds = [4]
             splits = [45]
-        elif model_name = 'scibert':
+        elif model_name == 'scibert':
             seeds = [4]
             splits = [40]
-        elif model_name = 'bert':
+        elif model_name == 'bert':
             seeds = [2]
             splits = [30]
         for seed in seeds:
