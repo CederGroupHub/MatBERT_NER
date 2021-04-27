@@ -7,7 +7,7 @@ import json
 import torch
 import numpy as np
 
-seeds = [2**x for x in np.arange(16)]
+# seeds = [2**x for x in np.arange(16)]
 # seeds = [256]
 torch.backends.cudnn.deterministic = True
 
@@ -16,7 +16,7 @@ datafiles = {'solid_state': 'data/ner_annotations.json',
              'impurityphase': 'data/impurityphase_fullparas.json',
              'aunpmorph': 'data/aunpmorph_annotations_fullparas.json'}
 
-splits = np.arange(10, 85, 5)
+# splits = np.arange(10, 85, 5)
 # splits = [80]
 tag_scheme = 'IOBES'
 # tag_scheme = 'IOB2'
@@ -29,12 +29,22 @@ models = {'bilstm': 'bert-base-uncased',
           'scibert': 'allenai/scibert_scivocab_uncased',
           'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
 
-model_names = ['matbert']
-data_names = ['aunpmorph', 'doping', 'solid_state']
+model_names = ['matbert', 'scibert', 'bert']
+# data_names = ['aunpmorph', 'doping', 'solid_state']
 # data_names = ['solid_state']
+data_names = ['aunpmorph']
 
 for model_name in model_names:
     for data in data_names:
+        if model_name == 'matbert':
+            seeds = [4]
+            splits = [45]
+        elif model_name = 'scibert':
+            seeds = [4]
+            splits = [40]
+        elif model_name = 'bert':
+            seeds = [2]
+            splits = [30]
         for seed in seeds:
             torch.manual_seed(seed)
             configs = {'_{}_full_crf_{}_{}_{}'.format(data, tag_scheme.lower(), seed, split): {'full_finetuning': True, 'format': tag_scheme, 'split': [split/100, split/800, 0.1]} for split in splits}
@@ -44,10 +54,8 @@ for model_name in model_names:
                     if os.path.exists(save_dir+'test.pt'):
                         print('already calculated {}, skipping'.format(alias))
                     else:
-                        try:
+                        if not os.path.exists(save_dir):
                             os.mkdir(save_dir)
-                        except:
-                            print('path {} already exists'.format(dave_dir))
                         ner_data = NERData(models[model_name], tag_format=config['format'])
                         ner_data.preprocess(datafiles[data])
 
