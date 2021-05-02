@@ -136,7 +136,7 @@ class NERData():
 
     
     def create_examples(self, data_tag):
-        data_example = {split: [] for split in data_fmt.keys()}
+        data_example = {split: [] for split in data_tag.keys()}
         self.max_sequence_length = 0
         for split in data_tag.keys():
             for n, dat in enumerate(data_tag[split]):
