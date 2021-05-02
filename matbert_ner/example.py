@@ -2,6 +2,8 @@ import os
 import argparse
 import glob
 import numpy as np
+from seqeval.scheme import IOB1, IOB2, IOBES
+from seqeval.metrics import classification_report
 
 
 def parse_args():
@@ -56,6 +58,7 @@ if __name__ == '__main__':
     modelfiles = {'bert': 'bert-base-uncased',
                   'scibert': 'allenai/scibert_scivocab_uncased',
                   'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
+    schemes = {'IOB1': IOB1, 'IOB2': IOB2, 'IOBES': IOBES}
 
     for seed in seeds:
         for tag_scheme in tag_schemes:
@@ -79,6 +82,8 @@ if __name__ == '__main__':
                         ner_model = BertCRFNERModel(modelname=modelfiles[model], classes=classes, tag_scheme=tag_scheme, device=device, lr=lr)
                         ner_model.train(n_epochs, ner_data.dataloaders['train'], val_dataloader=ner_data.dataloaders['valid'], dev_dataloader=ner_data.dataloaders['test'],
                                         save_dir=save_dir, deep_finetuning=deep_finetuning)
+                        _, _, _, _, labels, predictions = torch.load(save_dir+'test.pt')
+                        print(classification_report(labels, predictions, mode='strict', scheme=schemes[tag_scheme]))
                         epoch_files = glob.glob(save_dir+'epoch_*pt')
                         for f in epoch_files:
                             try:
