@@ -6,11 +6,11 @@ import numpy as np
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-dv', '--device', help='computation device for model (e.g. cpu, gpu:0, gpu:1)', type=str, default='gpu0')
-    parser.add_argument('-ds', '--datasets', help='comma-separated datasets to be considered (e.g. solid_state,doping)', type=str, default='solid_state')
+    parser.add_argument('-dv', '--device', help='computation device for model (e.g. cpu, gpu:0, gpu:1)', type=str, default='gpu:0')
     parser.add_argument('-sd', '--seeds', help='comma-separated seeds for data shuffling and model initialization (e.g. 1,2,3 or 2,4,8)', type=str, default='256')
     parser.add_argument('-ts', '--tag_schemes', help='comma-separated tagging schemes to be considered (e.g. IOB1,IOB2,IOBES)', type=str, default='IOBES')
     parser.add_argument('-st', '--splits', help='comma-separated training splits to be considered, in percent (e.g. 80). test split will always be 10%% and the validation split will be 1/8 of the training split', type=str, default='80')
+    parser.add_argument('-ds', '--datasets', help='comma-separated datasets to be considered (e.g. solid_state,doping)', type=str, default='solid_state')
     parser.add_argument('-ml', '--models', help='comma-separated models to be considered (e.g. matbert,scibert,bert)', type=str, default='matbert')
     parser.add_argument('-sl', '--sentence_level', help='switch for sentence-level learning instead of paragraph-level', action='store_true')
     parser.add_argument('-df', '--deep_finetuning', help='switch for finetuning of pre-trained parameters', action='store_true')
@@ -18,7 +18,7 @@ def parse_args():
     parser.add_argument('-lr', '--learning_rate', help='optimizer learning rate', type=float, default=2e-4)
     parser.add_argument('-km', '--keep_model', help='switch for saving the best model parameters to disk', action='store_true')
     args = parser.parse_args()
-    return args.device, args.seeds, args.tag_schemes, args.splits, args.datasets, args.models, args.sentence_level, args.deep_finetuning, args.n_epochs, args.learning_rate
+    return args.device, args.seeds, args.tag_schemes, args.splits, args.datasets, args.models, args.sentence_level, args.deep_finetuning, args.n_epochs, args.learning_rate, args.keep_model
 
 
 if __name__ == '__main__':
