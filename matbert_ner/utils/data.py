@@ -87,11 +87,13 @@ class NERData():
                     if self.tag_scheme == 'IOB1':
                         if dat['annotation'][i] in [None, 'PVL', 'PUT']:
                             d['tag'].append('O')
-                        elif i == 0:
+                        elif i == 0 and len(dat['annotation']) > 1:
                             if dat['annotation'][i+1] == dat['annotation'][i]:
                                 d['tag'].append('B-'+dat['annotation'][i])
                             else:
                                 d['tag'].append('I-'+dat['annotation'][i])
+                        elif i == 0 and len(dat['annotation']) == 1:
+                            d['tag'].append('B-'+dat['annotation'][i])
                         elif i > 0:
                             if dat['annotation'][i-1] == dat['annotation'][i]:
                                 d['tag'].append('I-'+dat['annotation'][i])
@@ -113,11 +115,13 @@ class NERData():
                     elif self.tag_scheme == 'IOBES':
                         if dat['annotation'][i] in [None, 'PVL', 'PUT']:
                             d['tag'].append('O')
-                        elif i == 0:
+                        elif i == 0 and len(dat['annotation']) > 1:
                             if dat['annotation'][i+1] == dat['annotation'][i]:
                                 d['tag'].append('B-'+dat['annotation'][i])
                             else:
                                 d['tag'].append('S-'+dat['annotation'][i])
+                        elif i == 0 and len(dat['annotation']) == 1:
+                            d['tag'].append('S-'+dat['annotation'][i])
                         elif i > 0 and i < len(dat['annotation'])-1:
                             if dat['annotation'][i-1] != dat['annotation'][i] and dat['annotation'][i+1] == dat['annotation'][i]:
                                 d['tag'].append('B-'+dat['annotation'][i])
