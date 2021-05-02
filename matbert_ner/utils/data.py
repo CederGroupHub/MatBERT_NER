@@ -152,7 +152,7 @@ class NERData():
     def create_datasets(self, data_example):
         self.dataset = {}
         for split in data_example.keys():
-            features = self.__convert_examples_to_features(data_example[split], self.classes, self.max_sequence_length)
+            features = self.__convert_examples_to_features(data_example[split], split, self.classes, self.max_sequence_length)
             input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
             input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
             valid_mask = torch.tensor([f.valid_mask for f in features], dtype=torch.long)
@@ -226,7 +226,7 @@ class NERData():
         return tokenset
 
 
-    def __convert_examples_to_features(self, examples, label_list, max_seq_length,
+    def __convert_examples_to_features(self, examples, split, label_list, max_seq_length,
                                        cls_token_at_end=False, cls_token="[CLS]", cls_token_segment_id=1,
                                        sep_token="[SEP]", sep_token_extra=False,
                                        pad_on_left=False, pad_token=0, pad_token_segment_id=0, pad_token_label_id=-100,
@@ -245,7 +245,7 @@ class NERData():
                 span_labels.append(label)
         span_map = {label: i for i, label in enumerate(span_labels)}
         features = []
-        example_range = tqdm(examples, desc='| writing examples |')
+        example_range = tqdm(examples, desc='| writing {} |'.format(split))
         for example in example_range:
             tokens = []
             valid_mask = []
