@@ -10,11 +10,11 @@ from sklearn.model_selection import KFold
 
 class NERData():
 
-    def __init__(self, modelname="allenai/scibert_scivocab_cased", tag_format='IOB2'):
+    def __init__(self, modelname="allenai/scibert_scivocab_cased", tag_scheme='IOB2'):
         self.tokenizer = BertTokenizer.from_pretrained(modelname)
         self.classes = None
         self.token_limit = 512
-        self.tag_format = tag_format
+        self.tag_scheme = tag_scheme
         self.max_sequence_length = None
         self.dataset = None
         self.dataloaders = None
@@ -81,7 +81,7 @@ class NERData():
                     if dat['text'][i] in ['̄','̊']:
                         continue
                     d['text'].append(dat['text'][i])
-                    if self.tag_format == 'IOB1':
+                    if self.tag_scheme == 'IOB1':
                         if dat['annotation'][i] in [None, 'PVL', 'PUT']:
                             d['tag'].append('O')
                         elif i == 0:
@@ -97,7 +97,7 @@ class NERData():
                                     d['tag'].append('B-'+dat['annotation'][i])
                                 else:
                                     d['tag'].append('I-'+dat['annotation'][i])
-                    elif self.tag_format == 'IOB2':
+                    elif self.tag_scheme == 'IOB2':
                         if dat['annotation'][i] in [None, 'PVL', 'PUT']:
                             d['tag'].append('O')
                         elif i == 0:
@@ -107,7 +107,7 @@ class NERData():
                                 d['tag'].append('I-'+dat['annotation'][i])
                             else:
                                 d['tag'].append('B-'+dat['annotation'][i])
-                    elif self.tag_format == 'IOBES':
+                    elif self.tag_scheme == 'IOBES':
                         if dat['annotation'][i] in [None, 'PVL', 'PUT']:
                             d['tag'].append('O')
                         elif i == 0:
@@ -358,14 +358,14 @@ class NERData():
             chunk_end: boolean.
         """
         chunk_end = False
-        if self.tag_format == 'IOB':
+        if self.tag_scheme == 'IOB':
             if prev_tag == 'I' and tag in ['B', 'O']: chunk_end = True
             if prev_tag == 'I' and tag == 'I' and prev_type != type_: chunk_end = True
-        if self.tag_format == 'IOB2':
+        if self.tag_scheme == 'IOB2':
             if prev_tag == 'I' and tag in ['B', 'O']: chunk_end = True
             if prev_tag == 'B' and tag == 'O': chunk_end = True
             if prev_tag == 'B' and tag == 'B' and prev_type != type_: chunk_end = True
-        if self.tag_format == 'IOBES':
+        if self.tag_scheme == 'IOBES':
             if prev_tag in ['E', 'S']: chunk_end = True
         return chunk_end
 
@@ -381,13 +381,13 @@ class NERData():
             chunk_start: boolean.
         """
         chunk_start = False
-        if self.tag_format == 'IOB':
+        if self.tag_scheme == 'IOB':
             if tag == 'B': chunk_start = True
             if prev_tag == 'O' and tag == 'I': chunk_start = True
             if prev_tag == 'I' and tag == 'I' and prev_type != type_: chunk_start = True
-        if self.tag_format == 'IOB2':
+        if self.tag_scheme == 'IOB2':
             if tag == 'B': chunk_start = True
-        if self.tag_format == 'IOBES':
+        if self.tag_scheme == 'IOBES':
             if tag in ['B', 'S']: chunk_start = True
         return chunk_start
 
@@ -443,9 +443,9 @@ class NERData():
     def __get_classes(self, labels):
         classes_raw = labels
         classes = ["O"]
-        if self.tag_format in ['IOB', 'IOB2']:
+        if self.tag_scheme in ['IOB', 'IOB2']:
             prefixes = ['I', 'B']
-        elif self.tag_format == 'IOBES':
+        elif self.tag_scheme == 'IOBES':
             prefixes = ['B', 'I', 'E', 'S']
         classes.extend(['{}-{}'.format(p, c) for p in prefixes for c in classes_raw])
         self.classes = classes

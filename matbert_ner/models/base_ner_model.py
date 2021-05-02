@@ -21,17 +21,17 @@ class NERModel(ABC):
     A wrapper class for transformers models, implementing train, predict, and evaluate methods
     """
 
-    def __init__(self, modelname="allenai/scibert_scivocab_cased", classes = ["O"], tag_format='IOB2', device="cpu", lr=5e-5, results_file=None):
+    def __init__(self, modelname="allenai/scibert_scivocab_cased", classes = ["O"], tag_scheme='IOB2', device="cpu", lr=5e-5, results_file=None):
         self.modelname = modelname
         self.tokenizer = BertTokenizer.from_pretrained(modelname)
         self.classes = classes
-        self.tag_format = tag_format
+        self.tag_scheme = tag_scheme
         self.metric_mode = 'strict'
-        if self.tag_format == 'IOB1':
+        if self.tag_scheme == 'IOB1':
             self.metric_scheme = IOB1
-        elif self.tag_format == 'IOB2':
+        elif self.tag_scheme == 'IOB2':
             self.metric_scheme = IOB2
-        elif self.tag_format == 'IOBES':
+        elif self.tag_scheme == 'IOBES':
             self.metric_scheme = IOBES
         self.config = AutoConfig.from_pretrained(modelname)
         self.config.num_labels = len(self.classes)
