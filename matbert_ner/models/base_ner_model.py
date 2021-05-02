@@ -56,7 +56,7 @@ class NERModel(ABC):
         valid_attention_mask = list(valid_attention_mask)
         prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(predicted, valid_attention_mask)]
         label_tags = [[self.classes[ii] if ii>=0 else self.classes[0] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels, valid_attention_mask)]
-        return prediction_tags, label_tags
+        return label_tags, prediction_tags
 
 
     def train(self, n_epochs, train_dataloader, val_dataloader=None, dev_dataloader=None, save_dir=None, deep_finetuning=True):
@@ -96,7 +96,7 @@ class NERModel(ABC):
                 optimizer.step()
                 scheduler.step()
 
-                prediction_tags, label_tags = self.process_tags(inputs, predicted)
+                label_tags, prediction_tags = self.process_tags(inputs, predicted)
 
                 metrics['loss'].append(loss.item())
                 metrics['accuracy_score'].append(accuracy_score(label_tags, prediction_tags))
@@ -121,9 +121,9 @@ class NERModel(ABC):
             # Restore weights of best model after training if we can
             save_path = os.path.join(save_dir, "best.pt")
             self.model.load_state_dict(torch.load(save_path))
-            dev_metrics, dev_predictions, dev_labels = self.evaluate(dev_dataloader, validate=False)
+            dev_metrics, dev_text, dev_attention, dev_valid, dev_label, dev_prediction = self.evaluate(dev_dataloader, validate=False)
             test_save_path = os.path.join(save_dir, 'test.pt')
-            torch.save((dev_metrics, dev_predictions, dev_labels), test_save_path)
+            torch.save((dev_metrics, dev_text, dev_attention, dev_valid, dev_label, dev_prediction), test_save_path)
         
         history_save_path = os.path.join(save_dir, 'history.pt')
         torch.save(epoch_metrics, history_save_path)
@@ -172,8 +172,11 @@ class NERModel(ABC):
         else:
             mode = 'test'
         if mode == 'test':
-            prediction_tags_all = []
-            label_tags_all = []
+            tokens_all = []
+            attention_all = []
+            valid_all = []
+            label_all = []
+            prediction_all = []
         metrics = {'loss': [], 'accuracy_score': [], 'precision_score': [], 'recall_score': [], 'f1_score': []}
         batch_range = tqdm(dataloader, desc='')
         with torch.no_grad():
@@ -186,10 +189,13 @@ class NERModel(ABC):
                 }
                 loss, predicted = self.model.forward(**inputs)
 
-                prediction_tags, label_tags = self.process_tags(inputs, predicted)
+                label_tags, prediction_tags = self.process_tags(inputs, predicted)
                 if mode == 'test':
-                    prediction_tags_all.extend(prediction_tags)
-                    label_tags_all.extend(label_tags)
+                    tokens_all.extend(list(inputs['input_ids'].cpu().numpy()))
+                    attention_all.extend(list(inputs['attention_mask'].cpu().numpy()))
+                    valid_all.extend(list(inputs['valid_mask'].cpu().numpy()))
+                    label_all.extend(label_tags)
+                    prediction_all.extend(prediction_tags)
 
                 metrics['loss'].append(loss.item())
                 metrics['accuracy_score'].append(accuracy_score(label_tags, prediction_tags))
@@ -210,7 +216,7 @@ class NERModel(ABC):
                 f.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(self.model[0], lr, n_epochs, *means))
 
         if mode == 'test':
-            return metrics, prediction_tags_all, label_tags_all
+            return metrics, tokens_all, attention_all, valid_all, label_all, prediction_all
         else:
             return metrics
 
@@ -293,7 +299,7 @@ class NERModel(ABC):
                 loss, predicted, logits = self.model.forward(**inputs)
 
                 if return_tags:
-                    prediction_tags, label_tags = self.process_tags(inputs, predicted)
+                    label_tags, prediction_tags = self.process_tags(inputs, predicted)
                     all_prediction_tags.append(prediction_tags)
                     all_label_tags.append(label_tags)
                     all_losses.append(loss)

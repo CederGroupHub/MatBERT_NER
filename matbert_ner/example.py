@@ -64,30 +64,30 @@ if __name__ == '__main__':
                         alias = '{}_{}_{}_{}_crf_{}_{}_{}'.format(model, dataset, 'sentence' if sentence_level else 'paragraph', 'deep' if deep_finetuning else 'shallow', tag_scheme.lower(), seed, split)
                         save_dir = os.getcwd()+'/{}/'.format(alias)
                         print('calculating results for {}'.format(alias))
-                        try:
-                            if os.path.exists(save_dir+'test.pt'):
-                                print('already calculated {}, skipping'.format(alias))
-                            else:
-                                if not os.path.exists(save_dir):
-                                    os.mkdir(save_dir)
-                            ner_data = NERData(modelfiles[model], tag_format=tag_format)
-                            ner_data.preprocess(datafiles[dataset], (0.1, split/800, split/100), is_file=True, sentence_level=sentence_level, shuffle=True, seed=seed)
-                            ner_data.create_dataloaders(batch_size=32)
-                            classes = ner_data.classes
-                            torch.save(classes, save_dir+'classes.pt')
-                            ner_model = BertCRFNERModel(modelname=modelfiles[model], classes=classes, tag_format=tag_format, device=device, lr=lr)
-                            ner_model.train(n_epochs, ner_data.dataloaders['train'], val_dataloader=ner_data.dataloaders['valid'], dev_dataloader=ner_data.dataloaders['test'],
-                                            save_dir=save_dir, deep_finetuning=deep_finetuning)
-                            epoch_files = glob.glob(save_dir+'epoch_*pt')
-                            for f in epoch_files:
-                                try:
-                                    os.remove(f)
-                                except:
-                                    print('error while deleting file: {}'.format(f))
-                            if not keep_model:
-                                try:
-                                    os.remove(save_dir+'best.pt')
-                                except:
-                                    print('error while deleting file: {}best.pt'.format(savedir))
-                        except:
-                            print('error calculating results for {}'.format(alias))                
+                        # try:
+                        if os.path.exists(save_dir+'test.pt'):
+                            print('already calculated {}, skipping'.format(alias))
+                        else:
+                            if not os.path.exists(save_dir):
+                                os.mkdir(save_dir)
+                        ner_data = NERData(modelfiles[model], tag_format=tag_format)
+                        ner_data.preprocess(datafiles[dataset], (0.1, split/800, split/100), is_file=True, sentence_level=sentence_level, shuffle=True, seed=seed)
+                        ner_data.create_dataloaders(batch_size=32)
+                        classes = ner_data.classes
+                        torch.save(classes, save_dir+'classes.pt')
+                        ner_model = BertCRFNERModel(modelname=modelfiles[model], classes=classes, tag_format=tag_format, device=device, lr=lr)
+                        ner_model.train(n_epochs, ner_data.dataloaders['train'], val_dataloader=ner_data.dataloaders['valid'], dev_dataloader=ner_data.dataloaders['test'],
+                                        save_dir=save_dir, deep_finetuning=deep_finetuning)
+                        epoch_files = glob.glob(save_dir+'epoch_*pt')
+                        for f in epoch_files:
+                            try:
+                                os.remove(f)
+                            except:
+                                print('error while deleting file: {}'.format(f))
+                        if not keep_model:
+                            try:
+                                os.remove(save_dir+'best.pt')
+                            except:
+                                print('error while deleting file: {}best.pt'.format(savedir))
+                        # except:
+                        #     print('error calculating results for {}'.format(alias))                
