@@ -59,7 +59,7 @@ class NERModel(ABC):
         return prediction_tags, label_tags
 
 
-    def train(self, train_dataloader, n_epochs, val_dataloader=None, dev_dataloader=None, save_dir=None, full_finetuning=True):
+    def train(self, n_epochs, train_dataloader, val_dataloader=None, dev_dataloader=None, save_dir=None, deep_finetuning=True):
         """
         Train the model
         Inputs:
@@ -70,7 +70,7 @@ class NERModel(ABC):
         """
         self.val_f1_best = -1
 
-        optimizer = self.create_optimizer(full_finetuning)
+        optimizer = self.create_optimizer(deep_finetuning)
         scheduler = self.create_scheduler(optimizer, n_epochs, train_dataloader)
 
         epoch_metrics = {'training': {}, 'validation': {}}
