@@ -60,7 +60,7 @@ class NERData():
         return data_split
     
 
-    def format_entries(data_split, shuffle=True, seed=256, sentence_level=True):
+    def format_entries(self, data_split, shuffle=True, seed=256, sentence_level=True):
         data_fmt = {split: [] for split in data_split.keys()}
         for split in data_split.keys():
             for d in data_split[split]:
