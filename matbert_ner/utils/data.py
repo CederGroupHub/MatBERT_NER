@@ -14,6 +14,7 @@ class NERData():
         self.tokenizer = BertTokenizer.from_pretrained(modelname)
         self.classes = None
         self.token_limit = 512
+        self.special_token_count = 2
         self.tag_scheme = tag_scheme
         self.max_sequence_length = None
         self.dataset = None
@@ -65,9 +66,9 @@ class NERData():
         for split in data_split.keys():
             for d in data_split[split]:
                 if sentence_level:
-                    dat = [{key: [token[key] for token in sentence][:self.token_limit] for key in ['text', 'annotation']} for sentence in d['tokens']]
+                    dat = [{key: [token[key] for token in sentence][:self.token_limit-self.special_token_count] for key in ['text', 'annotation']} for sentence in d['tokens']]
                 else:
-                    dat = [{key : [token[key] for sentence in d['tokens'] for token in sentence][:self.token_limit] for key in ['text', 'annotation']}]
+                    dat = [{key : [token[key] for sentence in d['tokens'] for token in sentence][:self.token_limit-self.special_token_count] for key in ['text', 'annotation']}]
                 data_fmt[split].extend(dat)
             if shuffle:
                 data_fmt[split] = self.shuffle_data(data_fmt[split], seed)
@@ -145,7 +146,7 @@ class NERData():
                     self.max_sequence_length = sequence_length
                 example = InputExample(n, dat['text'], dat['tag'])
                 data_example[split].append(example)
-        self.max_sequence_length += 2
+        self.max_sequence_length += self.special_token_count
         return data_example
     
 
