@@ -27,9 +27,11 @@ class NERData():
         with open(datafile, 'r') as f:
             for l in f:
                 d = json.loads(l)
-                if 'ner_annotations' in datafile:
+                if 'solid_state' in datafile:
                     identifier = d['doi']
-                elif 'doping' in datafile or 'aunpmorph_annotations_fullparas' in datafile or 'impurityphase_fullparas' in datafile:
+                elif 'aunp' in datafile:
+                    identifier = d['meta']['doi']
+                elif 'doping' in datafile:
                     identifier = d['text']
                 if identifier in identifiers:
                     pass
