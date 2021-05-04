@@ -65,6 +65,7 @@ if __name__ == '__main__':
             for split in splits:
                 for dataset in datasets:
                     for model in models:
+                        torch.manual_seed(seed)
                         alias = '{}_{}_{}_{}_crf_{}_{}_{}'.format(model, dataset, 'sentence' if sentence_level else 'paragraph', 'deep' if deep_finetuning else 'shallow', tag_scheme.lower(), seed, split)
                         save_dir = os.getcwd()+'/{}/'.format(alias)
                         print('calculating results for {}'.format(alias))
