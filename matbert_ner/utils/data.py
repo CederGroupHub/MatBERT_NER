@@ -93,7 +93,7 @@ class NERData():
                             else:
                                 d['tag'].append('I-'+dat['annotation'][i])
                         elif i == 0 and len(dat['annotation']) == 1:
-                            d['tag'].append('B-'+dat['annotation'][i])
+                            d['tag'].append('I-'+dat['annotation'][i])
                         elif i > 0:
                             if dat['annotation'][i-1] == dat['annotation'][i]:
                                 d['tag'].append('I-'+dat['annotation'][i])
