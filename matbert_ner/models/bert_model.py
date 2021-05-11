@@ -18,12 +18,12 @@ class BertCRFNERModel(NERModel):
 
 
     def initialize_model(self):
-        ner_model = BertCrfForNer(self.config, self.classes, self.tag_format, self.device).to(self.device)
+        ner_model = BertCrfForNer(self.config, self.classes, self.tag_scheme, self.device).to(self.device)
         return ner_model
 
 
-    def create_optimizer(self, full_finetuning=True):
-        if full_finetuning:
+    def create_optimizer(self, deep_finetuning=True):
+        if deep_finetuning:
             param_optimizer = list(self.model.named_parameters())
             no_decay = ['bias', 'gamma', 'beta']
             optimizer_grouped_parameters = [{'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay_rate': 0.0},
@@ -58,7 +58,7 @@ class BertCRFNERModel(NERModel):
 
 
 class BertCrfForNer(BertPreTrainedModel):
-    def __init__(self, config, tag_names, tag_format, device):
+    def __init__(self, config, tag_names, tag_scheme, device):
         super(BertCrfForNer, self).__init__(config)
         self.bert = BertModel(config).from_pretrained(config.model_name)
         self._device = device
@@ -74,7 +74,7 @@ class BertCrfForNer(BertPreTrainedModel):
             self.model_modules.extend([self.lstm, self.attn, self.dropout_c])
         self.classifier = nn.Linear(128 if self.use_lstm else config.hidden_size, config.num_labels)
         self.model_modules.append(self.classifier)
-        self.crf = CRF(tag_names=tag_names, tag_format=tag_format, batch_first=True)
+        self.crf = CRF(tag_names=tag_names, tag_scheme=tag_scheme, batch_first=True)
         self.crf.initialize()
         self.model_modules.append(self.crf)
 

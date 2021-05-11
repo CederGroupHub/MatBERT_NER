@@ -3,14 +3,14 @@ from torch import nn
 import torchcrf
 
 class CRF(nn.Module):
-    def __init__(self, tag_names, tag_format, batch_first):
+    def __init__(self, tag_names, tag_scheme, batch_first):
         super().__init__()
         # tag names
         self.tag_names = tag_names
         # tag prefixes
         self.prefixes = set([tag_name.split('-')[0] for tag_name in self.tag_names])
         # tag format
-        self.tag_format = tag_format
+        self.tag_scheme = tag_scheme
         # initialize CRF
         self.crf = torchcrf.CRF(num_tags=len(self.tag_names), batch_first=batch_first)
     
@@ -26,7 +26,7 @@ class CRF(nn.Module):
 
     def define_invalid_crf_transitions(self):
         ''' function for establishing valid tagging transitions, assumes BIO or BILUO tagging '''
-        if self.tag_format == 'IOB':
+        if self.tag_scheme == 'IOB':
             # (B)eginning (I)nside (O)utside
             # must begin with O (outside) due to [CLS] token
             self.invalid_begin = ('B', 'I')
@@ -36,7 +36,7 @@ class CRF(nn.Module):
             self.invalid_transitions_position = {'B': 'BO'}
             # prevent B (beginning) going to I (inside) or B (beginning) of a different type
             self.invalid_transitions_tags = {'B': 'IB'}
-        elif self.tag_format == 'IOB2':
+        elif self.tag_scheme == 'IOB2':
             # (B)eginning (I)nside (O)utside
             # must begin with O (outside) due to [CLS] token
             self.invalid_begin = ('B', 'I')
@@ -48,7 +48,7 @@ class CRF(nn.Module):
             # prevent I (inside) going to I (inside) of a different type
             self.invalid_transitions_tags = {'B': 'I',
                                              'I': 'I'}
-        elif self.tag_format == 'IOBES':
+        elif self.tag_scheme == 'IOBES':
             # (B)eginning (I)nside (E)nd (S)ingle (O)utside
             # must begin with O (outside) due to [CLS] token
             self.invalid_begin = ('B', 'I', 'E', 'S')
