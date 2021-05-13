@@ -89,9 +89,9 @@ class NERModel(ABC):
             batch_range = tqdm(train_dataloader, desc='')
 
             if epoch == frozen_transformer_epochs:
-                feature_layers = self.model.bert.encoder.layer[-4:]
-                for feature_layer in feature_layers:
-                    for param in feature_layer.parameters():
+                encoder_layer_index = frozen_transformer_epochs-epoch-1
+                if np.abs(encoder_layer_index) <= len(self.model.bert.encoder.layer):
+                    for param in self.model.bert.encoder.layer[encoder_layer_index].parameters():
                         param.requires_grad = True
 
             for j, batch in enumerate(batch_range):
