@@ -58,7 +58,7 @@ if __name__ == '__main__':
                  'aunp11': 'data/aunp_11lab.json'}
     modelfiles = {'bert': 'bert-base-uncased',
                   'scibert': 'allenai/scibert_scivocab_uncased',
-                  'matbert': '../../matbert-base-uncased'}
+                  'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
     schemes = {'IOB1': IOB1, 'IOB2': IOB2, 'IOBES': IOBES}
 
     for seed in seeds:
