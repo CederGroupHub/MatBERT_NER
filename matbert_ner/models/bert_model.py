@@ -8,8 +8,10 @@ from typing import List, Optional
 import numpy as np
 from models.base_ner_model import NERModel
 import torch.optim as optim
+from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR
 from torchtools.optim import RangerLars
 from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup, get_cosine_with_hard_restarts_schedule_with_warmup
+from transformers import AdamW
 from models.crf_layer import CRF
 from models.valid_sequence_output import valid_sequence_output
 
@@ -22,34 +24,18 @@ class BertCRFNERModel(NERModel):
         return ner_model
 
 
-    def create_optimizer(self, deep_finetuning=True):
-        if deep_finetuning:
-            param_optimizer = list(self.model.named_parameters())
-            no_decay = ['bias', 'gamma', 'beta']
-            optimizer_grouped_parameters = [{'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay_rate': 0.0},
-                                            {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)],'weight_decay_rate': 0.0}]
-        else:
-            param_optimizer = [item for sblst in [list(module.named_parameters()) for module in self.model.model_modules[1:]] for item in sblst]
-            optimizer_grouped_parameters = [{"params": [p for n, p in param_optimizer]}]
-
-        optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.lr, eps=1e-8)
-        # optimizer = RangerLars(optimizer_grouped_parameters, lr=self.lr)
+    def create_optimizer(self):
+        # optimizer = AdamW([{'params': self.model.bert.parameters(), 'lr': self.tlr},
+        #                    {'params': self.model.classifier.parameters(), 'lr': self.clr},
+        #                    {'params': self.model.crf.parameters(), 'lr': self.clr}])
+        optimizer = RangerLars([{'params': self.model.bert.parameters(), 'lr': self.tlr},
+                                {'params': self.model.classifier.parameters(), 'lr': self.clr},
+                                {'params': self.model.crf.parameters(), 'lr': self.clr}])
         return optimizer
 
 
-    def create_scheduler(self, optimizer, n_epochs, train_dataloader):
-        warmup_epochs = 1
-        scheduler = get_linear_schedule_with_warmup(optimizer,
-                                                    num_warmup_steps=len(train_dataloader)*warmup_epochs,
-                                                    num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader))
-        # scheduler = get_cosine_schedule_with_warmup(optimizer,
-        #                                             num_warmup_steps=len(train_dataloader)*warmup_epochs,
-        #                                             num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader),
-        #                                             num_cycles=(n_epochs-warmup_epochs)/10)
-        # scheduler = get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
-        #                                                                num_warmup_steps=len(train_dataloader)*warmup_epochs,
-        #                                                                num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader),
-        #                                                                num_cycles=(n_epochs-warmup_epochs)/5)
+    def create_scheduler(self, optimizer, n_epochs, frozen_transformer_epochs):
+        scheduler = CosineAnnealingLR(optimizer=optimizer, T_max=(n_epochs-frozen_transformer_epochs), eta_min=0.0, last_epoch=-1, verbose=True)
         return scheduler
 
 
@@ -62,21 +48,10 @@ class BertCrfForNer(BertPreTrainedModel):
         super(BertCrfForNer, self).__init__(config)
         self.bert = BertModel(config).from_pretrained(config.model_name)
         self._device = device
-        self.use_lstm = False
-        self.dropout_b = nn.Dropout(config.hidden_dropout_prob)
-        self.model_modules = [self.bert, self.dropout_b]
-        if self.use_lstm:
-            self.lstm = nn.LSTM(batch_first=True, input_size=config.hidden_size,
-                                hidden_size=64, num_layers=2,
-                                bidirectional=True, dropout=0.1)
-            self.attn = nn.MultiheadAttention(embed_dim=128, num_heads=16, dropout=0.25)
-            self.dropout_c = nn.Dropout(0.25)
-            self.model_modules.extend([self.lstm, self.attn, self.dropout_c])
-        self.classifier = nn.Linear(128 if self.use_lstm else config.hidden_size, config.num_labels)
-        self.model_modules.append(self.classifier)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.classifier = nn.Linear(config.hidden_size, config.num_labels)
         self.crf = CRF(tag_names=tag_names, tag_scheme=tag_scheme, batch_first=True)
         self.crf.initialize()
-        self.model_modules.append(self.crf)
 
 
     @property
@@ -102,13 +77,8 @@ class BertCrfForNer(BertPreTrainedModel):
         # sequence_output = torch.mean(torch.stack(sequence_output), dim=0)
         sequence_output = outputs[0]
         sequence_output, attention_mask = valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask, self.device)
-        sequence_output = self.dropout_b(sequence_output)
-        if self.use_lstm:
-            lstm_out, _ = self.lstm(sequence_output)
-            attn_out, attn_weight = self.attn(lstm_out, lstm_out, lstm_out, key_padding_mask=attention_mask)
-            logits = self.classifier(self.dropout_c(attn_out))
-        else:
-            logits = self.classifier(sequence_output)
+        sequence_output = self.dropout(sequence_output)
+        logits = self.classifier(sequence_output)
         predictions = self.crf.decode(logits, mask=attention_mask)
         outputs = (predictions, )
         if return_logits:

@@ -21,7 +21,7 @@ class NERModel(ABC):
     A wrapper class for transformers models, implementing train, predict, and evaluate methods
     """
 
-    def __init__(self, modelname="allenai/scibert_scivocab_cased", classes = ["O"], tag_scheme='IOB2', device="cpu", lr=5e-5, results_file=None):
+    def __init__(self, modelname="allenai/scibert_scivocab_cased", classes = ["O"], tag_scheme='IOB2', device="cpu", tlr=2e-4, clr=1e-3, results_file=None):
         self.modelname = modelname
         self.tokenizer = BertTokenizer.from_pretrained(modelname)
         self.classes = classes
@@ -36,7 +36,8 @@ class NERModel(ABC):
         self.config = AutoConfig.from_pretrained(modelname)
         self.config.num_labels = len(self.classes)
         self.config.model_name = self.modelname
-        self.lr = lr
+        self.tlr = tlr
+        self.clr = clr
         self.device = device
         self.model = self.initialize_model()
         self.results_file = results_file
@@ -59,7 +60,7 @@ class NERModel(ABC):
         return label_tags, prediction_tags
 
 
-    def train(self, n_epochs, train_dataloader, val_dataloader=None, dev_dataloader=None, save_dir=None, deep_finetuning=True):
+    def train(self, n_epochs, train_dataloader, val_dataloader=None, dev_dataloader=None, save_dir=None, frozen_transformer_epochs=4):
         """
         Train the model
         Inputs:
@@ -69,13 +70,17 @@ class NERModel(ABC):
             save_dir :: directory to save models
         """
         self.val_f1_best = -1
+        n_batches = len(train_dataloader)
 
-        optimizer = self.create_optimizer(deep_finetuning)
-        scheduler = self.create_scheduler(optimizer, n_epochs, train_dataloader)
+        optimizer = self.create_optimizer()
+        scheduler = self.create_scheduler(optimizer, n_epochs, frozen_transformer_epochs)
 
         epoch_metrics = {'training': {}, 'validation': {}}
         if save_dir is not None and not os.path.exists(save_dir):
-            os.makedirs(save_dir)          
+            os.makedirs(save_dir)
+
+        for param in self.model.bert.parameters():
+            param.requires_grad = False   
 
         for epoch in range(n_epochs):
             self.model.train()
@@ -83,7 +88,13 @@ class NERModel(ABC):
             metrics = {'loss': [], 'accuracy_score': [], 'precision_score': [], 'recall_score': [], 'f1_score': []}
             batch_range = tqdm(train_dataloader, desc='')
 
-            for i, batch in enumerate(batch_range):
+            if epoch == frozen_transformer_epochs:
+                feature_layers = self.model.bert.encoder.layer[-4:]
+                for feature_layer in feature_layers:
+                    for param in feature_layer.parameters():
+                        param.requires_grad = True
+
+            for j, batch in enumerate(batch_range):
                 inputs = {"input_ids": batch[0].to(self.device, non_blocking=True),
                           "attention_mask": batch[1].to(self.device, non_blocking=True),
                           "valid_mask": batch[2].to(self.device, non_blocking=True),
@@ -94,7 +105,6 @@ class NERModel(ABC):
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(parameters=self.model.parameters(), max_norm=1.0)
                 optimizer.step()
-                scheduler.step()
 
                 label_tags, prediction_tags = self.process_tags(inputs, predicted)
 
@@ -105,7 +115,7 @@ class NERModel(ABC):
                 metrics['f1_score'].append(f1_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme))
                 means = [np.mean(metrics[metric]) for metric in metrics.keys()]
 
-                batch_range.set_description('| epoch: {:d}/{:d} | training | loss: {:.4f} | accuracy: {:.4f} | precision: {:.4f} | recall: {:.4f} | f1: {:.4f} |'.format(epoch+1, n_epochs, *means))
+                batch_range.set_description('| epoch: {:d}/{:d} | train | loss: {:.4f} | accuracy: {:.4f} | precision: {:.4f} | recall: {:.4f} | f1: {:.4f} |'.format(epoch+1, n_epochs, *means))
             
             if save_dir is not None:
                 save_path = os.path.join(save_dir, "epoch_{}.pt".format(epoch))
@@ -114,8 +124,11 @@ class NERModel(ABC):
             epoch_metrics['training']['epoch_{}'.format(epoch)] = metrics
 
             if val_dataloader is not None:
-                val_metrics = self.evaluate(val_dataloader, validate=True, save_path=os.path.join(save_dir, "best.pt"))
+                val_metrics = self.evaluate(val_dataloader, validate=True, save_path=os.path.join(save_dir, "best.pt"), epoch=epoch, n_epochs=n_epochs)
                 epoch_metrics['validation']['epoch_{}'.format(epoch)] = val_metrics
+            
+            if epoch+1 > frozen_transformer_epochs:
+                scheduler.step()
 
         if dev_dataloader is not None:
             # Restore weights of best model after training if we can
@@ -165,10 +178,10 @@ class NERModel(ABC):
         #Given an input dictionary, return the corresponding document embedding
         pass
 
-    def evaluate(self, dataloader, validate=False, save_path=None, lr=None, n_epochs=None):
+    def evaluate(self, dataloader, validate=False, save_path=None, epoch=0, n_epochs=1):
         self.model.eval()
         if validate:
-            mode = 'validation'
+            mode = 'valid'
         else:
             mode = 'test'
         if mode == 'test':
@@ -204,7 +217,7 @@ class NERModel(ABC):
                 metrics['f1_score'].append(f1_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme))
                 means = [np.mean(metrics[metric]) for metric in metrics.keys()]
 
-                batch_range.set_description('| {} | loss: {:.4f} | accuracy: {:.4f} | precision: {:.4f} | recall: {:.4f} | f1: {:.4f} |'.format(mode, *means))
+                batch_range.set_description('| epoch: {:d}/{:d} | {} | loss: {:.4f} | accuracy: {:.4f} | precision: {:.4f} | recall: {:.4f} | f1: {:.4f} |'.format(epoch+1, n_epochs, mode, *means))
 
         if validate:
             if means[4] >= self.val_f1_best:

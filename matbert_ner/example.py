@@ -15,17 +15,18 @@ def parse_args():
     parser.add_argument('-ds', '--datasets', help='comma-separated datasets to be considered (e.g. solid_state,doping)', type=str, default='solid_state')
     parser.add_argument('-ml', '--models', help='comma-separated models to be considered (e.g. matbert,scibert,bert)', type=str, default='matbert')
     parser.add_argument('-sl', '--sentence_level', help='switch for sentence-level learning instead of paragraph-level', action='store_true')
-    parser.add_argument('-df', '--deep_finetuning', help='switch for finetuning of pre-trained parameters', action='store_true')
     parser.add_argument('-bs', '--batch_size', help='number of samples in each batch', type=int, default=32)
     parser.add_argument('-ne', '--n_epochs', help='number of training epochs', type=int, default=16)
-    parser.add_argument('-lr', '--learning_rate', help='optimizer learning rate', type=float, default=2e-4)
+    parser.add_argument('-fe', '--frozen_epochs', help='number of frozen bert epochs', type=int, default=0)
+    parser.add_argument('-tl', '--transformer_learning_rate', help='transformer learning rate', type=float, default=2e-4)
+    parser.add_argument('-cl', '--classifier_learning_rate', help='classifier learning rate', type=float, default=1e-3)
     parser.add_argument('-km', '--keep_model', help='switch for saving the best model parameters to disk', action='store_true')
     args = parser.parse_args()
-    return args.device, args.seeds, args.tag_schemes, args.splits, args.datasets, args.models, args.sentence_level, args.deep_finetuning, args.batch_size, args.n_epochs, args.learning_rate, args.keep_model
+    return args.device, args.seeds, args.tag_schemes, args.splits, args.datasets, args.models, args.sentence_level, args.batch_size, args.n_epochs, args.frozen_epochs, args.transformer_learning_rate, args.classifier_learning_rate, args.keep_model
 
 
 if __name__ == '__main__':
-    device, seeds, tag_schemes, splits, datasets, models, sentence_level, deep_finetuning, batch_size, n_epochs, lr, keep_model = parse_args()
+    device, seeds, tag_schemes, splits, datasets, models, sentence_level, batch_size, n_epochs, frozen_epochs, tlr, clr, keep_model = parse_args()
     if 'gpu' in device:
         gpu = True
         try:
@@ -57,7 +58,7 @@ if __name__ == '__main__':
                  'aunp11': 'data/aunp_11lab.json'}
     modelfiles = {'bert': 'bert-base-uncased',
                   'scibert': 'allenai/scibert_scivocab_uncased',
-                  'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased'}
+                  'matbert': '../../matbert-base-uncased'}
     schemes = {'IOB1': IOB1, 'IOB2': IOB2, 'IOBES': IOBES}
 
     for seed in seeds:
@@ -65,8 +66,7 @@ if __name__ == '__main__':
             for split in splits:
                 for dataset in datasets:
                     for model in models:
-                        torch.manual_seed(seed)
-                        alias = '{}_{}_{}_{}_crf_{}_{}_{}'.format(model, dataset, 'sentence' if sentence_level else 'paragraph', 'deep' if deep_finetuning else 'shallow', tag_scheme.lower(), seed, split)
+                        alias = '{}_{}_{}_{}_crf_{}_{}_{}_{:.0e}_{:.0e}_{}_{}'.format(model, dataset, 'sentence' if sentence_level else 'paragraph', tag_scheme.lower(), batch_size, n_epochs, frozen_epochs, tlr, clr, seed, split)
                         save_dir = os.getcwd()+'/{}/'.format(alias)
                         print('calculating results for {}'.format(alias))
                         # try:
@@ -75,16 +75,25 @@ if __name__ == '__main__':
                         else:
                             if not os.path.exists(save_dir):
                                 os.mkdir(save_dir)
+                            
+                            torch.manual_seed(seed)
+                            torch.cuda.manual_seed(seed)
                             ner_data = NERData(modelfiles[model], tag_scheme=tag_scheme)
                             ner_data.preprocess(datafiles[dataset], (0.1, split/800, split/100), is_file=True, sentence_level=sentence_level, shuffle=True, seed=seed)
                             ner_data.create_dataloaders(batch_size=batch_size)
                             classes = ner_data.classes
                             torch.save(classes, save_dir+'classes.pt')
-                            ner_model = BertCRFNERModel(modelname=modelfiles[model], classes=classes, tag_scheme=tag_scheme, device=device, lr=lr)
+
+                            torch.manual_seed(seed)
+                            torch.cuda.manual_seed(seed)
+                            ner_model = BertCRFNERModel(modelname=modelfiles[model], classes=classes, tag_scheme=tag_scheme, device=device, tlr=tlr, clr=clr)
+                            print(ner_model.model)
                             ner_model.train(n_epochs, ner_data.dataloaders['train'], val_dataloader=ner_data.dataloaders['valid'], dev_dataloader=ner_data.dataloaders['test'],
-                                            save_dir=save_dir, deep_finetuning=deep_finetuning)
+                                            save_dir=save_dir, frozen_transformer_epochs=frozen_epochs)
+                            
                             _, _, _, _, labels, predictions = torch.load(save_dir+'test.pt')
                             print(classification_report(labels, predictions, mode='strict', scheme=schemes[tag_scheme]))
+
                             epoch_files = glob.glob(save_dir+'epoch_*pt')
                             for f in epoch_files:
                                 try:

@@ -34,6 +34,11 @@ class NERData():
                     identifier = d['meta']['doi']
                 elif 'doping' in datafile:
                     identifier = d['text']
+                else:
+                    try:
+                        identifier = d['doi']
+                    except:
+                        identifier = d['meta']['doi']
                 if identifier in identifiers:
                     pass
                 else:
@@ -181,7 +186,7 @@ class NERData():
     def create_dataloaders(self, batch_size=32):
         self.dataloaders = {}
         for split in self.dataset.keys():
-            self.dataloaders[split] = DataLoader(self.dataset[split], batch_size=batch_size, num_workers=0, pin_memory=True)
+            self.dataloaders[split] = DataLoader(self.dataset[split], batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True)
         return self
     
 
