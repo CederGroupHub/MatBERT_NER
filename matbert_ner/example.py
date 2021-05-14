@@ -18,15 +18,16 @@ def parse_args():
     parser.add_argument('-bs', '--batch_size', help='number of samples in each batch', type=int, default=32)
     parser.add_argument('-ne', '--n_epochs', help='number of training epochs', type=int, default=16)
     parser.add_argument('-fe', '--frozen_epochs', help='number of frozen bert epochs', type=int, default=0)
-    parser.add_argument('-tl', '--transformer_learning_rate', help='transformer learning rate', type=float, default=2e-4)
-    parser.add_argument('-cl', '--classifier_learning_rate', help='classifier learning rate', type=float, default=1e-3)
+    parser.add_argument('-el', '--encoder_layers', help='number of bert encoder layers to be unfrozen', type=int, default=4)
+    parser.add_argument('-tl', '--transformer_learning_rate', help='transformer learning rate', type=float, default=1e-3)
+    parser.add_argument('-cl', '--classifier_learning_rate', help='classifier learning rate', type=float, default=1e-2)
     parser.add_argument('-km', '--keep_model', help='switch for saving the best model parameters to disk', action='store_true')
     args = parser.parse_args()
-    return args.device, args.seeds, args.tag_schemes, args.splits, args.datasets, args.models, args.sentence_level, args.batch_size, args.n_epochs, args.frozen_epochs, args.transformer_learning_rate, args.classifier_learning_rate, args.keep_model
+    return args.device, args.seeds, args.tag_schemes, args.splits, args.datasets, args.models, args.sentence_level, args.batch_size, args.n_epochs, args.frozen_epochs, args.encoder_layers, args.transformer_learning_rate, args.classifier_learning_rate, args.keep_model
 
 
 if __name__ == '__main__':
-    device, seeds, tag_schemes, splits, datasets, models, sentence_level, batch_size, n_epochs, frozen_epochs, tlr, clr, keep_model = parse_args()
+    device, seeds, tag_schemes, splits, datasets, models, sentence_level, batch_size, n_epochs, frozen_epochs, encoder_layers, tlr, clr, keep_model = parse_args()
     if 'gpu' in device:
         gpu = True
         try:
@@ -66,7 +67,7 @@ if __name__ == '__main__':
             for split in splits:
                 for dataset in datasets:
                     for model in models:
-                        alias = '{}_{}_{}_{}_crf_{}_{}_{}_{:.0e}_{:.0e}_{}_{}'.format(model, dataset, 'sentence' if sentence_level else 'paragraph', tag_scheme.lower(), batch_size, n_epochs, frozen_epochs, tlr, clr, seed, split)
+                        alias = '{}_{}_{}_{}_crf_{}_{}_{}_{}_{:.0e}_{:.0e}_{}_{}'.format(model, dataset, 'sentence' if sentence_level else 'paragraph', tag_scheme.lower(), batch_size, n_epochs, frozen_epochs, encoder_layers, tlr, clr, seed, split)
                         save_dir = os.getcwd()+'/{}/'.format(alias)
                         print('calculating results for {}'.format(alias))
                         # try:
@@ -89,7 +90,7 @@ if __name__ == '__main__':
                             ner_model = BertCRFNERModel(modelname=modelfiles[model], classes=classes, tag_scheme=tag_scheme, device=device, tlr=tlr, clr=clr)
                             print(ner_model.model)
                             ner_model.train(n_epochs, ner_data.dataloaders['train'], val_dataloader=ner_data.dataloaders['valid'], dev_dataloader=ner_data.dataloaders['test'],
-                                            save_dir=save_dir, frozen_transformer_epochs=frozen_epochs)
+                                            save_dir=save_dir, frozen_transformer_epochs=frozen_epochs, unfrozen_encoder_layers=encoder_layers)
                             
                             _, _, _, _, labels, predictions = torch.load(save_dir+'test.pt')
                             print(classification_report(labels, predictions, mode='strict', scheme=schemes[tag_scheme]))
