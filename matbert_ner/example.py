@@ -57,7 +57,7 @@ if __name__ == '__main__':
     if len(encoder_schedule) > n_epochs:
         encoder_schedule = encoder_schedule[:n_epochs]
         print('Provided with encoder schedule longer than number of epochs, truncating')
-    elif len(encoder_scheduler) < n_epochs:
+    elif len(encoder_schedule) < n_epochs:
         encoder_schedule = encoder_schedule+((n_epochs-len(encoder))*[0])
     if np.sum(encoder_schedule) > 12:
         encoder_schedule = [12]
