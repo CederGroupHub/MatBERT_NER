@@ -88,7 +88,6 @@ if __name__ == '__main__':
                             torch.manual_seed(seed)
                             torch.cuda.manual_seed(seed)
                             ner_model = BertCRFNERModel(modelname=modelfiles[model], classes=classes, tag_scheme=tag_scheme, device=device, tlr=tlr, clr=clr)
-                            print(ner_model.model)
                             ner_model.train(n_epochs, ner_data.dataloaders['train'], val_dataloader=ner_data.dataloaders['valid'], dev_dataloader=ner_data.dataloaders['test'],
                                             save_dir=save_dir, frozen_transformer_epochs=frozen_epochs, unfrozen_encoder_layers=encoder_layers)
                             
