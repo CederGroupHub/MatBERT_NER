@@ -61,7 +61,7 @@ class NERModel(ABC):
         return label_tags, prediction_tags
 
 
-    def train(self, n_epochs, train_dataloader, val_dataloader=None, dev_dataloader=None, save_dir=None,  embedding_unfreeze=0, encoder_schedule=[12]):
+    def train(self, n_epochs, train_dataloader, val_dataloader=None, dev_dataloader=None, save_dir=None, opt_name='adamw', embedding_unfreeze=0, encoder_schedule=[12]):
         """
         Train the model
         Inputs:
@@ -73,7 +73,7 @@ class NERModel(ABC):
         self.val_f1_best = -1
         n_batches = len(train_dataloader)
 
-        optimizer = self.create_optimizer()
+        optimizer = self.create_optimizer(opt_name)
         scheduler = self.create_scheduler(optimizer, n_epochs)
 
         epoch_metrics = {'training': {}, 'validation': {}}

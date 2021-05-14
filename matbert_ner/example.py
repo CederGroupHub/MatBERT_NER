@@ -10,25 +10,26 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-dv', '--device', help='computation device for model (e.g. cpu, gpu:0, gpu:1)', type=str, default='gpu:0')
     parser.add_argument('-sd', '--seeds', help='comma-separated seeds for data shuffling and model initialization (e.g. 1,2,3 or 2,4,8)', type=str, default='256')
-    parser.add_argument('-ts', '--tag_schemes', help='comma-separated tagging schemes to be considered (e.g. IOB1,IOB2,IOBES)', type=str, default='IOBES')
+    parser.add_argument('-ts', '--tag_schemes', help='comma-separated tagging schemes to be considered (e.g. iob1,iob2,iobes)', type=str, default='iobes')
     parser.add_argument('-st', '--splits', help='comma-separated training splits to be considered, in percent (e.g. 80). test split will always be 10%% and the validation split will be 1/8 of the training split', type=str, default='80')
     parser.add_argument('-ds', '--datasets', help='comma-separated datasets to be considered (e.g. solid_state,doping)', type=str, default='solid_state')
     parser.add_argument('-ml', '--models', help='comma-separated models to be considered (e.g. matbert,scibert,bert)', type=str, default='matbert')
     parser.add_argument('-sl', '--sentence_level', help='switch for sentence-level learning instead of paragraph-level', action='store_true')
     parser.add_argument('-bs', '--batch_size', help='number of samples in each batch', type=int, default=32)
+    parser.add_argument('-on', '--optimizer_name', help='name of optimizer', type=str, default='adamw')
     parser.add_argument('-ne', '--n_epochs', help='number of training epochs', type=int, default=16)
     parser.add_argument('-eu', '--embedding_unfreeze', help='epoch at which bert embeddings are unfrozen', type=int, default=0)
     parser.add_argument('-tu', '--transformer_unfreeze', help='comma-separated list of number of transformers (encoders) to unfreeze at each epoch', type=str, default='12')
-    parser.add_argument('-el', '--embedding_learning_rate', help='embedding learning rate', type=float, default=1e-2)
-    parser.add_argument('-tl', '--transformer_learning_rate', help='transformer learning rate', type=float, default=1e-2)
-    parser.add_argument('-cl', '--classifier_learning_rate', help='pooler/classifier learning rate', type=float, default=1e-2)
+    parser.add_argument('-el', '--embedding_learning_rate', help='embedding learning rate', type=float, default=2e-4)
+    parser.add_argument('-tl', '--transformer_learning_rate', help='transformer learning rate', type=float, default=2e-4)
+    parser.add_argument('-cl', '--classifier_learning_rate', help='pooler/classifier learning rate', type=float, default=2e-4)
     parser.add_argument('-km', '--keep_model', help='switch for saving the best model parameters to disk', action='store_true')
     args = parser.parse_args()
-    return args.device, args.seeds, args.tag_schemes, args.splits, args.datasets, args.models, args.sentence_level, args.batch_size, args.n_epochs, args.embedding_unfreeze, args.transformer_unfreeze, args.embedding_learning_rate, args.transformer_learning_rate, args.classifier_learning_rate, args.keep_model
+    return args.device, args.seeds, args.tag_schemes, args.splits, args.datasets, args.models, args.sentence_level, args.batch_size, args.optimizer_name, args.n_epochs, args.embedding_unfreeze, args.transformer_unfreeze, args.embedding_learning_rate, args.transformer_learning_rate, args.classifier_learning_rate, args.keep_model
 
 
 if __name__ == '__main__':
-    device, seeds, tag_schemes, splits, datasets, models, sentence_level, batch_size, n_epochs, embedding_unfreeze, transformer_unfreeze, elr, tlr, clr, keep_model = parse_args()
+    device, seeds, tag_schemes, splits, datasets, models, sentence_level, batch_size, opt_name, n_epochs, embedding_unfreeze, transformer_unfreeze, elr, tlr, clr, keep_model = parse_args()
     if 'gpu' in device:
         gpu = True
         try:
@@ -49,7 +50,7 @@ if __name__ == '__main__':
     torch.backends.cudnn.deterministic = True
 
     seeds = [int(seed) for seed in seeds.split(',')]
-    tag_schemes = [str(tag_scheme) for tag_scheme in tag_schemes.split(',')]
+    tag_schemes = [str(tag_scheme).upper() for tag_scheme in tag_schemes.split(',')]
     splits = [int(split) for split in splits.split(',')]
     datasets = [str(dataset) for dataset in datasets.split(',')]
     models = [str(model) for model in models.split(',')]
@@ -102,7 +103,7 @@ if __name__ == '__main__':
                             torch.cuda.manual_seed(seed)
                             ner_model = BertCRFNERModel(modelname=modelfiles[model], classes=classes, tag_scheme=tag_scheme, device=device, elr=elr, tlr=tlr, clr=clr)
                             ner_model.train(n_epochs, ner_data.dataloaders['train'], val_dataloader=ner_data.dataloaders['valid'], dev_dataloader=ner_data.dataloaders['test'],
-                                            save_dir=save_dir, embedding_unfreeze=embedding_unfreeze, encoder_schedule=encoder_schedule)
+                                            save_dir=save_dir, opt_name=opt_name, embedding_unfreeze=embedding_unfreeze, encoder_schedule=encoder_schedule)
                             
                             _, _, _, _, labels, predictions = torch.load(save_dir+'test.pt')
                             print(classification_report(labels, predictions, mode='strict', scheme=schemes[tag_scheme]))

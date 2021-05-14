@@ -24,15 +24,19 @@ class BertCRFNERModel(NERModel):
         return ner_model
 
 
-    def create_optimizer(self):
-        # optimizer = AdamW([{'params': self.model.bert.parameters(), 'lr': self.tlr},
-        #                    {'params': self.model.classifier.parameters(), 'lr': self.clr},
-        #                    {'params': self.model.crf.parameters(), 'lr': self.clr}])
-        optimizer = RangerLars([{'params': self.model.bert.embeddings.parameters(), 'lr': self.elr},
-                                {'params': self.model.bert.encoder.parameters(), 'lr': self.tlr},
-                                {'params': self.model.bert.pooler.parameters(), 'lr': self.clr},
-                                {'params': self.model.classifier.parameters(), 'lr': self.clr},
-                                {'params': self.model.crf.parameters(), 'lr': self.clr}])
+    def create_optimizer(self, name):
+        if name == 'adamw'
+            optimizer = AdamW([{'params': self.model.bert.embeddings.parameters(), 'lr': self.elr},
+                               {'params': self.model.bert.encoder.parameters(), 'lr': self.tlr},
+                               {'params': self.model.bert.pooler.parameters(), 'lr': self.clr},
+                               {'params': self.model.classifier.parameters(), 'lr': self.clr},
+                               {'params': self.model.crf.parameters(), 'lr': self.clr}])
+        if name == 'rangerlars':
+            optimizer = RangerLars([{'params': self.model.bert.embeddings.parameters(), 'lr': self.elr},
+                                    {'params': self.model.bert.encoder.parameters(), 'lr': self.tlr},
+                                    {'params': self.model.bert.pooler.parameters(), 'lr': self.clr},
+                                    {'params': self.model.classifier.parameters(), 'lr': self.clr},
+                                    {'params': self.model.crf.parameters(), 'lr': self.clr}])
         return optimizer
 
 
