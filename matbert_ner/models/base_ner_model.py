@@ -74,7 +74,7 @@ class NERModel(ABC):
         n_batches = len(train_dataloader)
 
         optimizer = self.create_optimizer()
-        scheduler = self.create_scheduler(optimizer, n_epochs, frozen_transformer_epochs)
+        scheduler = self.create_scheduler(optimizer, n_epochs)
 
         epoch_metrics = {'training': {}, 'validation': {}}
         if save_dir is not None and not os.path.exists(save_dir):

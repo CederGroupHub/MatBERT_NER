@@ -36,8 +36,8 @@ class BertCRFNERModel(NERModel):
         return optimizer
 
 
-    def create_scheduler(self, optimizer, n_epochs, frozen_transformer_epochs):
-        scheduler = CosineAnnealingLR(optimizer=optimizer, T_max=(n_epochs-frozen_transformer_epochs), eta_min=0.0, last_epoch=-1, verbose=True)
+    def create_scheduler(self, optimizer, n_epochs):
+        scheduler = CosineAnnealingLR(optimizer=optimizer, T_max=n_epochs, eta_min=0.0, last_epoch=-1, verbose=True)
         return scheduler
 
 
