@@ -79,7 +79,7 @@ if __name__ == '__main__':
             for split in splits:
                 for dataset in datasets:
                     for model in models:
-                        alias = '{}_{}_{}_{}_crf_{}_{}_{}_{}_{:.0e}_{:.0e}_{:.0e}_{}_{}'.format(model, dataset, 'sentence' if sentence_level else 'paragraph', tag_scheme.lower(), batch_size, n_epochs, embedding_unfreeze, transformer_unfreeze.replace(',', ''), elr, tlr, clr, seed, split)
+                        alias = '{}_{}_{}_{}_crf_{}_{}_{}_{}_{}_{:.0e}_{:.0e}_{:.0e}_{}_{}'.format(model, dataset, 'sentence' if sentence_level else 'paragraph', tag_scheme.lower(), batch_size, opt_name, n_epochs, embedding_unfreeze, transformer_unfreeze.replace(',', ''), elr, tlr, clr, seed, split)
                         save_dir = os.getcwd()+'/{}/'.format(alias)
                         print('Calculating results for {}'.format(alias))
                         # try:
