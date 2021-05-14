@@ -21,7 +21,7 @@ class NERModel(ABC):
     A wrapper class for transformers models, implementing train, predict, and evaluate methods
     """
 
-    def __init__(self, modelname="allenai/scibert_scivocab_cased", classes = ["O"], tag_scheme='IOB2', device="cpu", tlr=2e-4, clr=1e-3, results_file=None):
+    def __init__(self, modelname="allenai/scibert_scivocab_cased", classes = ["O"], tag_scheme='IOB2', device="cpu", elr=1e-2, tlr=1e-2, clr=1e-2, results_file=None):
         self.modelname = modelname
         self.tokenizer = BertTokenizer.from_pretrained(modelname)
         self.classes = classes
@@ -36,6 +36,7 @@ class NERModel(ABC):
         self.config = AutoConfig.from_pretrained(modelname)
         self.config.num_labels = len(self.classes)
         self.config.model_name = self.modelname
+        self.elr = elr
         self.tlr = tlr
         self.clr = clr
         self.device = device
@@ -60,7 +61,7 @@ class NERModel(ABC):
         return label_tags, prediction_tags
 
 
-    def train(self, n_epochs, train_dataloader, val_dataloader=None, dev_dataloader=None, save_dir=None, frozen_transformer_epochs=4, unfrozen_encoder_layers=4):
+    def train(self, n_epochs, train_dataloader, val_dataloader=None, dev_dataloader=None, save_dir=None,  embedding_unfreeze=0, encoder_schedule=[12]):
         """
         Train the model
         Inputs:
@@ -79,8 +80,22 @@ class NERModel(ABC):
         if save_dir is not None and not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
-        for param in self.model.bert.parameters():
-            param.requires_grad = False   
+        for param in self.model.bert.embeddings.parameters():
+            param.requires_grad = False
+        for param in self.model.bert.encoder.parameters():
+            param.requires_grad = False
+        print('BERT embeddings and encoders frozen')
+        print('Classifier, CRF, and BERT pooler unfrozen')
+        
+        last_encoder_layer = 11
+        expanded_encoder_schedule = {}
+        for epoch in range(n_epochs):
+            expanded_encoder_schedule['epoch_{}'.format(epoch)] = []
+            for layer in range(encoder_schedule[epoch]):
+                expanded_encoder_schedule['epoch_{}'.format(epoch)].append(last_encoder_layer)
+                last_encoder_layer -= 1
+        print(expanded_encoder_schedule)
+
 
         for epoch in range(n_epochs):
             self.model.train()
@@ -88,11 +103,15 @@ class NERModel(ABC):
             metrics = {'loss': [], 'accuracy_score': [], 'precision_score': [], 'recall_score': [], 'f1_score': []}
             batch_range = tqdm(train_dataloader, desc='')
 
-            if epoch == frozen_transformer_epochs:
-                encoder_layer_index = frozen_transformer_epochs-epoch-1
-                if np.abs(encoder_layer_index) <= len(self.model.bert.encoder.layer) and np.abs(encoder_layer_index) <= unfrozen_encoder_layers:
-                    for param in self.model.bert.encoder.layer[encoder_layer_index].parameters():
-                        param.requires_grad = True
+            if epoch == embedding_unfreeze:
+                for param in self.model.bert.embeddings.parameters():
+                    param.requires_grad = True
+                print('BERT embeddings unfrozen')
+            
+            for layer_index in expanded_encoder_schedule['epoch_{}'.format(epoch)]:
+                for param in self.model.bert.encoder.layer[layer_index].parameters():
+                    param.requires_grad = True
+                print('BERT encoder {} unfrozen'.format(layer_index))
 
             for j, batch in enumerate(batch_range):
                 inputs = {"input_ids": batch[0].to(self.device, non_blocking=True),
