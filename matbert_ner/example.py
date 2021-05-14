@@ -54,13 +54,14 @@ if __name__ == '__main__':
     datasets = [str(dataset) for dataset in datasets.split(',')]
     models = [str(model) for model in models.split(',')]
     encoder_schedule = [int(num) for num in transformer_unfreeze.split(',')]
-    if len(encoder) > n_epochs:
+    if len(encoder_schedule) > n_epochs:
         encoder_schedule = encoder_schedule[:n_epochs]
-    elif len(encoder) < n_epochs:
+        print('Provided with encoder schedule longer than number of epochs, truncating')
+    elif len(encoder_scheduler) < n_epochs:
         encoder_schedule = encoder_schedule+((n_epochs-len(encoder))*[0])
     if np.sum(encoder_schedule) > 12:
         encoder_schedule = [12]
-        print('provided invalid encoder schedule (too many layers), replacing with [12] (all layers unfrozen on first epoch)')
+        print('Provided invalid encoder schedule (too many layers), replacing with [12] (all layers unfrozen on first epoch)')
 
 
     datafiles = {'solid_state': 'data/solid_state.json',
@@ -79,10 +80,10 @@ if __name__ == '__main__':
                     for model in models:
                         alias = '{}_{}_{}_{}_crf_{}_{}_{}_{}_{:.0e}_{:.0e}_{:.0e}_{}_{}'.format(model, dataset, 'sentence' if sentence_level else 'paragraph', tag_scheme.lower(), batch_size, n_epochs, embedding_unfreeze, transformer_unfreeze.replace(',', ''), elr, tlr, clr, seed, split)
                         save_dir = os.getcwd()+'/{}/'.format(alias)
-                        print('calculating results for {}'.format(alias))
+                        print('Calculating results for {}'.format(alias))
                         # try:
                         if os.path.exists(save_dir+'test.pt'):
-                            print('already calculated {}, skipping'.format(alias))
+                            print('Already calculated {}, skipping'.format(alias))
                             _, _, _, _, labels, predictions = torch.load(save_dir+'test.pt')
                             print(classification_report(labels, predictions, mode='strict', scheme=schemes[tag_scheme]))
                         else:
@@ -111,11 +112,11 @@ if __name__ == '__main__':
                                 try:
                                     os.remove(f)
                                 except:
-                                    print('error while deleting file: {}'.format(f))
+                                    print('Error while deleting file: {}'.format(f))
                             if not keep_model:
                                 try:
                                     os.remove(save_dir+'best.pt')
                                 except:
-                                    print('error while deleting file: {}best.pt'.format(savedir))
+                                    print('Error while deleting file: {}best.pt'.format(savedir))
                         # except:
                         #     print('error calculating results for {}'.format(alias))                
