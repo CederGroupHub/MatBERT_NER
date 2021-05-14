@@ -94,7 +94,6 @@ class NERModel(ABC):
             for layer in range(encoder_schedule[epoch]):
                 expanded_encoder_schedule['epoch_{}'.format(epoch)].append(last_encoder_layer)
                 last_encoder_layer -= 1
-        print(expanded_encoder_schedule)
 
 
         for epoch in range(n_epochs):
@@ -146,8 +145,7 @@ class NERModel(ABC):
                 val_metrics = self.evaluate(val_dataloader, validate=True, save_path=os.path.join(save_dir, "best.pt"), epoch=epoch, n_epochs=n_epochs)
                 epoch_metrics['validation']['epoch_{}'.format(epoch)] = val_metrics
             
-            if epoch+1 > frozen_transformer_epochs:
-                scheduler.step()
+            scheduler.step()
 
         if dev_dataloader is not None:
             # Restore weights of best model after training if we can
