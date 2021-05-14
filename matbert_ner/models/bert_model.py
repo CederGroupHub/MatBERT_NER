@@ -25,7 +25,7 @@ class BertCRFNERModel(NERModel):
 
 
     def create_optimizer(self, name):
-        if name == 'adamw'
+        if name == 'adamw':
             optimizer = AdamW([{'params': self.model.bert.embeddings.parameters(), 'lr': self.elr},
                                {'params': self.model.bert.encoder.parameters(), 'lr': self.tlr},
                                {'params': self.model.bert.pooler.parameters(), 'lr': self.clr},
