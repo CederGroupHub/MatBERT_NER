@@ -73,6 +73,8 @@ if __name__ == '__main__':
                         # try:
                         if os.path.exists(save_dir+'test.pt'):
                             print('already calculated {}, skipping'.format(alias))
+                            _, _, _, _, labels, predictions = torch.load(save_dir+'test.pt')
+                            print(classification_report(labels, predictions, mode='strict', scheme=schemes[tag_scheme]))
                         else:
                             if not os.path.exists(save_dir):
                                 os.mkdir(save_dir)
