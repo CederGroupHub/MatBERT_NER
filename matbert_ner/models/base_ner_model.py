@@ -60,7 +60,7 @@ class NERModel(ABC):
         return label_tags, prediction_tags
 
 
-    def train(self, n_epochs, train_dataloader, val_dataloader=None, dev_dataloader=None, save_dir=None, frozen_transformer_epochs=4, encoder_layers=4):
+    def train(self, n_epochs, train_dataloader, val_dataloader=None, dev_dataloader=None, save_dir=None, frozen_transformer_epochs=4, unfrozen_encoder_layers=4):
         """
         Train the model
         Inputs:
@@ -90,7 +90,7 @@ class NERModel(ABC):
 
             if epoch == frozen_transformer_epochs:
                 encoder_layer_index = frozen_transformer_epochs-epoch-1
-                if np.abs(encoder_layer_index) <= len(self.model.bert.encoder.layer) and np.abs(encoder_layer_index) <= encoder_layers:
+                if np.abs(encoder_layer_index) <= len(self.model.bert.encoder.layer) and np.abs(encoder_layer_index) <= unfrozen_encoder_layers:
                     for param in self.model.bert.encoder.layer[encoder_layer_index].parameters():
                         param.requires_grad = True
 
