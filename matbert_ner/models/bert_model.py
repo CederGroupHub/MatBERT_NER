@@ -30,7 +30,7 @@ class BertCRFNERModel(NERModel):
         #                    {'params': self.model.crf.parameters(), 'lr': self.clr}])
         optimizer = RangerLars([{'params': self.model.bert.embeddings.parameters(), 'lr': self.elr},
                                 {'params': self.model.bert.encoder.parameters(), 'lr': self.tlr},
-                                {'params': self.model.bert.pooler.parameters(), 'lr': self.clr}
+                                {'params': self.model.bert.pooler.parameters(), 'lr': self.clr},
                                 {'params': self.model.classifier.parameters(), 'lr': self.clr},
                                 {'params': self.model.crf.parameters(), 'lr': self.clr}])
         return optimizer
