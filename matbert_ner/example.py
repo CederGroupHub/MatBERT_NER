@@ -58,7 +58,7 @@ if __name__ == '__main__':
         encoder_schedule = encoder_schedule[:n_epochs]
         print('Provided with encoder schedule longer than number of epochs, truncating')
     elif len(encoder_schedule) < n_epochs:
-        encoder_schedule = encoder_schedule+((n_epochs-len(encoder))*[0])
+        encoder_schedule = encoder_schedule+((n_epochs-len(encoder_schedule))*[0])
     if np.sum(encoder_schedule) > 12:
         encoder_schedule = [12]
         print('Provided invalid encoder schedule (too many layers), replacing with [12] (all layers unfrozen on first epoch)')
