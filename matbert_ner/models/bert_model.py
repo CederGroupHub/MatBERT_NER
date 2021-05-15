@@ -8,7 +8,7 @@ from typing import List, Optional
 import numpy as np
 from models.base_ner_model import NERModel
 import torch.optim as optim
-from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, LambdaLR
 from torchtools.optim import RangerLars
 from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup, get_cosine_with_hard_restarts_schedule_with_warmup
 from transformers import AdamW
@@ -41,7 +41,9 @@ class BertCRFNERModel(NERModel):
 
 
     def create_scheduler(self, optimizer, n_epochs):
-        scheduler = CosineAnnealingLR(optimizer=optimizer, T_max=n_epochs, eta_min=0.0, last_epoch=-1, verbose=True)
+        linear = lambda epoch: (n_epochs-epoch)/(n_epochs)
+        # scheduler = CosineAnnealingLR(optimizer=optimizer, T_max=n_epochs, eta_min=0.0, last_epoch=-1, verbose=True)
+        scheduler = LambdaLR(optimizer, lr_lambda=linear)
         return scheduler
 
 

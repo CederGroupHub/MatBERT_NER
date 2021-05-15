@@ -85,7 +85,7 @@ class NERModel(ABC):
         for param in self.model.bert.encoder.parameters():
             param.requires_grad = False
         print('BERT embeddings and encoders frozen')
-        print('Classifier, CRF, and BERT pooler unfrozen')
+        print('CRF, Classifier, and BERT pooler unfrozen')
         
         last_encoder_layer = 11
         expanded_encoder_schedule = {}
@@ -101,16 +101,16 @@ class NERModel(ABC):
 
             metrics = {'loss': [], 'accuracy_score': [], 'precision_score': [], 'recall_score': [], 'f1_score': []}
             batch_range = tqdm(train_dataloader, desc='')
-
-            if epoch == embedding_unfreeze:
-                for param in self.model.bert.embeddings.parameters():
-                    param.requires_grad = True
-                print('BERT embeddings unfrozen')
             
             for layer_index in expanded_encoder_schedule['epoch_{}'.format(epoch)]:
                 for param in self.model.bert.encoder.layer[layer_index].parameters():
                     param.requires_grad = True
                 print('BERT encoder {} unfrozen'.format(layer_index))
+
+            if epoch == embedding_unfreeze:
+                for param in self.model.bert.embeddings.parameters():
+                    param.requires_grad = True
+                print('BERT embeddings unfrozen')
 
             for j, batch in enumerate(batch_range):
                 inputs = {"input_ids": batch[0].to(self.device, non_blocking=True),
