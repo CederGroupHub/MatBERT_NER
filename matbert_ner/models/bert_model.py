@@ -43,7 +43,7 @@ class BertCRFNERModel(NERModel):
     def create_scheduler(self, optimizer, n_epochs):
         linear = lambda epoch: (n_epochs-epoch)/(n_epochs)
         # scheduler = CosineAnnealingLR(optimizer=optimizer, T_max=n_epochs, eta_min=0.0, last_epoch=-1, verbose=True)
-        scheduler = LambdaLR(optimizer, lr_lambda=linear)
+        scheduler = LambdaLR(optimizer, lr_lambda=linear, verbose=True)
         return scheduler
 
 
