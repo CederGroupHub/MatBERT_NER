@@ -26,9 +26,9 @@ class BertCRFNERModel(NERModel):
 
     def create_optimizer(self, name):
         if self.seed:
-            torch.manual_seed(seed)
-            torch.cuda.manual_seed(seed)
-            np.random.seed(seed)
+            torch.manual_seed(self.seed)
+            torch.cuda.manual_seed(self.seed)
+            np.random.seed(self.seed)
         if name == 'adamw':
             optimizer = AdamW([{'params': self.model.bert.embeddings.parameters(), 'lr': self.elr},
                                {'params': self.model.bert.encoder.parameters(), 'lr': self.tlr},
