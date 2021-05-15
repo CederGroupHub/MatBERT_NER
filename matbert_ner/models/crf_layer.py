@@ -15,7 +15,10 @@ class CRF(nn.Module):
         self.crf = torchcrf.CRF(num_tags=len(self.tag_names), batch_first=batch_first)
     
 
-    def initialize(self):
+    def initialize(self, seed):
+        if seed:
+            torch.manual_seed(seed)
+            torch.cuda.manual_seed(seed)
         # initialize weights
         self.crf.reset_parameters()
         # construct definitions of invalid transitions

@@ -62,7 +62,7 @@ class BertCrfForNer(BertPreTrainedModel):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, config.num_labels)
         self.crf = CRF(tag_names=tag_names, tag_scheme=tag_scheme, batch_first=True)
-        self.crf.initialize()
+        self.crf.initialize(seed)
 
 
     @property
