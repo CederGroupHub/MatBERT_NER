@@ -80,8 +80,6 @@ if __name__ == '__main__':
             for split in splits:
                 for dataset in datasets:
                     for model in models:
-                        torch.manual_seed(seed)
-                        torch.cuda.manual_seed(seed)
                         alias = '{}_{}_{}_{}_crf_{}_{}_{}_{}_{}_{:.0e}_{:.0e}_{:.0e}_{}_{}'.format(model, dataset, 'sentence' if sentence_level else 'paragraph', tag_scheme.lower(), batch_size, opt_name, n_epochs, embedding_unfreeze, transformer_unfreeze.replace(',', ''), elr, tlr, clr, seed, split)
                         save_dir = os.getcwd()+'/{}/'.format(alias)
                         print('Calculating results for {}'.format(alias))
@@ -100,7 +98,7 @@ if __name__ == '__main__':
                             classes = ner_data.classes
                             torch.save(classes, save_dir+'classes.pt')
 
-                            ner_model = BertCRFNERModel(modelname=modelfiles[model], classes=classes, tag_scheme=tag_scheme, device=device, elr=elr, tlr=tlr, clr=clr)
+                            ner_model = BertCRFNERModel(modelname=modelfiles[model], classes=classes, tag_scheme=tag_scheme, device=device, elr=elr, tlr=tlr, clr=clr, seed=seed)
                             ner_model.train(n_epochs, ner_data.dataloaders['train'], val_dataloader=ner_data.dataloaders['valid'], dev_dataloader=ner_data.dataloaders['test'],
                                             save_dir=save_dir, opt_name=opt_name, embedding_unfreeze=embedding_unfreeze, encoder_schedule=encoder_schedule)
                             

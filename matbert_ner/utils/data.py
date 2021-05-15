@@ -51,7 +51,10 @@ class NERData():
     
 
     def shuffle_data(self, data, seed=256):
-        random.Random(seed).shuffle(data)
+        if seed:
+            random.Random(seed).shuffle(data)
+        else:
+            random.shuffle(data)
         return data
     
 
@@ -183,7 +186,10 @@ class NERData():
         return self        
     
 
-    def create_dataloaders(self, batch_size=32):
+    def create_dataloaders(self, batch_size=32, seed=256):
+        if seed:
+            torch.manual_seed(seed)
+            torch.cuda.manual_seed(seed)
         self.dataloaders = {}
         for split in self.dataset.keys():
             self.dataloaders[split] = DataLoader(self.dataset[split], batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True)

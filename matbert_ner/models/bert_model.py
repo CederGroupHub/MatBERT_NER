@@ -19,8 +19,8 @@ from models.valid_sequence_output import valid_sequence_output
 class BertCRFNERModel(NERModel):
 
 
-    def initialize_model(self):
-        ner_model = BertCrfForNer(self.config, self.classes, self.tag_scheme, self.device).to(self.device)
+    def initialize_model(self, seed):
+        ner_model = BertCrfForNer(self.config, self.classes, self.tag_scheme, self.device, self.seed).to(self.device)
         return ner_model
 
 
@@ -52,7 +52,10 @@ class BertCRFNERModel(NERModel):
 
 
 class BertCrfForNer(BertPreTrainedModel):
-    def __init__(self, config, tag_names, tag_scheme, device):
+    def __init__(self, config, tag_names, tag_scheme, device, seed):
+        if seed:
+            torch.manual_seed(seed)
+            torch.cuda.manual_seed(seed)
         super(BertCrfForNer, self).__init__(config)
         self.bert = BertModel(config).from_pretrained(config.model_name)
         self._device = device
