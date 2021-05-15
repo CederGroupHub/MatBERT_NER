@@ -8,28 +8,66 @@ from seqeval.metrics import classification_report
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-dv', '--device', help='computation device for model (e.g. cpu, gpu:0, gpu:1)', type=str, default='gpu:0')
-    parser.add_argument('-sd', '--seeds', help='comma-separated seeds for data shuffling and model initialization (e.g. 1,2,3 or 2,4,8)', type=str, default='256')
-    parser.add_argument('-ts', '--tag_schemes', help='comma-separated tagging schemes to be considered (e.g. iob1,iob2,iobes)', type=str, default='iobes')
-    parser.add_argument('-st', '--splits', help='comma-separated training splits to be considered, in percent (e.g. 80). test split will always be 10%% and the validation split will be 1/8 of the training split', type=str, default='80')
-    parser.add_argument('-ds', '--datasets', help='comma-separated datasets to be considered (e.g. solid_state,doping)', type=str, default='solid_state')
-    parser.add_argument('-ml', '--models', help='comma-separated models to be considered (e.g. matbert,scibert,bert)', type=str, default='matbert')
-    parser.add_argument('-sl', '--sentence_level', help='switch for sentence-level learning instead of paragraph-level', action='store_true')
-    parser.add_argument('-bs', '--batch_size', help='number of samples in each batch', type=int, default=10)
-    parser.add_argument('-on', '--optimizer_name', help='name of optimizer', type=str, default='adamw')
-    parser.add_argument('-ne', '--n_epochs', help='number of training epochs', type=int, default=4)
-    parser.add_argument('-eu', '--embedding_unfreeze', help='epoch (index) at which bert embeddings are unfrozen', type=int, default=0)
-    parser.add_argument('-tu', '--transformer_unfreeze', help='comma-separated number of transformers (encoders) to unfreeze at each epoch', type=str, default='12')
-    parser.add_argument('-el', '--embedding_learning_rate', help='embedding learning rate', type=float, default=2e-4)
-    parser.add_argument('-tl', '--transformer_learning_rate', help='transformer learning rate', type=float, default=2e-4)
-    parser.add_argument('-cl', '--classifier_learning_rate', help='pooler/classifier learning rate', type=float, default=2e-4)
-    parser.add_argument('-km', '--keep_model', help='switch for saving the best model parameters to disk', action='store_true')
+    parser.add_argument('-dv', '--device',
+                        help='computation device for model (e.g. cpu, gpu:0, gpu:1)',
+                        type=str, default='gpu:0')
+    parser.add_argument('-sd', '--seeds',
+                        help='comma-separated seeds for data shuffling and model initialization (e.g. 1,2,3 or 2,4,8)',
+                        type=str, default='256')
+    parser.add_argument('-ts', '--tag_schemes',
+                        help='comma-separated tagging schemes to be considered (e.g. iob1,iob2,iobes)',
+                        type=str, default='iobes')
+    parser.add_argument('-st', '--splits',
+                        help='comma-separated training splits to be considered, in percent (e.g. 80). test split will always be 10%% and the validation split will be 1/8 of the training split',
+                        type=str, default='80')
+    parser.add_argument('-ds', '--datasets',
+                        help='comma-separated datasets to be considered (e.g. solid_state,doping)',
+                        type=str, default='solid_state')
+    parser.add_argument('-ml', '--models',
+                        help='comma-separated models to be considered (e.g. matbert,scibert,bert)',
+                        type=str, default='matbert')
+    parser.add_argument('-sl', '--sentence_level',
+                        help='switch for sentence-level learning instead of paragraph-level',
+                        action='store_true')
+    parser.add_argument('-bs', '--batch_size',
+                        help='number of samples in each batch',
+                        type=int, default=8)
+    parser.add_argument('-on', '--optimizer_name',
+                        help='name of optimizer',
+                        type=str, default='adamw')
+    parser.add_argument('-ne', '--n_epochs',
+                        help='number of training epochs',
+                        type=int, default=4)
+    parser.add_argument('-eu', '--embedding_unfreeze',
+                        help='epoch (index) at which bert embeddings are unfrozen',
+                        type=int, default=0)
+    parser.add_argument('-tu', '--transformer_unfreeze',
+                        help='comma-separated number of transformers (encoders) to unfreeze at each epoch',
+                        type=str, default='12')
+    parser.add_argument('-el', '--embedding_learning_rate',
+                        help='embedding learning rate',
+                        type=float, default=2e-4)
+    parser.add_argument('-tl', '--transformer_learning_rate',
+                        help='transformer learning rate',
+                        type=float, default=2e-4)
+    parser.add_argument('-cl', '--classifier_learning_rate',
+                        help='pooler/classifier learning rate',
+                        type=float, default=2e-4)
+    parser.add_argument('-km', '--keep_model',
+                        help='switch for saving the best model parameters to disk',
+                        action='store_true')
     args = parser.parse_args()
-    return args.device, args.seeds, args.tag_schemes, args.splits, args.datasets, args.models, args.sentence_level, args.batch_size, args.optimizer_name, args.n_epochs, args.embedding_unfreeze, args.transformer_unfreeze, args.embedding_learning_rate, args.transformer_learning_rate, args.classifier_learning_rate, args.keep_model
+    return (args.device, args.seeds, args.tag_schemes, args.splits, args.datasets,
+            args.models, args.sentence_level, args.batch_size, args.optimizer_name,
+            args.n_epochs, args.embedding_unfreeze, args.transformer_unfreeze,
+            args.embedding_learning_rate, args.transformer_learning_rate, args.classifier_learning_rate, args.keep_model)
 
 
 if __name__ == '__main__':
-    device, seeds, tag_schemes, splits, datasets, models, sentence_level, batch_size, opt_name, n_epochs, embedding_unfreeze, transformer_unfreeze, elr, tlr, clr, keep_model = parse_args()
+    (device, seeds, tag_schemes, splits, datasets,
+    models, sentence_level, batch_size, opt_name,
+    n_epochs, embedding_unfreeze, transformer_unfreeze,
+    elr, tlr, clr, keep_model) = parse_args()
     if 'gpu' in device:
         gpu = True
         try:
@@ -80,7 +118,10 @@ if __name__ == '__main__':
             for split in splits:
                 for dataset in datasets:
                     for model in models:
-                        alias = '{}_{}_{}_{}_crf_{}_{}_{}_{}_{}_{:.0e}_{:.0e}_{:.0e}_{}_{}'.format(model, dataset, 'sentence' if sentence_level else 'paragraph', tag_scheme.lower(), batch_size, opt_name, n_epochs, embedding_unfreeze, transformer_unfreeze.replace(',', ''), elr, tlr, clr, seed, split)
+                        params = (model, dataset, 'sentence' if sentence_level else 'paragraph', tag_scheme.lower(),
+                                  batch_size, opt_name, n_epochs, embedding_unfreeze, transformer_unfreeze.replace(',', ''),
+                                  elr, tlr, clr, seed, split)
+                        alias = '{}_{}_{}_{}_crf_{}_{}_{}_{}_{}_{:.0e}_{:.0e}_{:.0e}_{}_{}'.format(*params)
                         save_dir = os.getcwd()+'/{}/'.format(alias)
                         print('Calculating results for {}'.format(alias))
                         # try:

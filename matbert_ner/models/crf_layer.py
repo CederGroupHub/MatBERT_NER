@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import torchcrf
+import numpy as np
 
 class CRF(nn.Module):
     def __init__(self, tag_names, tag_scheme, batch_first):
@@ -19,6 +20,7 @@ class CRF(nn.Module):
         if seed:
             torch.manual_seed(seed)
             torch.cuda.manual_seed(seed)
+            np.random.seed(seed)
         # initialize weights
         self.crf.reset_parameters()
         # construct definitions of invalid transitions

@@ -25,6 +25,10 @@ class BertCRFNERModel(NERModel):
 
 
     def create_optimizer(self, name):
+        if self.seed:
+            torch.manual_seed(seed)
+            torch.cuda.manual_seed(seed)
+            np.random.seed(seed)
         if name == 'adamw':
             optimizer = AdamW([{'params': self.model.bert.embeddings.parameters(), 'lr': self.elr},
                                {'params': self.model.bert.encoder.parameters(), 'lr': self.tlr},
@@ -56,6 +60,7 @@ class BertCrfForNer(BertPreTrainedModel):
         if seed:
             torch.manual_seed(seed)
             torch.cuda.manual_seed(seed)
+            np.random.seed(seed)
         super(BertCrfForNer, self).__init__(config)
         self.bert = BertModel(config).from_pretrained(config.model_name)
         self._device = device

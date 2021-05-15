@@ -190,6 +190,7 @@ class NERData():
         if seed:
             torch.manual_seed(seed)
             torch.cuda.manual_seed(seed)
+            np.random.seed(seed)
         self.dataloaders = {}
         for split in self.dataset.keys():
             self.dataloaders[split] = DataLoader(self.dataset[split], batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True)
