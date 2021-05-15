@@ -75,7 +75,7 @@ class NERModel(ABC):
         n_batches = len(train_dataloader)
 
         optimizer = self.create_optimizer(opt_name)
-        scheduler = self.create_scheduler(optimizer, n_epochs)
+        scheduler = self.create_scheduler(optimizer, n_epochs-embedding_unfreeze)
 
         epoch_metrics = {'training': {}, 'validation': {}}
         if save_dir is not None and not os.path.exists(save_dir):
@@ -96,6 +96,7 @@ class NERModel(ABC):
                 expanded_encoder_schedule['epoch_{}'.format(epoch)].append(last_encoder_layer)
                 last_encoder_layer -= 1
 
+        bert_unfrozen = False
 
         for epoch in range(n_epochs):
             self.model.train()
@@ -107,11 +108,13 @@ class NERModel(ABC):
                 for param in self.model.bert.encoder.layer[layer_index].parameters():
                     param.requires_grad = True
                 print('BERT encoder {} unfrozen'.format(layer_index))
+                bert_unfrozen = True
 
             if epoch == embedding_unfreeze:
                 for param in self.model.bert.embeddings.parameters():
                     param.requires_grad = True
                 print('BERT embeddings unfrozen')
+                bert_unfrozen = True
 
             for j, batch in enumerate(batch_range):
                 inputs = {"input_ids": batch[0].to(self.device, non_blocking=True),
@@ -146,7 +149,8 @@ class NERModel(ABC):
                 val_metrics = self.evaluate(val_dataloader, validate=True, save_path=os.path.join(save_dir, "best.pt"), epoch=epoch, n_epochs=n_epochs)
                 epoch_metrics['validation']['epoch_{}'.format(epoch)] = val_metrics
             
-            scheduler.step()
+            if bert_unfrozen == True:
+                scheduler.step()
 
         if dev_dataloader is not None:
             # Restore weights of best model after training if we can
