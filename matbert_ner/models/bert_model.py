@@ -19,7 +19,7 @@ from models.valid_sequence_output import valid_sequence_output
 class BertCRFNERModel(NERModel):
 
 
-    def initialize_model(self, seed):
+    def initialize_model(self):
         ner_model = BertCrfForNer(self.config, self.classes, self.tag_scheme, self.device, self.seed).to(self.device)
         return ner_model
 
