@@ -134,10 +134,18 @@ if __name__ == '__main__':
                                 os.mkdir(save_dir)
                             
                             ner_data = NERData(modelfiles[model], tag_scheme=tag_scheme)
-                            ner_data.preprocess(datafiles[dataset], (0.1, split/800, split/100), is_file=True, sentence_level=sentence_level, shuffle=True, seed=seed)
+                            if split == 100:
+                                splits = (0, 0, 100)
+                            else:
+                                splits = (0.1, split/800, split/100)
+                            ner_data.preprocess(datafiles[dataset], splits, is_file=True, sentence_level=sentence_level, shuffle=True, seed=seed)
                             ner_data.create_dataloaders(batch_size=batch_size)
                             classes = ner_data.classes
                             torch.save(classes, save_dir+'classes.pt')
+
+                            if split == 100:
+                                ner_data.dataloaders['valid'] = None
+                                ner_data.dataloaders['test'] = None
 
                             ner_model = BertCRFNERModel(modelname=modelfiles[model], classes=classes, tag_scheme=tag_scheme, device=device, elr=elr, tlr=tlr, clr=clr, seed=seed)
                             ner_model.train(n_epochs, ner_data.dataloaders['train'], val_dataloader=ner_data.dataloaders['valid'], dev_dataloader=ner_data.dataloaders['test'],

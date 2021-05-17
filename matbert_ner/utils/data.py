@@ -61,11 +61,14 @@ class NERData():
     def split_entries(self, data, splits, shuffle=True, seed=256):
         if shuffle:
             data = self.shuffle_data(data, seed)
-        splits = (np.cumsum(splits)*len(data)).astype(np.uint16)
-        test_set = data[:splits[0]]
-        valid_set = data[splits[0]:splits[1]]
-        train_set = data[splits[1]:splits[2]]
-        data_split = {'test': test_set, 'valid': valid_set, 'train': train_set}
+        index_splits = (np.cumsum(splits)*len(data)).astype(np.uint16)
+        data_split = {}
+        if splits[0] > 0
+            data_split['test'] = data[:index_splits[0]]
+        if splits[1] > 0
+            data_split['valid'] = data[index_splits[0]:index_splits[1]]
+        if splits[2] > 0:
+            data_split['train'] = data[index_splits[1]:index_splits[2]]
         return data_split
     
 
