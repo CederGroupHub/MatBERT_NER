@@ -31,7 +31,7 @@ def parse_args():
                         action='store_true')
     parser.add_argument('-bs', '--batch_size',
                         help='number of samples in each batch',
-                        type=int, default=8)
+                        type=int, default=10)
     parser.add_argument('-on', '--optimizer_name',
                         help='name of optimizer',
                         type=str, default='adamw')

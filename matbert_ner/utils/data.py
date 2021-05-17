@@ -31,14 +31,14 @@ class NERData():
                 if 'solid_state' in datafile:
                     identifier = d['doi']
                 elif 'aunp' in datafile:
-                    identifier = d['meta']['doi']+'/'+d['meta']['par']
+                    identifier = d['meta']['doi']+'/'+str(d['meta']['par'])
                 elif 'doping' in datafile:
                     identifier = d['text']
                 else:
                     try:
                         identifier = d['doi']
                     except:
-                        identifier = d['meta']['doi']+'/'+d['meta']['par']
+                        identifier = d['meta']['doi']+'/'+str(d['meta']['par'])
                 if identifier in identifiers:
                     pass
                 else:
