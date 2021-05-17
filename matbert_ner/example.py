@@ -135,10 +135,10 @@ if __name__ == '__main__':
                             
                             ner_data = NERData(modelfiles[model], tag_scheme=tag_scheme)
                             if split == 100:
-                                splits = (0, 0, 100)
+                                dat_splits = (0, 0, 100)
                             else:
-                                splits = (0.1, split/800, split/100)
-                            ner_data.preprocess(datafiles[dataset], splits, is_file=True, sentence_level=sentence_level, shuffle=True, seed=seed)
+                                dat_splits = (0.1, split/800, split/100)
+                            ner_data.preprocess(datafiles[dataset], dat_splits, is_file=True, sentence_level=sentence_level, shuffle=True, seed=seed)
                             ner_data.create_dataloaders(batch_size=batch_size)
                             classes = ner_data.classes
                             torch.save(classes, save_dir+'classes.pt')
