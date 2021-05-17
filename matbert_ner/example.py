@@ -151,7 +151,7 @@ if __name__ == '__main__':
                             ner_model.train(n_epochs, ner_data.dataloaders['train'], val_dataloader=ner_data.dataloaders['valid'], dev_dataloader=ner_data.dataloaders['test'],
                                             save_dir=save_dir, opt_name=opt_name, embedding_unfreeze=embedding_unfreeze, encoder_schedule=encoder_schedule)
                             
-                            if ner_data.dataloders['test'] is not None:
+                            if ner_data.dataloaders['test'] is not None:
                                 _, _, _, _, labels, predictions = torch.load(save_dir+'test.pt')
                                 print(classification_report(labels, predictions, mode='strict', scheme=schemes[tag_scheme]))
 
