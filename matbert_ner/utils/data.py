@@ -63,9 +63,9 @@ class NERData():
             data = self.shuffle_data(data, seed)
         index_splits = (np.cumsum(splits)*len(data)).astype(np.uint16)
         data_split = {}
-        if splits[0] > 0
+        if splits[0] > 0:
             data_split['test'] = data[:index_splits[0]]
-        if splits[1] > 0
+        if splits[1] > 0:
             data_split['valid'] = data[index_splits[0]:index_splits[1]]
         if splits[2] > 0:
             data_split['train'] = data[index_splits[1]:index_splits[2]]
