@@ -25,20 +25,15 @@ class StateCacher(object):
 
 
 class NERTrainer(object):
-    def __init__(self, model, device, seed):
+    def __init__(self, model, device):
         '''
         class for basic functions common to the trainer objects used in this project
 
         model: the model to be trained
-        data: the data corpus to be used for training/validation/testing
-        optimizer_cls: the optimizer function (note - pass Adam instead of Adam() or Adam(model.parameters()))
-        lr: optimizer learning rate
-        max_grad_norm: gradient clipping threshold
         device: torch device
         '''
         self.max_grad_norm = 1.0
         self.device = device
-        self.seed = seed
         # send model to device
         self.model = model.to(self.device)
         # ignoes the padding in the tags
@@ -104,10 +99,6 @@ class NERTrainer(object):
     
 
     def init_optimizer(self, name, elr, tlr, clr):
-        if self.seed:
-            torch.manual_seed(self.seed)
-            torch.cuda.manual_seed(self.seed)
-            np.random.seed(self.seed)
         if name == 'adamw':
             self.optimizer = AdamW([{'params': self.model.bert.embeddings.parameters(), 'lr': elr},
                                     {'params': self.model.bert.encoder.parameters(), 'lr': tlr},
@@ -130,8 +121,8 @@ class NERTrainer(object):
     
 
     def process_tags(self, inputs, predicted, mode):
-        batch_size, max_len = inputs['input_ids'].shape
         if mode != 'predict':
+            batch_size, max_len = inputs['input_ids'].shape
             labels = list(inputs['labels'].cpu().numpy())
             valid_attention_mask = np.zeros((batch_size, max_len), dtype=int)
 
@@ -192,7 +183,7 @@ class NERTrainer(object):
                 self.optimizer.zero_grad()
 
             # output depends on whether conditional random field is used for prediction/loss
-            if mode == 'predict':
+            if mode != 'predict':
                 loss, predicted = self.model.forward(**inputs)
                 label_tags, prediction_tags = self.process_tags(inputs, predicted, mode)
             else:
