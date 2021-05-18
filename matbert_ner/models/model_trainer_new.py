@@ -312,7 +312,9 @@ class NERTrainer(object):
         bert_unfreeze = encoder_unfreeze if encoder_unfreeze < embedding_unfreeze else embedding_unfreeze
 
         self.optimizer_name = optimizer_name
+        self.elr, self.tlr, self.clr = elr, tlr, clr
         self.init_optimizer(optimizer_name, elr, tlr, clr)
+        self.n_epoch, self.embedding_unfreeze = n_epoch, embedding_unfreeze
         self.init_scheduler(n_epoch-bert_unfreeze)
 
         for param in self.model.bert.embeddings.parameters():
