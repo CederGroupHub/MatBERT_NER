@@ -184,7 +184,7 @@ class NERTrainer(object):
                       'device': self.device}
             if mode != 'predict':
                 inputs['labels'] = batch[4].to(self.device, non_blocking=True)
-            if mode == 'predict'
+            if mode == 'predict':
                 inputs['return_logits'] = True
 
             # zero out prior gradients for training
@@ -192,7 +192,7 @@ class NERTrainer(object):
                 self.optimizer.zero_grad()
 
             # output depends on whether conditional random field is used for prediction/loss
-            if mode == 'predict'
+            if mode == 'predict':
                 loss, predicted = self.model.forward(**inputs)
                 label_tags, prediction_tags = self.process_tags(inputs, predicted, mode)
             else:
@@ -204,12 +204,12 @@ class NERTrainer(object):
                 attention_all.extend(list(inputs['attention_mask'].cpu().numpy()))
                 valid_all.extend(list(inputs['valid_mask'].cpu().numpy()))
                 prediction_all.extend(prediction_tags)
-            if mode == 'test'
+            if mode == 'test':
                 label_all.extend(label_tags)
             if mode == 'predict':
                 logits_all.extend(list(logits.cpu().numpy()))
 
-            if mode != 'predict'
+            if mode != 'predict':
                 # calculate the accuracy and f1 scores
                 accuracy = accuracy_score(label_tags, prediction_tags)
                 precision = precision_score(label_tags, prediction_tags, mode=self.metric_mode, scheme=self.metric_scheme)
@@ -231,7 +231,7 @@ class NERTrainer(object):
                 torch.nn.utils.clip_grad_norm_(parameters=self.model.parameters(), max_norm=self.max_grad_norm)
                 self.optimizer.step()
 
-            if mode != 'predict'
+            if mode != 'predict':
                 # display progress
                 msg = '| epoch: {:d}/{:d} | {} | loss: {:.4f} | accuracy: {:.4f} | precision: {:.4f} | recall: {:.4f} | f1: {:.4f} |'
                 info = (self.past_epoch+epoch+1, self.past_epoch+n_epoch, mode, *means)
