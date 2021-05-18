@@ -144,7 +144,7 @@ if __name__ == '__main__':
 
                             bert_ner = BERTNER(model_file=model_files[model], tag_names=classes, tag_scheme=tag_scheme, seed=seed)
                             print(model)
-                            bert_ner_trainer = NERTrainer(bert_ner, device, seed)
+                            bert_ner_trainer = NERTrainer(bert_ner, device)
 
                             if split == 100:
                                 ner_data.dataloaders['valid'] = None
