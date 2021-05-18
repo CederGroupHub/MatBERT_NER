@@ -314,7 +314,7 @@ class NERTrainer(object):
         self.optimizer_name = optimizer_name
         self.elr, self.tlr, self.clr = elr, tlr, clr
         self.init_optimizer(optimizer_name, elr, tlr, clr)
-        self.n_epoch, self.embedding_unfreeze = n_epoch, embedding_unfreeze
+        self.n_epoch, self.bert_unfreeze = n_epoch, bert_unfreeze
         self.init_scheduler(n_epoch-bert_unfreeze)
 
         for param in self.model.bert.embeddings.parameters():
