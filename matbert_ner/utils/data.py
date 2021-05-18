@@ -10,7 +10,7 @@ from sklearn.model_selection import KFold
 
 class NERData():
 
-    def __init__(self, modelname="allenai/scibert_scivocab_cased", tag_scheme='IOB2'):
+    def __init__(self, modelname="allenai/scibert_scivocab_uncased", tag_scheme='IOB2'):
         self.tokenizer = BertTokenizer.from_pretrained(modelname)
         self.classes = None
         self.token_limit = 512
@@ -204,8 +204,8 @@ class NERData():
         idx = 0
         tokens = Paragraph(text).tokens
         sentences = []
-        sentence = []
         for sent in tokens:
+            sentence = []
             for tok in sent:
                 tok_dict = {"text" : tok.text,
                             "start" : tok.start,
@@ -213,7 +213,6 @@ class NERData():
                             "annotation" : None}
                 sentence.append(tok_dict)
             sentences.append(sentence)
-            sentence = []
         tokenset = dict(text=text, tokens=sentences)
         cleaned_tokenset = self._clean_tokenset(tokenset)
         return cleaned_tokenset
@@ -221,7 +220,6 @@ class NERData():
 
     def _clean_tokenset(self, tokenset):
         bad_chars = ['\xa0', '\u2009', '\u202f', '\u200c', '\u2fff', 'ͦ', '\u2061', '\ue5f8']
-        problem_child = False
         start = 0
         good_sentences = []
         for sent in tokenset['tokens']:
@@ -234,14 +232,8 @@ class NERData():
                         tok['start'] = start
                         tok['end'] = start + len(tok['text'])
                         good_toks.append(tok)
-
                     start = tok['end'] + 1
-
-                else:
-                    problem_child = True
             good_sentences.append(good_toks)
-            if problem_child:
-                problem_child = False
         tokenset['tokens'] = good_sentences
         return tokenset
 

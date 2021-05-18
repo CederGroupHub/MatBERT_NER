@@ -49,6 +49,7 @@ class NERModel(ABC):
         labels = list(inputs['labels'].cpu().numpy())
         batch_size, max_len = inputs['input_ids'].shape
         valid_attention_mask = np.zeros((batch_size, max_len), dtype=int)
+
         for i in range(batch_size):
             jj = -1
             for j in range(max_len):
@@ -57,8 +58,10 @@ class NERModel(ABC):
                     if inputs['input_ids'][i][j] not in (2, 3):
                         valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
         valid_attention_mask = list(valid_attention_mask)
+
         prediction_tags = [[self.classes[ii] for ii, jj in zip(i, j) if jj==1] for i, j in zip(predicted, valid_attention_mask)]
         label_tags = [[self.classes[ii] if ii>=0 else self.classes[0] for ii, jj in zip(i, j) if jj==1] for i, j in zip(labels, valid_attention_mask)]
+
         return label_tags, prediction_tags
 
 
@@ -72,7 +75,6 @@ class NERModel(ABC):
             save_dir :: directory to save models
         """
         self.val_f1_best = -1
-        n_batches = len(train_dataloader)
 
         encoder_unfreeze = next((i for i, n in enumerate(encoder_schedule) if n), n_epochs)
         bert_unfreeze = encoder_unfreeze if encoder_unfreeze < embedding_unfreeze else embedding_unfreeze
@@ -101,9 +103,6 @@ class NERModel(ABC):
 
         for epoch in range(n_epochs):
             self.model.train()
-
-            metrics = {'loss': [], 'accuracy_score': [], 'precision_score': [], 'recall_score': [], 'f1_score': []}
-            batch_range = tqdm(train_dataloader, desc='')
             
             for layer_index in expanded_encoder_schedule['epoch_{}'.format(epoch)]:
                 for param in self.model.bert.encoder.layer[layer_index].parameters():
@@ -115,6 +114,8 @@ class NERModel(ABC):
                     param.requires_grad = True
                 print('BERT embeddings unfrozen')
 
+            metrics = {'loss': [], 'accuracy_score': [], 'precision_score': [], 'recall_score': [], 'f1_score': []}
+            batch_range = tqdm(train_dataloader, desc='')
             for j, batch in enumerate(batch_range):
                 inputs = {"input_ids": batch[0].to(self.device, non_blocking=True),
                           "attention_mask": batch[1].to(self.device, non_blocking=True),
@@ -158,46 +159,53 @@ class NERModel(ABC):
             dev_metrics, dev_text, dev_attention, dev_valid, dev_label, dev_prediction = self.evaluate(dev_dataloader, validate=False)
             test_save_path = os.path.join(save_dir, 'test.pt')
             torch.save((dev_metrics, dev_text, dev_attention, dev_valid, dev_label, dev_prediction), test_save_path)
+        else:
+            save_path = os.path.join(save_dir, "best.pt")
+            torch.save(self.model.state_dict(), save_path)
         
         history_save_path = os.path.join(save_dir, 'history.pt')
         torch.save(epoch_metrics, history_save_path)
 
         return
 
+
     def load_model(self,save_path):
         self.model.load_state_dict(torch.load(save_path))
         return
 
+
     def embed_documents(self, data):
         _, dataloader = self._data_to_dataloader(data)
-
         document_embeddings = []
         for i, batch in enumerate(tqdm(dataloader)):
+            inputs = {"input_ids": batch[0].to(self.device, non_blocking=True),
+                        "attention_mask": batch[1].to(self.device, non_blocking=True)}
 
-                inputs = {"input_ids": batch[0].to(self.device, non_blocking=True),
-                          "attention_mask": batch[1].to(self.device, non_blocking=True),}
-
-                document_embedding = self.document_embeddings(**inputs)
-                document_embeddings.append(document_embedding)
-
+            document_embedding = self.document_embeddings(**inputs)
+            document_embeddings.append(document_embedding)
         return document_embeddings
+
 
     @abstractmethod
     def initialize_model(self):
         pass
 
+
     @abstractmethod
     def create_optimizer(self):
         pass
+
 
     @abstractmethod
     def create_scheduler(self, optimizer, n_epochs, train_dataloader):
         pass
 
+
     @abstractmethod
     def document_embeddings(self, **inputs):
         #Given an input dictionary, return the corresponding document embedding
         pass
+
 
     def evaluate(self, dataloader, validate=False, save_path=None, epoch=0, n_epochs=1):
         self.model.eval()
@@ -211,19 +219,19 @@ class NERModel(ABC):
             valid_all = []
             label_all = []
             prediction_all = []
+
         metrics = {'loss': [], 'accuracy_score': [], 'precision_score': [], 'recall_score': [], 'f1_score': []}
         batch_range = tqdm(dataloader, desc='')
         with torch.no_grad():
             for batch in batch_range:
-                inputs = {
-                    "input_ids": batch[0].to(self.device),
-                    "attention_mask": batch[1].to(self.device),
-                    "valid_mask": batch[2].to(self.device),
-                    "labels": batch[4].to(self.device)
-                }
-                loss, predicted = self.model.forward(**inputs)
+                inputs = {"input_ids": batch[0].to(self.device),
+                          "attention_mask": batch[1].to(self.device),
+                          "valid_mask": batch[2].to(self.device),
+                          "labels": batch[4].to(self.device)}
 
+                loss, predicted = self.model.forward(**inputs)
                 label_tags, prediction_tags = self.process_tags(inputs, predicted)
+
                 if mode == 'test':
                     tokens_all.extend(list(inputs['input_ids'].cpu().numpy()))
                     attention_all.extend(list(inputs['attention_mask'].cpu().numpy()))
@@ -244,6 +252,7 @@ class NERModel(ABC):
             if means[4] >= self.val_f1_best:
                 torch.save(self.model.state_dict(), save_path)
                 self.val_f1_best = means[4]
+
         elif self.results_file is not None:
             eval_loss
             with open(self.results_file, "a+") as f:
@@ -253,6 +262,7 @@ class NERModel(ABC):
             return metrics, tokens_all, attention_all, valid_all, label_all, prediction_all
         else:
             return metrics
+
 
     def predict(self, data, labels=None, trained_model=None, tok_dataset=None, return_tags=False, threshold=None):
         """
@@ -264,7 +274,7 @@ class NERModel(ABC):
             threshold :: Threshold for classification of an entity. If None, Viterbi decoding is used
             returns: token set with predicted labels
         """
-
+        
         if labels:
             self.labels = labels
         else:
@@ -355,16 +365,17 @@ class NERModel(ABC):
                 #print(sentence)
                 #print(len(predicted))
                 #print(len(sentence))
-                for i, pred_idx in enumerate(predicted):
-                    if i < len(sentence)-1:
-                        tok = sentence[i]
-                        #pred_idx = predicted[i]
+                for j, pred_idx in enumerate(predicted):
+                    if j < len(sentence)-1:
+                        tok = sentence[j]
+                        #pred_idx = predicted[j]
                         tok['annotation'] = self.classes[pred_idx]
                 tokenized_dataset[para_i]['tokens'][sent_i] = sentence
         if return_tags:
             return tokenized_dataset, [x for k in all_prediction_tags for x in k], [x for k in all_label_tags for x in k], torch.stack(all_losses)
         else:
             return tokenized_dataset
+        
 
     def _data_to_dataloader(self, data):
         # check for input data type
@@ -376,8 +387,6 @@ class NERModel(ABC):
             texts = [data]
         else:
             print("Please provide text or set of texts (directly or in a file path format) to predict on!")
-
-
         # tokenize and preprocess input data
         if self.labels:
             labels = self.labels
@@ -395,5 +404,4 @@ class NERModel(ABC):
         ner_data.preprocess(tokenized_dataset,is_file=False)
         tensor_dataset = ner_data.dataset
         pred_dataloader = DataLoader(tensor_dataset)
-
         return tokenized_dataset, pred_dataloader
