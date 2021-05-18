@@ -206,7 +206,7 @@ class NERTrainer(object):
                 prediction_tags = self.process_tags(inputs, predicted, mode)
 
             if mode == 'test' or mode == 'predict':
-                tokens_all.extend(tokenizer.batch_decode(inputs['input_ids']))
+                tokens_all.extend(self.tokenizer.batch_decode(inputs['input_ids']))
                 attention_all.extend(list(inputs['attention_mask'].cpu().numpy()))
                 valid_all.extend(list(inputs['valid_mask'].cpu().numpy()))
                 prediction_all.extend(prediction_tags)
