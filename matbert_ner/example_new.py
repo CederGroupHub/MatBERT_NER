@@ -157,5 +157,5 @@ if __name__ == '__main__':
                                 bert_ner_trainer.save_model(model_path=save_dir+'best.pt')                           
                             
                             if ner_data.dataloaders['test'] is not None:
-                                _, _, _, _, labels, predictions = bert_ner_trainer.test(ner_data.dataloaders['test'], test_path=save_dir+'test.pt')
+                                metrics, tokens, attention, valid, labels, predictions = bert_ner_trainer.test(ner_data.dataloaders['test'], test_path=save_dir+'test.pt')
                                 print(classification_report(labels, predictions, mode='strict', scheme=schemes[tag_scheme]))
