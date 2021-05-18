@@ -25,7 +25,7 @@ class StateCacher(object):
 
 
 class NERTrainer(object):
-    def __init__(self, model, device):
+    def __init__(self, model, tokenizer, device):
         '''
         class for basic functions common to the trainer objects used in this project
 
@@ -36,9 +36,10 @@ class NERTrainer(object):
         self.device = device
         # send model to device
         self.model = model.to(self.device)
-        # ignoes the padding in the tags
+        self.tokenizer = tokenizer
         self.state_cacher = StateCacher()
-        # initialize empty lists for training
+        self.optimizer = None
+        self.scheduler = None
         self.metric_mode = 'strict'
         if self.model.tag_scheme == 'IOB1':
             self.metric_scheme = IOB1
@@ -52,7 +53,11 @@ class NERTrainer(object):
     def save_model(self, model_path):
         ''' saves entire model to file '''
         torch.save({'model_state_dict': self.model.state_dict(),
+                    'optimizer_name': self.optimizer_name,
+                    'learning_rates': {'elr': self.elr, 'tlr': self.tlr, 'clr': self.clr},
                     'optimizer_state_dict': self.optimizer.state_dict(),
+                    'n_epoch': self.n_epoch,
+                    'bert_unfreeze': self.bert_unfreeze,
                     'scheduler_state_dict': self.scheduler.state_dict(),
                     'classes': self.model.classes}, model_path)
     
@@ -61,25 +66,35 @@ class NERTrainer(object):
         ''' loads entire model from file '''
         checkpoint = torch.load(model_path)
         self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.model = self.model.to(self.device)
+        self.init_optimizer(checkpoint['optimizer_name'], **checkpoint['learning_rates'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.init_scheduler(checkpoint['n_epoch']-checkpoint['bert_unfreeze'])
         self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         self.model.classes = checkpoint['classes']
-        self.model = self.model.to(self.device)
+        self.past_epoch = checkpoint['n_epoch']
 
 
     def save_state_to_cache(self, key):
-        self.state_cacher.store('model_{}'.format(key), self.model.state_dict())
-        self.state_cacher.store('optimizer_{}'.format(key), self.optimizer.state_dict())
-        self.state_cacher.store('scheduler_{}'.format(key), self.scheduler.state_dict())
+        self.state_cacher.store('model_state_dict_{}'.format(key), self.model.state_dict())
+        self.state_cacher.store('optimizer_name_{}'.format(key), self.optimizer_name)
+        self.state_cacher.store('learning_rates_{}'.format(key), {'elr': self.elr, 'tlr': self.tlr, 'clr': self.clr})
+        self.state_cacher.store('optimizer_state_dict_{}'.format(key), self.optimizer.state_dict())
+        self.state_cacher.store('n_epoch_{}'.format(key), self.n_epoch)
+        self.state_cacher.store('bert_unfreeze_{}'.format(key), self.bert_unfreeze)
+        self.state_cacher.store('scheduler_state_dict_{}'.format(key), self.scheduler.state_dict())
         self.state_cacher.store('classes_{}'.format(key), self.model.classes)
     
 
     def load_state_from_cache(self, key):
-        self.model.load_state_dict(self.state_cacher.retrieve('model_{}'.format(key)))
-        self.optimizer.load_state_dict(self.state_cacher.retrieve('optimizer_{}'.format(key)))
-        self.scheduler.load_state_dict(self.state_cacher.retrieve('scheduler_{}'.format(key)))
-        self.model.classes = self.state_cacher.retrieve('classes_{}'.format(key))
+        self.model.load_state_dict(self.state_cacher.retrieve('model_state_dict_{}'.format(key)))
         self.model = self.model.to(self.device)
+        self.init_optimizer(self.state_cacher.retrieve('optimizer_name_{}'.format(key)),
+                            **self.state_cacher.retrieve('learning_rates_{}'.format(key)))
+        self.optimizer.load_state_dict(self.state_cacher.retrieve('optimizer_state_dict_{}'.format(key)))
+        self.init_scheduler(self.state_cacher.retrieve('n_epoch_{}'.format(key))-self.state_cacher.retrieve('bert_unfreeze_{}'.format(key)))
+        self.scheduler.load_state_dict(self.state_cacher.retrieve('scheduler_state_dict_{}'.format(key)))
+        self.model.classes = self.state_cacher.retrieve('classes_{}'.format(key))
     
 
     def save_history(self, history_path):
@@ -191,7 +206,7 @@ class NERTrainer(object):
                 prediction_tags = self.process_tags(inputs, predicted, mode)
 
             if mode == 'test' or mode == 'predict':
-                tokens_all.extend(list(inputs['input_ids'].cpu().numpy()))
+                tokens_all.extend(tokenizer.batch_decode(inputs['input_ids']))
                 attention_all.extend(list(inputs['attention_mask'].cpu().numpy()))
                 valid_all.extend(list(inputs['valid_mask'].cpu().numpy()))
                 prediction_all.extend(prediction_tags)
@@ -296,6 +311,7 @@ class NERTrainer(object):
         encoder_unfreeze = next((i for i, n in enumerate(encoder_schedule) if n), n_epoch)
         bert_unfreeze = encoder_unfreeze if encoder_unfreeze < embedding_unfreeze else embedding_unfreeze
 
+        self.optimizer_name = optimizer_name
         self.init_optimizer(opt_name, elr, tlr, clr)
         self.init_scheduler(n_epoch-bert_unfreeze)
 
