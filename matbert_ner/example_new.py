@@ -150,7 +150,7 @@ if __name__ == '__main__':
                                 ner_data.dataloaders['valid'] = None
                                 ner_data.dataloaders['test'] = None
 
-                            bert_ner_trainer.train(n_epoch=n_epoch, train_iter=ner_data.dataloaders['train'], valid_iter=ner_data.dataloaders['valid'], opt_name=opt_name,
+                            bert_ner_trainer.train(n_epoch=n_epoch, train_iter=ner_data.dataloaders['train'], valid_iter=ner_data.dataloaders['valid'], optimizer_name=opt_name,
                                                    elr=elr, tlr=tlr, clr=clr, embedding_unfreeze=embedding_unfreeze, encoder_schedule=encoder_schedule)
                             bert_ner_trainer.save_history(history_path=save_dir+'history.pt')
                             if keep_model:

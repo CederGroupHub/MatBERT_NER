@@ -298,7 +298,7 @@ class NERTrainer(object):
             return tokens, attention, valid, prediction, logits
     
 
-    def train(self, n_epoch, train_iter, valid_iter, opt_name, elr, tlr, clr, embedding_unfreeze, encoder_schedule):
+    def train(self, n_epoch, train_iter, valid_iter, optimizer_name, elr, tlr, clr, embedding_unfreeze, encoder_schedule):
         '''
         trains the model (with validation)
 
