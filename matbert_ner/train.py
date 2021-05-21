@@ -51,6 +51,9 @@ def parse_args():
     parser.add_argument('-cl', '--classifier_learning_rate',
                         help='pooler/classifier learning rate',
                         type=float, default=5e-3)
+    parser.add_argument('-sf', '--scheduling_function',
+                        help='function for learning rate scheduler (linear, exponential, or cosine)',
+                        type=str, default='linear')
     parser.add_argument('-km', '--keep_model',
                         help='switch for saving the best model parameters to disk',
                         action='store_true')
@@ -58,14 +61,15 @@ def parse_args():
     return (args.device, args.seeds, args.tag_schemes, args.splits, args.datasets,
             args.models, args.sentence_level, args.batch_size, args.optimizer_name,
             args.n_epoch, args.embedding_unfreeze, args.transformer_unfreeze,
-            args.embedding_learning_rate, args.transformer_learning_rate, args.classifier_learning_rate, args.keep_model)
+            args.embedding_learning_rate, args.transformer_learning_rate, args.classifier_learning_rate,
+            args.scheduling_function, args.keep_model)
 
 
 if __name__ == '__main__':
     (device, seeds, tag_schemes, splits, datasets,
      models, sentence_level, batch_size, optimizer_name,
      n_epoch, embedding_unfreeze, transformer_unfreeze,
-     elr, tlr, clr, keep_model) = parse_args()
+     elr, tlr, clr, scheduling_function, keep_model) = parse_args()
     if 'gpu' in device:
         gpu = True
         try:
@@ -120,8 +124,8 @@ if __name__ == '__main__':
                     for model in models:
                         params = (model, dataset, 'sentence' if sentence_level else 'paragraph', scheme.lower(),
                                   batch_size, optimizer_name, n_epoch, embedding_unfreeze, transformer_unfreeze.replace(',', ''),
-                                  elr, tlr, clr, seed, split)
-                        alias = '{}_{}_{}_{}_crf_{}_{}_{}_{}_{}_{:.0e}_{:.0e}_{:.0e}_{}_{}'.format(*params)
+                                  elr, tlr, clr, scheduling_function, seed, split)
+                        alias = '{}_{}_{}_{}_crf_{}_{}_{}_{}_{}_{:.0e}_{:.0e}_{:.0e}_{}_{}_{}'.format(*params)
                         save_dir = os.getcwd()+'/{}/'.format(alias)
                         print('Calculating results for {}'.format(alias))
 
@@ -150,7 +154,7 @@ if __name__ == '__main__':
                             
                             bert_ner_trainer.init_optimizer(optimizer_name=optimizer_name, elr=elr, tlr=tlr, clr=clr)
                             bert_ner_trainer.train(n_epoch=n_epoch, train_iter=ner_data.dataloaders['train'], valid_iter=ner_data.dataloaders['valid'],
-                                                   embedding_unfreeze=embedding_unfreeze, encoder_schedule=encoder_schedule,
+                                                   embedding_unfreeze=embedding_unfreeze, encoder_schedule=encoder_schedule, scheduling_function=scheduling_function,
                                                    save_dir=save_dir, use_cache=use_cache)
                             bert_ner_trainer.save_history(history_path=save_dir+'history.pt')  
                             if use_cache and keep_model:

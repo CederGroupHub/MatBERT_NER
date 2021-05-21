@@ -3,9 +3,9 @@ from utils.data import NERData
 from models.bert_model import BERTNER
 from models.model_trainer import NERTrainer
 
-data_file = './data/doping.json'
+data_file = './data/solid_state.json'
 model_file = '../../matbert-base-uncased'
-save_dir = './matbert_doping_paragraph_iobes_crf_10_adamw_5_1_012_5e-05_5e-05_5e-03_256_80/'
+save_dir = './matbert_solid_state_paragraph_iobes_crf_10_adamw_5_1_012_5e-05_5e-05_5e-03_256_80/'
 state_path = save_dir+'best.pt'
 scheme = 'IOBES'
 split_dict = {'predict': 1.0}

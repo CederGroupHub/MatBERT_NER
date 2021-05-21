@@ -110,9 +110,14 @@ class NERTrainer(object):
                                                      {'params': self.model.crf.parameters(), 'lr': self.clr}])
     
 
-    def init_scheduler(self, n_epoch, bert_unfreeze):
-        linear = lambda epoch: (n_epoch-bert_unfreeze-epoch)/(n_epoch-bert_unfreeze)
-        self.scheduler = LambdaLR(self.optimizer, lr_lambda=linear, verbose=True)
+    def init_scheduler(self, n_epoch, bert_unfreeze, function='linear'):
+        functions = {'linear': lambda epoch: (n_epoch-bert_unfreeze-epoch)/(n_epoch-bert_unfreeze),
+                     'exponential': lambda epoch: 0.1**(epoch/(n_epoch-1)),
+                     'cosine': lambda epoch: 0.5*(1+np.cos(epoch/n_epoch*np.pi))}
+        if function not in functions.keys():
+            function = 'linear'
+            print('Reverted to default scheduling function (linear)')
+        self.scheduler = LambdaLR(self.optimizer, lr_lambda=functions[function], verbose=True)
     
 
     def construct_valid_inputs(self, inputs):
@@ -183,7 +188,7 @@ class NERTrainer(object):
                         ctok[ii][jj-1] += toks[i][j]
             ctoks.append(ctok)
             slbls.append(slbl)
-        annotations = [[[{'text': t, 'annotation': l} for t, l in zip(ctoksw, slblsw)] for ctoksw, slblsw in zip(ctoksp, slblsp)] for ctoksp, slblsp in zip(ctoks, slbls)]                    
+        annotations = [[[{'text': t, 'annotation': l} for t, l in zip(ctoksw, slblsw)] for ctoksw, slblsw in zip(ctoksp, slblsp)] for ctoksp, slblsp in zip(ctoks, slbls)]
         return annotations
     
 
@@ -311,7 +316,7 @@ class NERTrainer(object):
             return prediction_results
     
 
-    def train(self, n_epoch, train_iter, valid_iter, embedding_unfreeze, encoder_schedule, save_dir, use_cache):
+    def train(self, n_epoch, train_iter, valid_iter, embedding_unfreeze, encoder_schedule, scheduling_function, save_dir, use_cache):
         '''
         trains the model (with validation)
 
@@ -323,7 +328,7 @@ class NERTrainer(object):
 
         encoder_unfreeze = next((i for i, n in enumerate(encoder_schedule) if n), n_epoch)
         bert_unfreeze = encoder_unfreeze if encoder_unfreeze < embedding_unfreeze else embedding_unfreeze
-        self.init_scheduler(n_epoch, bert_unfreeze)
+        self.init_scheduler(n_epoch, bert_unfreeze, scheduling_function)
 
         last_encoder_layer = 11
         expanded_encoder_schedule = {}
