@@ -62,7 +62,7 @@ class NERTrainer(object):
 
     def load_state(self, state_path, optimizer=True):
         ''' loads entire model state from file '''
-        checkpoint = torch.load(state_path)
+        checkpoint = torch.load(state_path, map_location=torch.device(self.device))
         self.model.classes = checkpoint['classes']
         self.model.build_model()
         self.model.to(self.device)
