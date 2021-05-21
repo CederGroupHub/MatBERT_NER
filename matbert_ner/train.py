@@ -124,51 +124,44 @@ if __name__ == '__main__':
                         alias = '{}_{}_{}_{}_crf_{}_{}_{}_{}_{}_{:.0e}_{:.0e}_{:.0e}_{}_{}'.format(*params)
                         save_dir = os.getcwd()+'/{}/'.format(alias)
                         print('Calculating results for {}'.format(alias))
-                        # if os.path.exists(save_dir+'test.pt'):
-                        #     print('Already calculated {}, skipping'.format(alias))
-                        #     _, _, _, _, labels, predictions = torch.load(save_dir+'test.pt')
-                        #     print(classification_report(labels, predictions, mode='strict', scheme=schemes[tag_scheme]))
-                        # else:
-                        if not os.path.exists(save_dir):
-                            os.mkdir(save_dir)
-                        
+
                         ner_data = NERData(model_files[model], scheme=scheme)
 
                         if split == 100:
                             split_dict = {'train': split/100}
                         else:
-                            split_dict = {'test': 0.1, 'valid': split/800, 'train': split/100}
-
-                        ner_data.preprocess(data_files[dataset], split_dict, is_file=True, sentence_level=False, shuffle=True, seed=seed)
-                        ner_data.create_dataloaders(batch_size=batch_size, shuffle=True, seed=seed)
-
-                        print('Classes: {}'.format(' '.join(ner_data.classes)))
-
-                        bert_ner = BERTNER(model_file=model_files[model], classes=ner_data.classes, scheme=scheme, seed=seed)
-                        bert_ner_trainer = NERTrainer(bert_ner, device)
-                        bert_ner_trainer.init_optimizer(optimizer_name=optimizer_name, elr=elr, tlr=tlr, clr=clr)
-
+                            split_dict = {'test': 0.1, 'valid': 0.00125*split, 'train': 0.01*split}
                         if split == 100:
                             ner_data.dataloaders['valid'] = None
                             ner_data.dataloaders['test'] = None
 
-                        bert_ner_trainer.train(n_epoch=n_epoch, train_iter=ner_data.dataloaders['train'], valid_iter=ner_data.dataloaders['valid'],
-                                               embedding_unfreeze=embedding_unfreeze, encoder_schedule=encoder_schedule,
-                                               save_dir=save_dir, use_cache=use_cache)
-                        if use_cache:
-                            bert_ner_trainer.load_state_from_cache(key='best')
-                            if keep_model:
-                                bert_ner_trainer.save_state(state_path=save_dir+'best.pt')
+                        ner_data.preprocess(data_files[dataset], split_dict, is_file=True, sentence_level=False, shuffle=True, seed=seed)
+                        ner_data.create_dataloaders(batch_size=batch_size, shuffle=True, seed=seed)
+                        bert_ner = BERTNER(model_file=model_files[model], classes=ner_data.classes, scheme=scheme, seed=seed)
+                        bert_ner_trainer = NERTrainer(bert_ner, device)
+
+                        print('Classes: {}'.format(' '.join(ner_data.classes)))
+
+                        if os.path.exists(save_dir+'test.pt'):
+                            print('Already trained {}'.format(alias))
                         else:
-                            bert_ner_trainer.load_state(state_path=save_dir+'best.pt')
-                            if not keep_model:
+                            if not os.path.exists(save_dir):
+                                os.mkdir(save_dir)
+                            
+                            bert_ner_trainer.init_optimizer(optimizer_name=optimizer_name, elr=elr, tlr=tlr, clr=clr)
+                            bert_ner_trainer.train(n_epoch=n_epoch, train_iter=ner_data.dataloaders['train'], valid_iter=ner_data.dataloaders['valid'],
+                                                   embedding_unfreeze=embedding_unfreeze, encoder_schedule=encoder_schedule,
+                                                   save_dir=save_dir, use_cache=use_cache)
+                            bert_ner_trainer.save_history(history_path=save_dir+'history.pt')  
+                            if use_cache and keep_model:
+                                bert_ner_trainer.save_state(state_path=save_dir+'best.pt')
+                            elif not use_cache and not keep_model:
                                 os.remove(save_dir+'best.pt')
-                        # bert_ner_trainer.save_history(history_path=save_dir+'history.pt')                            
-                        
+                                                      
                         if ner_data.dataloaders['test'] is not None:
-                            metrics, test_results = bert_ner_trainer.test(ner_data.dataloaders['test'], test_path=save_dir+'test.pt')
+                            metrics, test_results = bert_ner_trainer.test(ner_data.dataloaders['test'], test_path=save_dir+'test.pt', state_path=save_dir+'best.pt')
                             print(classification_report(test_results['labels'], test_results['predictions'], mode='strict', scheme=dschemes[scheme]))
-                            annotations = bert_ner_trainer.predict(ner_data.dataloaders['test'], predict_path=save_dir+'predict.pt')
+                            annotations = bert_ner_trainer.predict(ner_data.dataloaders['test'], predict_path=save_dir+'predict.pt', state_path=save_dir+'best.pt')
                             with open(save_dir+'predictions.txt', 'w') as f:
                                 for entry in annotations:
                                     f.write(80*'='+'\n')
