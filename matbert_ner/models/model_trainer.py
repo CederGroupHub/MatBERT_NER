@@ -112,8 +112,8 @@ class NERTrainer(object):
 
     def init_scheduler(self, n_epoch, bert_unfreeze, function='linear'):
         functions = {'linear': lambda epoch: (n_epoch-bert_unfreeze-epoch)/(n_epoch-bert_unfreeze),
-                     'exponential': lambda epoch: 0.1**(epoch/(n_epoch-1)),
-                     'cosine': lambda epoch: 0.5*(1+np.cos(epoch/n_epoch*np.pi))}
+                     'exponential': lambda epoch: 0.1**(epoch/(n_epoch-bert_unfreeze-1)),
+                     'cosine': lambda epoch: 0.5*(1+np.cos(epoch/(n_epoch-bert_unfreeze)*np.pi))}
         if function not in functions.keys():
             function = 'linear'
             print('Reverted to default scheduling function (linear)')
