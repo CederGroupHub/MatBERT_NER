@@ -1,38 +1,52 @@
-from transformers import BertTokenizer
-from chemdataextractor.doc import Paragraph
-from torch.utils.data import DataLoader, SubsetRandomSampler, TensorDataset, SequentialSampler, Subset, RandomSampler
 import json
-import torch
+from chemdataextractor.doc import Paragraph
+from transformers import BertTokenizer
 import random
 import numpy as np
+import torch
+from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
-from sklearn.model_selection import KFold
 
 class NERData():
 
-    def __init__(self, modelname="allenai/scibert_scivocab_uncased", tag_scheme='IOB2'):
-        self.tokenizer = BertTokenizer.from_pretrained(modelname)
+    def __init__(self, model_file="allenai/scibert_scivocab_uncased", scheme='IOB2'):
+        self.tokenizer = BertTokenizer.from_pretrained(model_file)
         self.classes = None
+        self.invalid_annotations = ['PVL', 'PUT']
         self.token_limit = 512
         self.special_token_count = 2
-        self.tag_scheme = tag_scheme
-        self.max_sequence_length = None
+        self.pad_dict = {'text': '[PAD]', 'label': 'O'}
+        self.unk_dict = {'text': '[UNK]', 'label': 'O'}
+        self.sep_dict = {'text': '[SEP]', 'label': 'O'}
+        self.cls_dict = {'text': '[CLS]', 'label': 'O'}
+        self.scheme = scheme
         self.dataset = None
         self.dataloaders = None
+    
+
+    def get_classes(self, labels):
+        classes_raw = labels
+        if self.scheme in ['IOB', 'IOB2']:
+            prefixes = ['I', 'B']
+        elif self.scheme == 'IOBES':
+            prefixes = ['B', 'I', 'E', 'S']
+        classes = ['{}-{}'.format(p, c) for p in prefixes for c in classes_raw if c not in self.invalid_annotations]
+        classes = sorted(classes)
+        self.classes = ['O']+classes
 
     
-    def load_from_file(self, datafile):
+    def load_from_file(self, data_file):
         identifiers = []
-        data = []
+        data_raw = []
         labels = set([])
-        with open(datafile, 'r') as f:
+        with open(data_file, 'r') as f:
             for l in f:
                 d = json.loads(l)
-                if 'solid_state' in datafile:
+                if 'solid_state' in data_file:
                     identifier = d['doi']
-                elif 'aunp' in datafile:
+                elif 'aunp' in data_file:
                     identifier = d['meta']['doi']+'/'+str(d['meta']['par'])
-                elif 'doping' in datafile:
+                elif 'doping' in data_file:
                     identifier = d['text']
                 else:
                     try:
@@ -43,11 +57,11 @@ class NERData():
                     pass
                 else:
                     identifiers.append(identifier)
-                    data.append(d)
+                    data_raw.append(d)
                     for l in d['labels']:
                         labels.add(l)
-        self.__get_classes(labels)
-        return data
+        self.get_classes(labels)
+        return data_raw
     
 
     def shuffle_data(self, data, seed=256):
@@ -58,429 +72,237 @@ class NERData():
         return data
     
 
-    def split_entries(self, data, splits, shuffle=True, seed=256):
+    def split_entries(self, data_raw, split_dict={'main': 1}, shuffle=False, seed=256):
         if shuffle:
-            data = self.shuffle_data(data, seed)
-        index_splits = (np.cumsum(splits)*len(data)).astype(np.uint16)
-        data_split = {}
-        if splits[0] > 0:
-            data_split['test'] = data[:index_splits[0]]
-        if splits[1] > 0:
-            data_split['valid'] = data[index_splits[0]:index_splits[1]]
-        if splits[2] > 0:
-            data_split['train'] = data[index_splits[1]:index_splits[2]]
+            data_raw = self.shuffle_data(data_raw, seed)
+        split_keys = list(split_dict.keys())
+        split_vals = [split_dict[key] for key in split_keys]
+        index_split_vals = (np.cumsum(split_vals)*len(data_raw)).astype(np.uint16)
+        data_split = {split_keys[i]: data_raw[:index_split_vals[i]] if i == 0 else data_raw[index_split_vals[i-1]:index_split_vals[i]] for i in range(len(split_keys))}
         return data_split
     
 
-    def format_entries(self, data_split, shuffle=True, seed=256, sentence_level=True):
-        data_fmt = {split: [] for split in data_split.keys()}
+    def format_entries(self, data_split):
+        data_formatted = {split: [] for split in data_split.keys()}
         for split in data_split.keys():
             for d in data_split[split]:
-                if sentence_level:
-                    dat = [{key: [token[key] for token in sentence][:self.token_limit-self.special_token_count] for key in ['text', 'annotation']} for sentence in d['tokens']]
-                else:
-                    dat = [{key : [token[key] for sentence in d['tokens'] for token in sentence][:self.token_limit-self.special_token_count] for key in ['text', 'annotation']}]
-                data_fmt[split].extend(dat)
-            if shuffle:
-                data_fmt[split] = self.shuffle_data(data_fmt[split], seed)
-        return data_fmt
+                data_formatted[split].append([{key: [token[key] for token in sentence] for key in ['text', 'annotation']} for sentence in d['tokens']])
+        return data_formatted
 
 
-    def tag_entries(self, data_fmt):
-        data_tag = {split: [] for split in data_fmt.keys()}
-        for split in data_fmt.keys():
-            for dat in data_fmt[split]:
-                d = {key: [] for key in ['text', 'tag']}
-                for i in range(len(dat['text'])):
-                    if dat['text'][i] in ['̄','̊']:
-                        continue
-                    d['text'].append(dat['text'][i])
-                    if self.tag_scheme == 'IOB1':
-                        if dat['annotation'][i] in [None, 'PVL', 'PUT']:
-                            d['tag'].append('O')
-                        elif i == 0 and len(dat['annotation']) > 1:
-                            if dat['annotation'][i+1] == dat['annotation'][i]:
-                                d['tag'].append('B-'+dat['annotation'][i])
-                            else:
-                                d['tag'].append('I-'+dat['annotation'][i])
-                        elif i == 0 and len(dat['annotation']) == 1:
-                            d['tag'].append('I-'+dat['annotation'][i])
-                        elif i > 0:
-                            if dat['annotation'][i-1] == dat['annotation'][i]:
-                                d['tag'].append('I-'+dat['annotation'][i])
-                            else:
-                                if dat['annotation'][i+1] == dat['annotation'][i]:
-                                    d['tag'].append('B-'+dat['annotation'][i])
+    def label_entries(self, data_formatted):
+        data_labeled = {split: [] for split in data_formatted.keys()}
+        for split in data_formatted.keys():
+            for dat in data_formatted[split]:
+                d = []
+                for sent in dat:
+                    s = {key: [] for key in ['text', 'label']}
+                    for i in range(len(sent['text'])):
+                        if sent['text'][i] in ['̄','̊']:
+                            continue
+                        s['text'].append(sent['text'][i])
+                        if self.scheme == 'IOB1':
+                            if sent['annotation'][i] in [None, *self.invalid_annotations]:
+                                s['label'].append('O')
+                            elif i == 0 and len(sent['annotation']) > 1:
+                                if sent['annotation'][i+1] == sent['annotation'][i]:
+                                    s['label'].append('B-'+sent['annotation'][i])
                                 else:
-                                    d['tag'].append('I-'+dat['annotation'][i])
-                    elif self.tag_scheme == 'IOB2':
-                        if dat['annotation'][i] in [None, 'PVL', 'PUT']:
-                            d['tag'].append('O')
-                        elif i == 0:
-                            d['tag'].append('B-'+dat['annotation'][i])
-                        elif i > 0:
-                            if dat['annotation'][i-1] == dat['annotation'][i]:
-                                d['tag'].append('I-'+dat['annotation'][i])
-                            else:
-                                d['tag'].append('B-'+dat['annotation'][i])
-                    elif self.tag_scheme == 'IOBES':
-                        if dat['annotation'][i] in [None, 'PVL', 'PUT']:
-                            d['tag'].append('O')
-                        elif i == 0 and len(dat['annotation']) > 1:
-                            if dat['annotation'][i+1] == dat['annotation'][i]:
-                                d['tag'].append('B-'+dat['annotation'][i])
-                            else:
-                                d['tag'].append('S-'+dat['annotation'][i])
-                        elif i == 0 and len(dat['annotation']) == 1:
-                            d['tag'].append('S-'+dat['annotation'][i])
-                        elif i > 0 and i < len(dat['annotation'])-1:
-                            if dat['annotation'][i-1] != dat['annotation'][i] and dat['annotation'][i+1] == dat['annotation'][i]:
-                                d['tag'].append('B-'+dat['annotation'][i])
-                            elif dat['annotation'][i-1] == dat['annotation'][i] and dat['annotation'][i+1] == dat['annotation'][i]:
-                                d['tag'].append('I-'+dat['annotation'][i])
-                            elif dat['annotation'][i-1] == dat['annotation'][i] and dat['annotation'][i+1] != dat['annotation'][i]:
-                                d['tag'].append('E-'+dat['annotation'][i])
-                            if dat['annotation'][i-1] != dat['annotation'][i] and dat['annotation'][i+1] != dat['annotation'][i]:
-                                d['tag'].append('S-'+dat['annotation'][i])
-                        elif i == len(dat['annotation'])-1:
-                            if dat['annotation'][i-1] == dat['annotation'][i]:
-                                d['tag'].append('E-'+dat['annotation'][i])
-                            if dat['annotation'][i-1] != dat['annotation'][i]:
-                                d['tag'].append('S-'+dat['annotation'][i])
-                data_tag[split].append(d)
-        return data_tag
+                                    s['label'].append('I-'+sent['annotation'][i])
+                            elif i == 0 and len(sent['annotation']) == 1:
+                                s['label'].append('I-'+sent['annotation'][i])
+                            elif i > 0:
+                                if sent['annotation'][i-1] == sent['annotation'][i]:
+                                    s['label'].append('I-'+sent['annotation'][i])
+                                else:
+                                    if sent['annotation'][i+1] == sent['annotation'][i]:
+                                        s['label'].append('B-'+sent['annotation'][i])
+                                    else:
+                                        s['label'].append('I-'+sent['annotation'][i])
+                        elif self.scheme == 'IOB2':
+                            if sent['annotation'][i] in [None, *self.invalid_annotations]:
+                                s['label'].append('O')
+                            elif i == 0:
+                                s['label'].append('B-'+sent['annotation'][i])
+                            elif i > 0:
+                                if sent['annotation'][i-1] == sent['annotation'][i]:
+                                    s['label'].append('I-'+sent['annotation'][i])
+                                else:
+                                    s['label'].append('B-'+sent['annotation'][i])
+                        elif self.scheme == 'IOBES':
+                            if sent['annotation'][i] in [None, *self.invalid_annotations]:
+                                s['label'].append('O')
+                            elif i == 0 and len(sent['annotation']) > 1:
+                                if sent['annotation'][i+1] == sent['annotation'][i]:
+                                    s['label'].append('B-'+sent['annotation'][i])
+                                else:
+                                    s['label'].append('S-'+sent['annotation'][i])
+                            elif i == 0 and len(sent['annotation']) == 1:
+                                s['label'].append('S-'+sent['annotation'][i])
+                            elif i > 0 and i < len(sent['annotation'])-1:
+                                if sent['annotation'][i-1] != sent['annotation'][i] and sent['annotation'][i+1] == sent['annotation'][i]:
+                                    s['label'].append('B-'+sent['annotation'][i])
+                                elif sent['annotation'][i-1] == sent['annotation'][i] and sent['annotation'][i+1] == sent['annotation'][i]:
+                                    s['label'].append('I-'+sent['annotation'][i])
+                                elif sent['annotation'][i-1] == sent['annotation'][i] and sent['annotation'][i+1] != sent['annotation'][i]:
+                                    s['label'].append('E-'+sent['annotation'][i])
+                                if sent['annotation'][i-1] != sent['annotation'][i] and sent['annotation'][i+1] != sent['annotation'][i]:
+                                    s['label'].append('S-'+sent['annotation'][i])
+                            elif i == len(sent['annotation'])-1:
+                                if sent['annotation'][i-1] == sent['annotation'][i]:
+                                    s['label'].append('E-'+sent['annotation'][i])
+                                if sent['annotation'][i-1] != sent['annotation'][i]:
+                                    s['label'].append('S-'+sent['annotation'][i])
+                    d.append(s)
+                data_labeled[split].append(d)
+        return data_labeled
 
     
-    def create_examples(self, data_tag):
-        data_example = {split: [] for split in data_tag.keys()}
-        self.max_sequence_length = 0
-        for split in data_tag.keys():
-            for n, dat in enumerate(data_tag[split]):
-                sequence_length = len(dat['text'])
-                if sequence_length > self.max_sequence_length:
-                    self.max_sequence_length = sequence_length
-                example = InputExample(n, dat['text'], dat['tag'])
+    def split_into_sentences(self, data_labeled):
+        data_tagged_sentences = {split: [] for split in data_labeled.keys()}
+        for split in data_labeled.keys():
+            for d in data_labeled[split]:
+                for s in d:
+                    data_tagged_sentences[split].append(s)
+        return data_tagged_sentences
+    
+
+    def combine_into_paragraphs(self, data_labeled):
+        data_tagged_paragraphs = {split: [] for split in data_labeled.keys()}
+        for split in data_labeled.keys():
+            for d in data_labeled[split]:
+                p = {key: [] for key in ['text', 'label']}
+                for i in range(len(d)):
+                    for key in p.keys():
+                        p[key].extend(d[i][key])
+                        if i < len(d)-1:
+                            p[key].append(self.sep_dict[key])
+                data_tagged_paragraphs[split].append(p)
+        return data_tagged_paragraphs
+    
+
+    def combine_or_split(self, data_labeled, sentence_level):
+        if sentence_level:
+            return self.split_into_sentences(data_labeled)
+        else:
+            return self.combine_into_paragraphs(data_labeled)
+    
+
+    def create_examples(self, data_labeled):
+        data_example = {split: [] for split in data_labeled.keys()}
+        for split in data_labeled.keys():
+            for n, dat in enumerate(data_labeled[split]):
+                example = InputExample(n, dat['text'], dat['label'])
                 data_example[split].append(example)
-        self.max_sequence_length += self.special_token_count
         return data_example
     
 
-    def create_datasets(self, data_example):
-        self.dataset = {}
+    def create_features(self, data_example):
+        class_dict = {_class: i for i, _class in enumerate(self.classes)}
+        data_feature = {split: [] for split in data_example.keys()}
         for split in data_example.keys():
-            features = self.__convert_examples_to_features(data_example[split], split, self.classes, self.max_sequence_length)
-            input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
-            input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
-            valid_mask = torch.tensor([f.valid_mask for f in features], dtype=torch.long)
-            segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
-            label_ids = torch.tensor([f.label_ids for f in features], dtype=torch.long)
-            self.dataset[split] = TensorDataset(input_ids, input_mask, valid_mask, segment_ids, label_ids)
-        return self
+            for example in data_example[split]:
+                d = {key: [] for key in ['tokens', 'labels', 'token_ids', 'label_ids', 'attention_mask', 'valid_mask']}
+                for i in range(len(example.text)):
+                    word_tokens = self.tokenizer.tokenize(example.text[i])
+                    for j, word_token in enumerate(word_tokens):
+                        d['tokens'].append(word_token)
+                        d['token_ids'].append(self.tokenizer.convert_tokens_to_ids(word_token))
+                        d['attention_mask'].append(1)
+                        if j == 0:
+                            d['valid_mask'].append(1)
+                            d['labels'].append(example.label[i])
+                            d['label_ids'].append(class_dict[example.label[i]])
+                        else:
+                            d['valid_mask'].append(0)
+                            d['labels'].append('O')
+                            d['label_ids'].append(class_dict['O'])
+                if len(d['tokens']) > self.token_limit-self.special_token_count:
+                    d['tokens'] = d['tokens'][:self.token_limit-self.special_token_count]
+                    d['labels'] = d['labels'][:self.token_limit-self.special_token_count]
+                    d['token_ids'] = d['token_ids'][:self.token_limit-self.special_token_count]
+                    d['label_ids'] = d['label_ids'][:self.token_limit-self.special_token_count]
+                    d['attention_mask'] = d['attention_mask'][:self.token_limit-self.special_token_count]
+                    d['valid_mask'] = d['valid_mask'][:self.token_limit-self.special_token_count]
+                d['tokens'].insert(0, self.cls_dict['text'])
+                d['labels'].insert(0, self.cls_dict['label'])
+                d['token_ids'].insert(0, self.tokenizer.convert_tokens_to_ids(self.cls_dict['text']))
+                d['label_ids'].insert(0, class_dict[self.cls_dict['label']])
+                d['attention_mask'].insert(0, 1)
+                d['valid_mask'].insert(0, 1)
+                if d['tokens'][-1] != self.sep_dict['text']:
+                    d['tokens'].append(self.sep_dict['text'])
+                    d['labels'].append(self.sep_dict['label'])
+                    d['token_ids'].append(self.tokenizer.convert_tokens_to_ids(self.sep_dict['text']))
+                    d['label_ids'].append(class_dict[self.sep_dict['label']])
+                    d['attention_mask'].append(1)
+                    d['valid_mask'].append(1)
+                data_feature[split].append(d)
+        max_length = 0
+        for split in data_example.keys():
+            for d in data_feature[split]:
+                length = len(d['tokens'])
+                if length > max_length:
+                    max_length = length
+        for split in data_example.keys():
+            for d in data_feature[split]:
+                length = len(d['tokens'])
+                d['tokens'].extend((max_length-length)*[self.pad_dict['text']])
+                d['labels'].extend((max_length-length)*[self.pad_dict['label']])
+                d['token_ids'].extend((max_length-length)*[self.tokenizer.convert_tokens_to_ids(self.pad_dict['text'])])
+                d['label_ids'].extend((max_length-length)*[class_dict[self.pad_dict['label']]])
+                d['attention_mask'].extend((max_length-length)*[0])
+                d['valid_mask'].extend((max_length-length)*[0])
+        data_input_feature = {split: [] for split in data_feature.keys()}
+        for split in data_feature.keys():
+            for d in data_feature[split]:
+                data_input_feature[split].append(InputFeatures(token_ids=d['token_ids'],
+                                                               label_ids=d['label_ids'],
+                                                               attention_mask=d['attention_mask'],
+                                                               valid_mask=d['valid_mask']))
+        return data_input_feature
     
 
-    def preprocess(self, datafile, splits, is_file=True, sentence_level=True, shuffle=True, seed=256):
+    def create_datasets(self, data_input_feature):
+        self.dataset = {}
+        for split in data_input_feature.keys():
+            token_ids = torch.tensor([f.token_ids for f in data_input_feature[split]], dtype=torch.long)
+            label_ids = torch.tensor([f.label_ids for f in data_input_feature[split]], dtype=torch.long)
+            attention_mask = torch.tensor([f.attention_mask for f in data_input_feature[split]], dtype=torch.long)
+            valid_mask = torch.tensor([f.valid_mask for f in data_input_feature[split]], dtype=torch.long)
+            self.dataset[split] = TensorDataset(token_ids, label_ids, attention_mask, valid_mask)
+    
+
+    def preprocess(self, data, split_dict={'main': 1}, is_file=True, sentence_level=False, shuffle=False, seed=256):
         if is_file:
-            data = self.load_from_file(datafile)
-        else:
-            data = datafile
+            data = self.load_from_file(data)
         if shuffle:
             data = self.shuffle_data(data, seed)
-        self.create_datasets(self.create_examples(self.tag_entries(self.format_entries(self.split_entries(data, splits, shuffle, seed), shuffle, seed, sentence_level))))
-        return self        
+        self.create_datasets(self.create_features(self.create_examples(self.combine_or_split(self.label_entries(self.format_entries(self.split_entries(data, split_dict, shuffle, seed))), sentence_level))))   
     
 
-    def create_dataloaders(self, batch_size=32, seed=256):
+    def create_dataloaders(self, batch_size=32, shuffle=False, seed=256):
         if seed:
             torch.manual_seed(seed)
             torch.cuda.manual_seed(seed)
             np.random.seed(seed)
         self.dataloaders = {}
         for split in self.dataset.keys():
-            self.dataloaders[split] = DataLoader(self.dataset[split], batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True)
-        return self
-    
-
-    def create_tokenset(self, text):
-        idx = 0
-        tokens = Paragraph(text).tokens
-        sentences = []
-        for sent in tokens:
-            sentence = []
-            for tok in sent:
-                tok_dict = {"text" : tok.text,
-                            "start" : tok.start,
-                            "end" : tok.end,
-                            "annotation" : None}
-                sentence.append(tok_dict)
-            sentences.append(sentence)
-        tokenset = dict(text=text, tokens=sentences)
-        cleaned_tokenset = self._clean_tokenset(tokenset)
-        return cleaned_tokenset
-    
-
-    def _clean_tokenset(self, tokenset):
-        bad_chars = ['\xa0', '\u2009', '\u202f', '\u200c', '\u2fff', 'ͦ', '\u2061', '\ue5f8']
-        start = 0
-        good_sentences = []
-        for sent in tokenset['tokens']:
-            good_toks = []
-            for tok in sent:
-                if tok['text'] not in bad_chars:
-                    if tok['start'] == start:
-                        good_toks.append(tok)
-                    else:
-                        tok['start'] = start
-                        tok['end'] = start + len(tok['text'])
-                        good_toks.append(tok)
-                    start = tok['end'] + 1
-            good_sentences.append(good_toks)
-        tokenset['tokens'] = good_sentences
-        return tokenset
-
-
-    def __convert_examples_to_features(self, examples, split, label_list, max_seq_length,
-                                       cls_token_at_end=False, cls_token="[CLS]", cls_token_segment_id=1,
-                                       sep_token="[SEP]", sep_token_extra=False,
-                                       pad_on_left=False, pad_token=0, pad_token_segment_id=0, pad_token_label_id=-100,
-                                       sequence_a_segment_id=0, mask_padding_with_zero=True):
-        """ Loads a data file into a list of `InputBatch`s
-            `cls_token_at_end` define the location of the CLS token:
-                - False (Default, BERT/XLM pattern): [CLS] + A + [SEP] + B + [SEP]
-                - True (XLNet/GPT pattern): A + [SEP] + B + [SEP] + [CLS]
-            `cls_token_segment_id` define the segment id associated to the CLS token (0 for BERT, 2 for XLNet)
-        """
-        label_map = {label: i for i, label in enumerate(label_list)}
-        span_labels = []
-        for label in label_list:
-            label = label.split('-')[-1]
-            if label not in span_labels:
-                span_labels.append(label)
-        span_map = {label: i for i, label in enumerate(span_labels)}
-        features = []
-        example_range = tqdm(examples, desc='| writing {} |'.format(split))
-        for example in example_range:
-            tokens = []
-            valid_mask = []
-            for word in example.words:
-                word_tokens = self.tokenizer.tokenize(word)
-                # bert-base-multilingual-cased sometimes output "nothing ([]) when calling tokenize with just a space.
-                for i, word_token in enumerate(word_tokens):
-                    if i == 0:
-                        valid_mask.append(1)
-                    else:
-                        valid_mask.append(0)
-                    tokens.append(word_token)
-            label_ids = [label_map[label] for label in example.labels]
-            entities = self.__get_entities(example.labels)
-            start_ids = [span_map['O']] * len(label_ids)
-            end_ids = [span_map['O']] * len(label_ids)
-            for entity in entities:
-                start_ids[entity[1]] = span_map[entity[0]]
-                end_ids[entity[-1]] = span_map[entity[0]]
-            # Account for [CLS] and [SEP] with "- 2" and with "- 3" for RoBERTa.
-            special_tokens_count = 3 if sep_token_extra else 2
-            if len(tokens) > max_seq_length - special_tokens_count:
-                tokens = tokens[: (max_seq_length - special_tokens_count)]
-                label_ids = label_ids[: (max_seq_length - special_tokens_count)]
-                valid_mask = valid_mask[: (max_seq_length - special_tokens_count)]
-                start_ids = start_ids[: (max_seq_length - special_tokens_count)]
-                end_ids = end_ids[: (max_seq_length - special_tokens_count)]
-
-            tokens += [sep_token]
-            label_ids += [pad_token_label_id]
-            start_ids += [pad_token_label_id]
-            end_ids += [pad_token_label_id]
-            valid_mask.append(1)
-            if sep_token_extra:
-                # roberta uses an extra separator b/w pairs of sentences
-                tokens += [sep_token]
-                label_ids += [pad_token_label_id]
-                start_ids += [pad_token_label_id]
-                end_ids += [pad_token_label_id]
-                valid_mask.append(1)
-            segment_ids = [sequence_a_segment_id] * len(tokens)
-
-            if cls_token_at_end:
-                tokens += [cls_token]
-                label_ids += [pad_token_label_id]
-                start_ids += [pad_token_label_id]
-                end_ids += [pad_token_label_id]
-                segment_ids += [cls_token_segment_id]
-                valid_mask.append(1)
-            else:
-                tokens = [cls_token] + tokens
-                label_ids = [pad_token_label_id] + label_ids
-                start_ids = [pad_token_label_id] + start_ids
-                end_ids = [pad_token_label_id] + end_ids
-                segment_ids = [cls_token_segment_id] + segment_ids
-                valid_mask.insert(0, 1)
-
-            input_ids = self.tokenizer.convert_tokens_to_ids(tokens)
-
-            # The mask has 1 for real tokens and 0 for padding tokens. Only real
-            # tokens are attended to.
-            input_mask = [1 if mask_padding_with_zero else 0] * len(input_ids)
-
-            # Zero-pad up to the sequence length.
-            padding_length = max_seq_length - len(input_ids)
-            if pad_on_left:
-                input_ids = ([pad_token] * padding_length) + input_ids
-                input_mask = ([0 if mask_padding_with_zero else 1] * padding_length) + input_mask
-                segment_ids = ([pad_token_segment_id] * padding_length) + segment_ids
-                label_ids = ([pad_token_label_id] * padding_length) + label_ids
-                start_ids = ([pad_token_label_id] * padding_length) + start_ids
-                end_ids = ([pad_token_label_id] * padding_length) + end_ids
-                valid_mask = ([0] * padding_length) + valid_mask
-            else:
-                input_ids += [pad_token] * padding_length
-                input_mask += [0 if mask_padding_with_zero else 1] * padding_length
-                segment_ids += [pad_token_segment_id] * padding_length
-                label_ids += [pad_token_label_id] * padding_length
-                start_ids += [pad_token_label_id] * padding_length
-                end_ids += [pad_token_label_id] * padding_length
-                valid_mask += [0] * padding_length
-            while (len(label_ids) < max_seq_length):
-                label_ids.append(pad_token_label_id)
-                start_ids.append(pad_token_label_id)
-                end_ids.append(pad_token_label_id)
-
-            assert len(input_ids) == max_seq_length
-            assert len(input_mask) == max_seq_length
-            assert len(segment_ids) == max_seq_length
-            try:
-                assert len(label_ids) == max_seq_length
-            except AssertionError:
-                print(label_ids)
-                print(len(label_ids), max_seq_length)
-            assert len(start_ids) == max_seq_length
-            assert len(end_ids) == max_seq_length
-            assert len(valid_mask) == max_seq_length
-
-            features.append(InputFeatures(input_ids=input_ids, input_mask=input_mask, valid_mask=valid_mask,
-                                          segment_ids=segment_ids, label_ids=label_ids, start_ids=start_ids, end_ids=end_ids))
-        return features
-
-
-    def __end_of_chunk(self, prev_tag, tag, prev_type, type_):
-        """Checks if a chunk ended between the previous and current word.
-        Args:
-            prev_tag: previous chunk tag.
-            tag: current chunk tag.
-            prev_type: previous type.
-            type_: current type.
-        Returns:
-            chunk_end: boolean.
-        """
-        chunk_end = False
-        if self.tag_scheme == 'IOB':
-            if prev_tag == 'I' and tag in ['B', 'O']: chunk_end = True
-            if prev_tag == 'I' and tag == 'I' and prev_type != type_: chunk_end = True
-        if self.tag_scheme == 'IOB2':
-            if prev_tag == 'I' and tag in ['B', 'O']: chunk_end = True
-            if prev_tag == 'B' and tag == 'O': chunk_end = True
-            if prev_tag == 'B' and tag == 'B' and prev_type != type_: chunk_end = True
-        if self.tag_scheme == 'IOBES':
-            if prev_tag in ['E', 'S']: chunk_end = True
-        return chunk_end
-
-
-    def __start_of_chunk(self, prev_tag, tag, prev_type, type_):
-        """Checks if a chunk started between the previous and current word.
-        Args:
-            prev_tag: previous chunk tag.
-            tag: current chunk tag.
-            prev_type: previous type.
-            type_: current type.
-        Returns:
-            chunk_start: boolean.
-        """
-        chunk_start = False
-        if self.tag_scheme == 'IOB':
-            if tag == 'B': chunk_start = True
-            if prev_tag == 'O' and tag == 'I': chunk_start = True
-            if prev_tag == 'I' and tag == 'I' and prev_type != type_: chunk_start = True
-        if self.tag_scheme == 'IOB2':
-            if tag == 'B': chunk_start = True
-        if self.tag_scheme == 'IOBES':
-            if tag in ['B', 'S']: chunk_start = True
-        return chunk_start
-
-
-    def __get_entities(self, seq):
-        """Gets entities from sequence.
-        note: BIO
-        Args:
-            seq (list): sequence of labels.
-        Returns:
-            list: list of (chunk_type, chunk_start, chunk_end).
-        Example:
-            seq = ['B-PER', 'I-PER', 'O', 'B-LOC', 'I-PER']
-            get_entity_bio(seq)
-            #output
-            [['PER', 0,1], ['LOC', 3, 3], ['PER', 4, 4]]
-        """
-        if any(isinstance(s, list) for s in seq):
-            seq = [item for sublist in seq for item in sublist + ['O']]
-        prev_tag = 'O'
-        prev_type = ''
-        begin_offset = 0
-        chunks = []
-        for i, chunk in enumerate(seq + ['O']):
-            tag = chunk[0]
-            type_ = chunk.split('-')[-1]
-            if self.__end_of_chunk(prev_tag, tag, prev_type, type_):
-                chunks.append((prev_type, begin_offset, i - 1))
-            if self.__start_of_chunk(prev_tag, tag, prev_type, type_):
-                begin_offset = i
-            prev_tag = tag
-            prev_type = type_
-        return set(chunks)
-
-
-    def __collate_fn(self, batch):
-        """
-        batch should be a list of (sequence, target, length) tuples...
-        Returns a padded tensor of sequences sorted from longest to shortest,
-        """
-        batch_tuple = tuple(map(torch.stack, zip(*batch)))
-        batch_lens = torch.sum(batch_tuple[1], dim=-1, keepdim=False)
-        max_len = batch_lens.max().item()
-        results = ()
-        for item in batch_tuple:
-            if item.dim() >= 2:
-                results += (item[:, :max_len],)
-            else:
-                results += (item,)
-        return results
-
-
-    def __get_classes(self, labels):
-        classes_raw = labels
-        classes = ["O"]
-        if self.tag_scheme in ['IOB', 'IOB2']:
-            prefixes = ['I', 'B']
-        elif self.tag_scheme == 'IOBES':
-            prefixes = ['B', 'I', 'E', 'S']
-        classes.extend(['{}-{}'.format(p, c) for p in prefixes for c in classes_raw])
-        self.classes = classes
-        return classes
+            self.dataloaders[split] = DataLoader(self.dataset[split], batch_size=batch_size, shuffle=shuffle, num_workers=0, pin_memory=True)
 
 
 class InputFeatures(object):
     """A single set of features of data."""
-    def __init__(self, input_ids, input_mask, valid_mask, segment_ids, label_ids, start_ids, end_ids):
-        self.input_ids = input_ids
-        self.input_mask = input_mask
-        self.valid_mask = valid_mask
-        self.segment_ids = segment_ids
+    def __init__(self, token_ids, label_ids, attention_mask, valid_mask):
+        self.token_ids = token_ids
         self.label_ids = label_ids
-        self.start_ids = start_ids
-        self.end_ids = end_ids
+        self.attention_mask = attention_mask
+        self.valid_mask = valid_mask
 
 
 class InputExample(object):
     """A single training/test example for token classification."""
-    def __init__(self, guid, words, labels):
+    def __init__(self, id, text, label):
         """Constructs a InputExample.
         Args:
             guid: Unique id for the example.
@@ -488,6 +310,6 @@ class InputExample(object):
             labels: (Optional) list. The labels for each word of the sequence. This should be
             specified for train and dev examples, but not for test examples.
         """
-        self.guid = guid
-        self.words = words
-        self.labels = labels
+        self.id = id
+        self.text = text
+        self.label = label
