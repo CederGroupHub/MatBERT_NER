@@ -8,8 +8,18 @@ from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
 class NERData():
-
+    '''
+    An object for handling NER data
+    '''
     def __init__(self, model_file="allenai/scibert_scivocab_uncased", scheme='IOB2'):
+        '''
+        Initializes the NERData object
+            Args:
+                model_file: Path to pre-trained BERT model
+                scheme: Labeling scheme
+            Returns:
+                NERData object
+        '''
         # load tokenizer
         self.tokenizer = BertTokenizer.from_pretrained(model_file)
         # initialize classes
@@ -33,6 +43,13 @@ class NERData():
     
 
     def get_classes(self, labels):
+        '''
+        Retrieves classes given raw labels using the labeling scheme. Saves classes as attribute.
+            Args:
+                labels: List of raw labels
+            Returns:
+                None
+        '''
         # the raw classes are the provided labels
         classes_raw = labels
         # prefixes for labeling schemes
@@ -49,6 +66,13 @@ class NERData():
 
     
     def load_from_file(self, data_file):
+        '''
+        Loads raw JSON entries from file. Also calls the get_classes function on the collected labels in the JSON entries
+            Args:
+                data_file: Path to data file
+            Returns:
+                List of dictionaries corresponding to the JSON entries
+        '''
         # list of entry identifiers
         identifiers = []
         # list of raw data (json entries)
@@ -88,6 +112,14 @@ class NERData():
     
 
     def shuffle_data(self, data, seed=256):
+        '''
+        Shuffles a given dataset according to the provided seed. Will not be seeded if the seed returns a False value
+            Args:
+                data: Data to be shuffled
+                seed: Random seed
+            Returns:
+                Shuffled data
+        '''
         # sets seed and shuffles if seed provided. 0 seed or None seed is actually unseeded
         if seed:
             random.Random(seed).shuffle(data)
@@ -97,6 +129,16 @@ class NERData():
     
 
     def split_entries(self, data_raw, split_dict={'main': 1}, shuffle=False, seed=256):
+        '''
+        Splits entries in a dataset according to a provided dictionary of splits and proportions
+            Args:
+                data_raw: JSON data loaded into a python dictionary
+                split_dict: Dictionary of splits and proprotions e.g. {'split_1': 0.1, 'split_2': 0.1, 'split_3': 0.8}
+                shuffle: Boolean for whether the raw data is shuffled before it is split
+                seed: Random seed for shuffling. Will not be seeded if the seed returns a False value
+            Returns:
+                Dictionary of entries e.g. {'split_1': [...], 'split_2': [...], ...}
+        '''
         # shuffle if specified
         if shuffle:
             data_raw = self.shuffle_data(data_raw, seed)
@@ -112,6 +154,13 @@ class NERData():
     
 
     def format_entries(self, data_split):
+        '''
+        Formats entries such that each consists of a list of sentences, each with a dictionary of text and annotations
+            Args:
+                data_split: A dictionary of data with the splits as the keys
+            Returns:
+                Formatted entries in the form {'split': [[[{'text': [...], 'annotation': [...]}],...],...],...}
+        '''
         # initialize empty dictionary
         data_formatted = {split: [] for split in data_split.keys()}
         # for split in dataset
@@ -124,97 +173,175 @@ class NERData():
 
 
     def label_entries(self, data_formatted):
+        '''
+        Labels entries according to the desired labeling scheme
+            Args:
+                data_formatted: A dictionary of formatted data with the splits as the keys e.g. {'split': [[[{'text': [...], 'annotation': [...]}],...],...],...}
+            Returns:
+                Labeled data of same format as input, but the 'annotations' field for each sentence is replaced with a 'label' field where a label is in the form <Prefix>-<Annotation>
+        '''
+        # initialize empty dictionary
         data_labeled = {split: [] for split in data_formatted.keys()}
+        # for split in dataset
         for split in data_formatted.keys():
+            # for entry in split (paragraph)
             for dat in data_formatted[split]:
+                # initialize empty list
                 d = []
+                # for sentence in entry
                 for sent in dat:
+                    # initialize text/label dictionary for sentence
                     s = {key: [] for key in ['text', 'label']}
+                    # for token in sentence
                     for i in range(len(sent['text'])):
+                        # skip tokens that don't work with bert
                         if sent['text'][i] in ['̄','̊']:
                             continue
+                        # otherwise append token to sentence
                         s['text'].append(sent['text'][i])
+                        # inside-outside-beginning scheme (1)
                         if self.scheme == 'IOB1':
+                            # None or invalid annotations are mapped to outside
                             if sent['annotation'][i] in [None, *self.invalid_annotations]:
                                 s['label'].append('O')
+                            # if this is the first token in a sentence of more than one token
                             elif i == 0 and len(sent['annotation']) > 1:
+                                # if the next token is of the same type, it is the beginning of an entity
                                 if sent['annotation'][i+1] == sent['annotation'][i]:
                                     s['label'].append('B-'+sent['annotation'][i])
+                                # otherwise inside
                                 else:
                                     s['label'].append('I-'+sent['annotation'][i])
+                            # if the sentence is only one token long and not outside, it must be inside
                             elif i == 0 and len(sent['annotation']) == 1:
                                 s['label'].append('I-'+sent['annotation'][i])
+                            # if the token is not the first in the sentence
                             elif i > 0:
+                                # if the prior token was of the same type, it is inside
                                 if sent['annotation'][i-1] == sent['annotation'][i]:
                                     s['label'].append('I-'+sent['annotation'][i])
                                 else:
+                                    # if the prior token was of a different type and the next is of the same type, beginning
                                     if sent['annotation'][i+1] == sent['annotation'][i]:
                                         s['label'].append('B-'+sent['annotation'][i])
+                                    # otherwise inside
                                     else:
                                         s['label'].append('I-'+sent['annotation'][i])
+                        # inside-outside-beginning scheme (2)
                         elif self.scheme == 'IOB2':
+                            # None or invalid annotations are mapped to outside
                             if sent['annotation'][i] in [None, *self.invalid_annotations]:
                                 s['label'].append('O')
+                            # if the first token is an entity, it must be the beginning
                             elif i == 0:
                                 s['label'].append('B-'+sent['annotation'][i])
+                            # if the token is not the first in the sentence
                             elif i > 0:
+                                # if the prior token was of the same type, then it is inside
                                 if sent['annotation'][i-1] == sent['annotation'][i]:
                                     s['label'].append('I-'+sent['annotation'][i])
+                                # otherwise, it is beginning
                                 else:
                                     s['label'].append('B-'+sent['annotation'][i])
+                        # inside-outside-beginning-end-single scheme
                         elif self.scheme == 'IOBES':
+                            # None or invalid annotations are mapped to outside
                             if sent['annotation'][i] in [None, *self.invalid_annotations]:
                                 s['label'].append('O')
-                            elif i == 0 and len(sent['annotation']) > 1:
-                                if sent['annotation'][i+1] == sent['annotation'][i]:
-                                    s['label'].append('B-'+sent['annotation'][i])
-                                else:
-                                    s['label'].append('S-'+sent['annotation'][i])
+                            # if the the single token in a sentence is an entity, it must be single
                             elif i == 0 and len(sent['annotation']) == 1:
                                 s['label'].append('S-'+sent['annotation'][i])
+                            # if the first token in a multi-token sentence is an entity
+                            elif i == 0 and len(sent['annotation']) > 1:
+                                # if the next token is of the same type, it is beginning
+                                if sent['annotation'][i+1] == sent['annotation'][i]:
+                                    s['label'].append('B-'+sent['annotation'][i])
+                                # if the next token is not of the same type, it is single
+                                else:
+                                    s['label'].append('S-'+sent['annotation'][i])
+                            # if not the first or last token
                             elif i > 0 and i < len(sent['annotation'])-1:
+                                # if the token before is of a different type and the next of the same, then beginning
                                 if sent['annotation'][i-1] != sent['annotation'][i] and sent['annotation'][i+1] == sent['annotation'][i]:
                                     s['label'].append('B-'+sent['annotation'][i])
+                                # if the token before is of the same type and the next of the same, then inside
                                 elif sent['annotation'][i-1] == sent['annotation'][i] and sent['annotation'][i+1] == sent['annotation'][i]:
                                     s['label'].append('I-'+sent['annotation'][i])
+                                # if the token before is of the same type and the next of a different, then end
                                 elif sent['annotation'][i-1] == sent['annotation'][i] and sent['annotation'][i+1] != sent['annotation'][i]:
                                     s['label'].append('E-'+sent['annotation'][i])
-                                if sent['annotation'][i-1] != sent['annotation'][i] and sent['annotation'][i+1] != sent['annotation'][i]:
+                                # if the token before is of a different type and the next of a different, then single
+                                elif sent['annotation'][i-1] != sent['annotation'][i] and sent['annotation'][i+1] != sent['annotation'][i]:
                                     s['label'].append('S-'+sent['annotation'][i])
+                            # if the last token
                             elif i == len(sent['annotation'])-1:
+                                # if the token before is of the same type, then end
                                 if sent['annotation'][i-1] == sent['annotation'][i]:
                                     s['label'].append('E-'+sent['annotation'][i])
+                                # if the token before is of a different type, then single
                                 if sent['annotation'][i-1] != sent['annotation'][i]:
                                     s['label'].append('S-'+sent['annotation'][i])
+                    # append the labeled sentence to the entry
                     d.append(s)
+                # append the entry to the labeled data split
                 data_labeled[split].append(d)
         return data_labeled
 
     
     def split_into_sentences(self, data_labeled):
+        '''
+        Splits entries into sentences as separate entries
+            Args:
+                data_labeled: A dictionary of split labeled entries e.g. {'split': [[[{'text': [...], 'label': [...]}],...],...],...}
+            Returns:
+                A dictionary of entries by sentence rather than paragraph then sentence e.g. {'split': [[{'text': [...], 'label': [...]}],...],...}
+        '''
+        # initialize empty dictionary
         data_tagged_sentences = {split: [] for split in data_labeled.keys()}
+        # for split in dataset
         for split in data_labeled.keys():
+            # for entry in dataset split
             for d in data_labeled[split]:
+                # for sentence in entry
                 for s in d:
+                    # append sentence to dictionary
                     data_tagged_sentences[split].append(s)
         return data_tagged_sentences
     
 
     def combine_into_paragraphs(self, data_labeled):
+        '''
+        Combines the sentences within each entry
+            Args:
+                data_labeled: A dictionary of split labeled entries e.g. {'split': [[[{'text': [...], 'label': [...]}],...],...],...}
+            Returns:
+                A dictionary of entries by paragraph with sentences combined rather than paragraph then sentence e.g. {'split': [[{'text': [...], 'label': [...]}],...],...}
+        '''
+        # initialize empty dictionary
         data_tagged_paragraphs = {split: [] for split in data_labeled.keys()}
+        # for split in dataset
         for split in data_labeled.keys():
+            # for entry in dataset split
             for d in data_labeled[split]:
+                # initialize empty paragraph dictionary
                 p = {key: [] for key in ['text', 'label']}
+                # for sentence in entry
                 for i in range(len(d)):
+                    # for key in paragraph dictionary
                     for key in p.keys():
+                        # extend paragraph with keyed sentence
                         p[key].extend(d[i][key])
+                        # if the sentence is not the last
                         if i < len(d)-1:
+                            # append the appropriate value for the [SEP] token
                             p[key].append(self.sep_dict[key])
+                # append paragraph to dictionary
                 data_tagged_paragraphs[split].append(p)
         return data_tagged_paragraphs
     
 
     def combine_or_split(self, data_labeled, sentence_level):
+        # either combine sentences into single entry or split sentences into separate entries
         if sentence_level:
             return self.split_into_sentences(data_labeled)
         else:
@@ -222,73 +349,117 @@ class NERData():
     
 
     def create_examples(self, data_labeled):
+        # initialize empty dictionary
         data_example = {split: [] for split in data_labeled.keys()}
+        # for split in dataset
         for split in data_labeled.keys():
+            # for entry in dataset split
             for n, dat in enumerate(data_labeled[split]):
+                # create example from entry dictionary
                 example = InputExample(n, dat['text'], dat['label'])
+                # append example to dictionary
                 data_example[split].append(example)
         return data_example
     
 
     def create_features(self, data_example):
+        # dictionary of classes (given class name, return index)
         class_dict = {_class: i for i, _class in enumerate(self.classes)}
+        # initialize empty dictionary
         data_feature = {split: [] for split in data_example.keys()}
+        # for split in dataset
         for split in data_example.keys():
-            for example in data_example[split]:
+            example_range = tqdm(data_example[split], desc='| writing {} features |'.format(split))
+            # for example in dataset split
+            for example in example_range:
+                # initialize empty dictionary for features
                 d = {key: [] for key in ['tokens', 'labels', 'token_ids', 'label_ids', 'attention_mask', 'valid_mask']}
+                # for token in example
                 for i in range(len(example.text)):
+                    # split token using bert tokenizer
                     word_tokens = self.tokenizer.tokenize(example.text[i])
+                    # for subtoken from bert tokenization
                     for j, word_token in enumerate(word_tokens):
+                        # append to tokens
                         d['tokens'].append(word_token)
+                        # append to token ids using tokenizer
                         d['token_ids'].append(self.tokenizer.convert_tokens_to_ids(word_token))
+                        # append to attention mask
                         d['attention_mask'].append(1)
+                        # if the subtoken is the first for the original token
                         if j == 0:
+                            # the subtoken is valid for classification
                             d['valid_mask'].append(1)
+                            # append the label
                             d['labels'].append(example.label[i])
+                            # append the label id using the class dictionary
                             d['label_ids'].append(class_dict[example.label[i]])
+                        # if the subtoken is not the first for the original token
                         else:
+                            # the subtoken is not valid for classification
                             d['valid_mask'].append(0)
+                            # append outside label as a placeholder (will not be seen by classifier)
                             d['labels'].append('O')
+                            # append outside label id as placeholder (will not be seen by classifier)
                             d['label_ids'].append(class_dict['O'])
+                # if the entry has exceeded the token limit (accounting for the special tokens)
                 if len(d['tokens']) > self.token_limit-self.special_token_count:
+                    # truncate the lists
                     d['tokens'] = d['tokens'][:self.token_limit-self.special_token_count]
                     d['labels'] = d['labels'][:self.token_limit-self.special_token_count]
                     d['token_ids'] = d['token_ids'][:self.token_limit-self.special_token_count]
                     d['label_ids'] = d['label_ids'][:self.token_limit-self.special_token_count]
                     d['attention_mask'] = d['attention_mask'][:self.token_limit-self.special_token_count]
                     d['valid_mask'] = d['valid_mask'][:self.token_limit-self.special_token_count]
+                # insert the cls token at the beginning of each list
                 d['tokens'].insert(0, self.cls_dict['text'])
                 d['labels'].insert(0, self.cls_dict['label'])
                 d['token_ids'].insert(0, self.tokenizer.convert_tokens_to_ids(self.cls_dict['text']))
                 d['label_ids'].insert(0, class_dict[self.cls_dict['label']])
                 d['attention_mask'].insert(0, 1)
                 d['valid_mask'].insert(0, 1)
+                # if the last token is not a [SEP] token
                 if d['tokens'][-1] != self.sep_dict['text']:
+                    # append the sep token at the end of each list
                     d['tokens'].append(self.sep_dict['text'])
                     d['labels'].append(self.sep_dict['label'])
                     d['token_ids'].append(self.tokenizer.convert_tokens_to_ids(self.sep_dict['text']))
                     d['label_ids'].append(class_dict[self.sep_dict['label']])
                     d['attention_mask'].append(1)
                     d['valid_mask'].append(1)
+                # append entry to features dictionary
                 data_feature[split].append(d)
+        # initialize maximum entry length
         max_length = 0
+        # for split in dataset
         for split in data_example.keys():
+            # for entry in dataset split
             for d in data_feature[split]:
+                # length of entry
                 length = len(d['tokens'])
+                # update maximum entry length if necessary
                 if length > max_length:
                     max_length = length
+        # for split in datset
         for split in data_example.keys():
+            # for entry in datset split
             for d in data_feature[split]:
+                # length of entry
                 length = len(d['tokens'])
+                # pad entries to maximum length
                 d['tokens'].extend((max_length-length)*[self.pad_dict['text']])
                 d['labels'].extend((max_length-length)*[self.pad_dict['label']])
                 d['token_ids'].extend((max_length-length)*[self.tokenizer.convert_tokens_to_ids(self.pad_dict['text'])])
                 d['label_ids'].extend((max_length-length)*[class_dict[self.pad_dict['label']]])
                 d['attention_mask'].extend((max_length-length)*[0])
                 d['valid_mask'].extend((max_length-length)*[0])
+        # initialize empty dictionary
         data_input_feature = {split: [] for split in data_feature.keys()}
+        # for split in datset
         for split in data_feature.keys():
+            # for entry in dataset split
             for d in data_feature[split]:
+                # append input features to example
                 data_input_feature[split].append(InputFeatures(token_ids=d['token_ids'],
                                                                label_ids=d['label_ids'],
                                                                attention_mask=d['attention_mask'],

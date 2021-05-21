@@ -44,16 +44,16 @@ def parse_args():
                         type=str, default='0,12')
     parser.add_argument('-el', '--embedding_learning_rate',
                         help='embedding learning rate',
-                        type=float, default=5e-5)
+                        type=float, default=1e-4)
     parser.add_argument('-tl', '--transformer_learning_rate',
                         help='transformer learning rate',
-                        type=float, default=5e-5)
+                        type=float, default=1e-4)
     parser.add_argument('-cl', '--classifier_learning_rate',
                         help='pooler/classifier learning rate',
-                        type=float, default=5e-3)
+                        type=float, default=1e-3)
     parser.add_argument('-sf', '--scheduling_function',
                         help='function for learning rate scheduler (linear, exponential, or cosine)',
-                        type=str, default='linear')
+                        type=str, default='exponential')
     parser.add_argument('-km', '--keep_model',
                         help='switch for saving the best model parameters to disk',
                         action='store_true')
@@ -113,7 +113,6 @@ if __name__ == '__main__':
                   'aunp11': 'data/aunp_11lab.json'}
     model_files = {'bert': 'bert-base-uncased',
                    'scibert': 'allenai/scibert_scivocab_uncased',
-                #    'matbert': '/home/amalie/MatBERT_NER/matbert_ner/matbert-base-uncased',
                    'matbert': '../../matbert-base-uncased'}
     dschemes = {'IOB1': IOB1, 'IOB2': IOB2, 'IOBES': IOBES}
 
