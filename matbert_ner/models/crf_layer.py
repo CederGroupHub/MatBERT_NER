@@ -6,17 +6,18 @@ import numpy as np
 class CRF(nn.Module):
     def __init__(self, classes, scheme, batch_first):
         super().__init__()
-        # tag names
+        # classes
         self.classes = classes
-        # tag prefixes
+        # class prefixes
         self.prefixes = set([_class.split('-')[0] for _class in self.classes])
-        # tag format
+        # labeling scheme
         self.scheme = scheme
         # initialize CRF
         self.crf = torchcrf.CRF(num_tags=len(self.classes), batch_first=batch_first)
     
 
     def initialize(self, seed):
+        # set seeds
         if seed:
             torch.manual_seed(seed)
             torch.cuda.manual_seed(seed)
@@ -84,18 +85,18 @@ class CRF(nn.Module):
                 torch.nn.init.constant_(self.crf.start_transitions[i], imp_value)
             if _class.split('-')[0] in self.invalid_end:
                 torch.nn.init.constant_(self.crf.end_transitions[i], imp_value)
-        # build tag type dictionary
+        # build label type dictionary
         label_is = {}
         for label_position in self.prefixes:
             label_is[label_position] = [i for i, _class in enumerate(self.classes) if _class.split('-')[0] == label_position]
-        # penalties for invalid consecutive tags by position
+        # penalties for invalid consecutive labels by position
         for from_label, to_label_list in self.invalid_transitions_position.items():
             to_labels = list(to_label_list)
             for from_label_i in label_is[from_label]:
                 for to_label in to_labels:
                     for to_label_i in label_is[to_label]:
                         torch.nn.init.constant_(self.crf.transitions[from_label_i, to_label_i], imp_value)
-        # penalties for invalid consecutive tags by tag
+        # penalties for invalid consecutive labels by label
         for from_label, to_label_list in self.invalid_transitions_tags.items():
             to_labels = list(to_label_list)
             for from_label_i in label_is[from_label]:
@@ -106,10 +107,13 @@ class CRF(nn.Module):
     
 
     def decode(self, emissions, mask):
+        # verterbi decode logits (emissions) using valid attention mask
         crf_out = self.crf.decode(emissions, mask=mask)
         return crf_out
 
 
     def forward(self, emissions, labels, mask, reduction='token_mean'):
+        # calculate loss with forward pass of crf given logits (emissions) and valid attention mask
+        # loss is mean over tokens
         crf_loss = self.crf(emissions, tags=labels, mask=mask, reduction=reduction)
         return crf_loss

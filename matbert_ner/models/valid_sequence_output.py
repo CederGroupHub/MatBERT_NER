@@ -2,20 +2,32 @@ import torch
 
 
 def valid_sequence_output(sequence_output, label_ids, attention_mask, valid_mask, device):
+    # get shape of bert output sequence
     batch_size, max_len, feat_dim = sequence_output.shape
+    # initialize empty valid sequence
     valid_sequence = torch.zeros(batch_size, max_len, feat_dim, dtype=torch.float32, device=device)
+    # initialize valid labels if label ids provided
     if label_ids is not None:
         valid_label_ids = torch.zeros(batch_size, max_len, dtype=torch.long, device=device)
     else:
         valid_label_ids = None
+    # initialize valid attention mask
     valid_attention_mask = torch.zeros(batch_size, max_len, dtype=torch.bool, device=device)
+    # loop through samples in batch
     for i in range(batch_size):
+        # valid index starts at zero
         jj = 0
+        # loop through length of sample
         for j in range(max_len):
+            # if valid entry
             if valid_mask[i][j].item() == 1:
+                # fill in the valid tensors
                 valid_sequence[i][jj] = sequence_output[i][j]
                 if label_ids is not None:
                     valid_label_ids[i][jj] = label_ids[i][j]
                 valid_attention_mask[i][jj] = attention_mask[i][j]
+                # increment index for valid tensors
                 jj += 1
+            # invalid entries not added
+    # return valid tensors
     return valid_sequence, valid_label_ids, valid_attention_mask

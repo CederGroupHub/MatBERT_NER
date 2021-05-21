@@ -183,7 +183,7 @@ class NERTrainer(object):
                         ctok[ii][jj-1] += toks[i][j]
             ctoks.append(ctok)
             slbls.append(slbl)
-        annotations = [[{'text': t, 'annotation': l} for t, l in zip(ctok, slbl)] for ctok, slbl in zip(ctoks, slbls)]                     
+        annotations = [[[{'text': t, 'annotation': l} for t, l in zip(ctoksw, slblsw)] for ctoksw, slblsw in zip(ctoksp, slblsp)] for ctoksp, slblsp in zip(ctoks, slbls)]                    
         return annotations
     
 

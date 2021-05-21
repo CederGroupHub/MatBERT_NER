@@ -10,38 +10,58 @@ from tqdm import tqdm
 class NERData():
 
     def __init__(self, model_file="allenai/scibert_scivocab_uncased", scheme='IOB2'):
+        # load tokenizer
         self.tokenizer = BertTokenizer.from_pretrained(model_file)
+        # initialize classes
         self.classes = None
+        # invalid annotations (incomplete in solid_state file)
         self.invalid_annotations = ['PVL', 'PUT']
+        # bert token limit
         self.token_limit = 512
+        # minimum number of special tokens ([CLS] at beginning and [SEP] at end)
         self.special_token_count = 2
+        # dictionaries of special tokens for fill values in both text and label fields
         self.pad_dict = {'text': '[PAD]', 'label': 'O'}
         self.unk_dict = {'text': '[UNK]', 'label': 'O'}
         self.sep_dict = {'text': '[SEP]', 'label': 'O'}
         self.cls_dict = {'text': '[CLS]', 'label': 'O'}
+        # labeling scheme
         self.scheme = scheme
+        # initialize dataset and dataloaders
         self.dataset = None
         self.dataloaders = None
     
 
     def get_classes(self, labels):
+        # the raw classes are the provided labels
         classes_raw = labels
+        # prefixes for labeling schemes
         if self.scheme in ['IOB', 'IOB2']:
             prefixes = ['I', 'B']
         elif self.scheme == 'IOBES':
             prefixes = ['B', 'I', 'E', 'S']
+        # fill out labels with prefixes
         classes = ['{}-{}'.format(p, c) for p in prefixes for c in classes_raw if c not in self.invalid_annotations]
+        # sort labels alphabetically
         classes = sorted(classes)
+        # prepend 'O' label and set attribute
         self.classes = ['O']+classes
 
     
     def load_from_file(self, data_file):
+        # list of entry identifiers
         identifiers = []
+        # list of raw data (json entries)
         data_raw = []
+        # set of raw labels
         labels = set([])
+        # open data file
         with open(data_file, 'r') as f:
+            # for line in file
             for l in f:
+                # load json entry
                 d = json.loads(l)
+                # retrieve identifier (depends on the dataset, falls back to doi or doi+par)
                 if 'solid_state' in data_file:
                     identifier = d['doi']
                 elif 'aunp' in data_file:
@@ -53,18 +73,22 @@ class NERData():
                         identifier = d['doi']
                     except:
                         identifier = d['meta']['doi']+'/'+str(d['meta']['par'])
+                # only entries with unique identifiers are retrieved
                 if identifier in identifiers:
                     pass
                 else:
                     identifiers.append(identifier)
                     data_raw.append(d)
+                    # add labels in entry to raw label set
                     for l in d['labels']:
                         labels.add(l)
+        # fill out classes
         self.get_classes(labels)
         return data_raw
     
 
     def shuffle_data(self, data, seed=256):
+        # sets seed and shuffles if seed provided. 0 seed or None seed is actually unseeded
         if seed:
             random.Random(seed).shuffle(data)
         else:
@@ -73,19 +97,28 @@ class NERData():
     
 
     def split_entries(self, data_raw, split_dict={'main': 1}, shuffle=False, seed=256):
+        # shuffle if specified
         if shuffle:
             data_raw = self.shuffle_data(data_raw, seed)
+        # retrieve keys from split dictionary
         split_keys = list(split_dict.keys())
+        # fill list of split values
         split_vals = [split_dict[key] for key in split_keys]
+        # calculate ending indices for splits based on size of dataset
         index_split_vals = (np.cumsum(split_vals)*len(data_raw)).astype(np.uint16)
+        # split data according to split indices
         data_split = {split_keys[i]: data_raw[:index_split_vals[i]] if i == 0 else data_raw[index_split_vals[i-1]:index_split_vals[i]] for i in range(len(split_keys))}
         return data_split
     
 
     def format_entries(self, data_split):
+        # initialize empty dictionary
         data_formatted = {split: [] for split in data_split.keys()}
+        # for split in dataset
         for split in data_split.keys():
+            # for entry in split
             for d in data_split[split]:
+                # represent entry as list of dictionaries (sentences) with text and annotation keys for lists of the corresponding token properties
                 data_formatted[split].append([{key: [token[key] for token in sentence] for key in ['text', 'annotation']} for sentence in d['tokens']])
         return data_formatted
 

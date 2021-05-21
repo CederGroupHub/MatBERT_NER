@@ -163,7 +163,7 @@ if __name__ == '__main__':
                             bert_ner_trainer.load_state(state_path=save_dir+'best.pt')
                             if not keep_model:
                                 os.remove(save_dir+'best.pt')
-                        bert_ner_trainer.save_history(history_path=save_dir+'history.pt')                            
+                        # bert_ner_trainer.save_history(history_path=save_dir+'history.pt')                            
                         
                         if ner_data.dataloaders['test'] is not None:
                             metrics, test_results = bert_ner_trainer.test(ner_data.dataloaders['test'], test_path=save_dir+'test.pt')
@@ -175,6 +175,6 @@ if __name__ == '__main__':
                                     for sentence in entry:
                                         f.write(80*'-'+'\n')
                                         for word in sentence:
-                                            f.write('{:<20}{:<20}\n'.format(word['text'], word['annotation']))
+                                            f.write('{:<40}{:<40}\n'.format(word['text'], word['annotation']))
                                         f.write(80*'-'+'\n')
                                     f.write(80*'='+'\n')
