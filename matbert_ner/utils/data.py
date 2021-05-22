@@ -14,7 +14,7 @@ class NERData():
     def __init__(self, model_file="allenai/scibert_scivocab_uncased", scheme='IOB2'):
         '''
         Initializes the NERData object
-            Args:
+            Arguments:
                 model_file: Path to pre-trained BERT model
                 scheme: Labeling scheme
             Returns:
@@ -45,7 +45,7 @@ class NERData():
     def get_classes(self, labels):
         '''
         Retrieves classes given raw labels using the labeling scheme. Saves classes as attribute.
-            Args:
+            Arguments:
                 labels: List of raw labels
             Returns:
                 None
@@ -68,7 +68,7 @@ class NERData():
     def load_from_file(self, data_file):
         '''
         Loads raw JSON entries from file. Also calls the get_classes function on the collected labels in the JSON entries
-            Args:
+            Arguments:
                 data_file: Path to data file
             Returns:
                 List of dictionaries corresponding to the JSON entries
@@ -114,7 +114,7 @@ class NERData():
     def shuffle_data(self, data, seed=256):
         '''
         Shuffles a given dataset according to the provided seed. Will not be seeded if the seed returns a False value
-            Args:
+            Arguments:
                 data: Data to be shuffled
                 seed: Random seed
             Returns:
@@ -131,7 +131,7 @@ class NERData():
     def split_entries(self, data_raw, split_dict={'main': 1}, shuffle=False, seed=256):
         '''
         Splits entries in a dataset according to a provided dictionary of splits and proportions
-            Args:
+            Arguments:
                 data_raw: JSON data loaded into a python dictionary
                 split_dict: Dictionary of splits and proprotions e.g. {'split_1': 0.1, 'split_2': 0.1, 'split_3': 0.8}
                 shuffle: Boolean for whether the raw data is shuffled before it is split
@@ -156,7 +156,7 @@ class NERData():
     def format_entries(self, data_split):
         '''
         Formats entries such that each consists of a list of sentences, each with a dictionary of text and annotations
-            Args:
+            Arguments:
                 data_split: A dictionary of data with the splits as the keys
             Returns:
                 Formatted entries in the form {'split': [[[{'text': [...], 'annotation': [...]}],...],...],...}
@@ -175,7 +175,7 @@ class NERData():
     def label_entries(self, data_formatted):
         '''
         Labels entries according to the desired labeling scheme
-            Args:
+            Arguments:
                 data_formatted: A dictionary of formatted data with the splits as the keys e.g. {'split': [[[{'text': [...], 'annotation': [...]}],...],...],...}
             Returns:
                 Labeled data of same format as input, but the 'annotations' field for each sentence is replaced with a 'label' field where a label is in the form <Prefix>-<Annotation>
@@ -291,7 +291,7 @@ class NERData():
     def split_into_sentences(self, data_labeled):
         '''
         Splits entries into sentences as separate entries
-            Args:
+            Arguments:
                 data_labeled: A dictionary of split labeled entries e.g. {'split': [[[{'text': [...], 'label': [...]}],...],...],...}
             Returns:
                 A dictionary of entries by sentence rather than paragraph then sentence e.g. {'split': [[{'text': [...], 'label': [...]}],...],...}
@@ -311,8 +311,8 @@ class NERData():
 
     def combine_into_paragraphs(self, data_labeled):
         '''
-        Combines the sentences within each entry
-            Args:
+        Combines the sentences separated by [SEP] tokens within each entry into a single sequence
+            Arguments:
                 data_labeled: A dictionary of split labeled entries e.g. {'split': [[[{'text': [...], 'label': [...]}],...],...],...}
             Returns:
                 A dictionary of entries by paragraph with sentences combined rather than paragraph then sentence e.g. {'split': [[{'text': [...], 'label': [...]}],...],...}
@@ -341,6 +341,14 @@ class NERData():
     
 
     def combine_or_split(self, data_labeled, sentence_level):
+        '''
+        Combines the sentences within an entry into a single sequence or splits the sentences into separate entries
+            Arguments:
+                data_labelled: A dictionary of split labeled entries e.g. {'split': [[[{'text': [...], 'label': [...]}],...],...],...}
+                sentence_level: Boolean that controls whether the sentences in entries are split into separate entries (True) or combines them into a single sequence entry (False)
+            Returns:
+                A dictionary of single-sequence entries e.g. {'split': [[{'text': [...], 'label': [...]}],...],...}
+        '''
         # either combine sentences into single entry or split sentences into separate entries
         if sentence_level:
             return self.split_into_sentences(data_labeled)
@@ -349,6 +357,13 @@ class NERData():
     
 
     def create_examples(self, data_labeled):
+        '''
+        Converts the entry dictionaries into InputExamples
+            Arguments:
+                data_labeled: A dictionary of single-sequence entries e.g. {'split': [[{'text': [...], 'label': [...]}],...],...}
+            Returns:
+                A dictionary of InputExamples e.g. {'split': [InputExample,...],...}
+        '''
         # initialize empty dictionary
         data_example = {split: [] for split in data_labeled.keys()}
         # for split in dataset
@@ -363,6 +378,13 @@ class NERData():
     
 
     def create_features(self, data_example):
+        '''
+        Converts the dictionary of InputExamples into InputFeatures
+            Arguments:
+                data_example: A dictionary of InputExamples e.g. {'split': [InputExample,...],...}
+            Returns:
+                A dictionary of InputFeatures e.g. {'split': [InputFeatures,...],...}
+        '''
         # dictionary of classes (given class name, return index)
         class_dict = {_class: i for i, _class in enumerate(self.classes)}
         # initialize empty dictionary
@@ -468,52 +490,107 @@ class NERData():
     
 
     def create_datasets(self, data_input_feature):
+        '''
+        Creates datsets from a dictionary of InputFeatures, which are saved as an attribute
+            Arguments:
+                data_input_feature: A dictionary of InputFeatures e.g. {'split': [InputFeatures,...],...}
+            Returns:
+                None
+        '''
+        # initialize empty dictionary
         self.dataset = {}
+        # for split in dataset
         for split in data_input_feature.keys():
+            # collect features
             token_ids = torch.tensor([f.token_ids for f in data_input_feature[split]], dtype=torch.long)
             label_ids = torch.tensor([f.label_ids for f in data_input_feature[split]], dtype=torch.long)
             attention_mask = torch.tensor([f.attention_mask for f in data_input_feature[split]], dtype=torch.long)
             valid_mask = torch.tensor([f.valid_mask for f in data_input_feature[split]], dtype=torch.long)
+            # store as tensor dataset
             self.dataset[split] = TensorDataset(token_ids, label_ids, attention_mask, valid_mask)
     
 
     def preprocess(self, data, split_dict={'main': 1}, is_file=True, sentence_level=False, shuffle=False, seed=256):
+        '''
+        Preprocesses raw data provided in either dictionary or JSON form to produce datasets which are saved as an attribute
+            Arguments:
+                data: Either a dictionary of raw entries or the path to a JSON file containing raw entries
+                split_dict: Dictionary of splits and proprotions e.g. {'split_1': 0.1, 'split_2': 0.1, 'split_3': 0.8}
+                is_file: Boolean that controls whether data is treated as file (True) or list (False)
+                sentence_level: Boolean that controls whether the sentences in entries are split into separate entries (True) or combines them into a single sequence entry (False)
+                shuffle: Boolean for whether the raw data is shuffled before it is split
+                seed: Random seed for shuffling. Will not be seeded if the seed returns a False value
+            Returns:
+                None
+        '''
+        # call load from file if the data is a file
         if is_file:
             data = self.load_from_file(data)
+        # shuffle the entries if shuffle is True
         if shuffle:
             data = self.shuffle_data(data, seed)
+        # creat datasets
         self.create_datasets(self.create_features(self.create_examples(self.combine_or_split(self.label_entries(self.format_entries(self.split_entries(data, split_dict, shuffle, seed))), sentence_level))))   
     
 
     def create_dataloaders(self, batch_size=32, shuffle=False, seed=256):
+        '''
+        Creates dataloaders from dictionary of datasets which are saved as an attribute
+            Arguments:
+                batch_size: Number of entries per batch in the dataloaders
+                shuffle: Boolean that controls whether the data is shuffled within the dataloaders between training epochs
+                seed: Random seed for shuffling. Will not be seeded if the seed returns a False value
+            Return:
+                None
+        '''
+        # set seeds if a seed is provided
         if seed:
             torch.manual_seed(seed)
             torch.cuda.manual_seed(seed)
             np.random.seed(seed)
+        # initialize empty dictionary
         self.dataloaders = {}
+        # for split in dataset
         for split in self.dataset.keys():
+            # store dataloaders for tensor datasets
             self.dataloaders[split] = DataLoader(self.dataset[split], batch_size=batch_size, shuffle=shuffle, num_workers=0, pin_memory=True)
 
 
+class InputExample(object):
+    '''
+    A single example consisting of id, text, and label attributes
+    '''
+    def __init__(self, id, text, label):
+        '''
+        Initializes the InputExample object
+            Arguments:
+                id: A unique identification number
+                text: A sequence of tokens
+                label: A sequence of labels
+            Returns:
+                InputExample object
+        '''
+        self.id = id
+        self.text = text
+        self.label = label
+
+
 class InputFeatures(object):
-    """A single set of features of data."""
+    '''
+    A single feature set consisting of token ids, label ids, attention masks, and valid masks
+    '''
     def __init__(self, token_ids, label_ids, attention_mask, valid_mask):
+        '''
+        Initializes the InputFeatures object
+            Arguments:
+                token_ids: A sequence of token ids
+                label_ids: A sequence of label ids
+                attention_mask: An attention mask
+                valid_mask: A valid mask
+            Returns:
+                InputFeatures object
+        '''
         self.token_ids = token_ids
         self.label_ids = label_ids
         self.attention_mask = attention_mask
         self.valid_mask = valid_mask
-
-
-class InputExample(object):
-    """A single training/test example for token classification."""
-    def __init__(self, id, text, label):
-        """Constructs a InputExample.
-        Args:
-            guid: Unique id for the example.
-            words: list. The words of the sequence.
-            labels: (Optional) list. The labels for each word of the sequence. This should be
-            specified for train and dev examples, but not for test examples.
-        """
-        self.id = id
-        self.text = text
-        self.label = label

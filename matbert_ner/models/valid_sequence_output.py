@@ -2,6 +2,17 @@ import torch
 
 
 def valid_sequence_output(sequence_output, label_ids, attention_mask, valid_mask, device):
+    '''
+    Constructs valid tensors for the output BERT sequences, labels ids and attention mask by filtering out invalid indices
+        Arguments:
+            sequence_output: Batch of output representation of sequence from BERT
+            label_ids: Batch of sequence labels
+            attention_mask: Batch of sequence attention masks
+            valid_mask: Batch of sequence valid masks
+            device: Device used for computation
+        Returns:
+            valid_sequence, valid_label_ids, valid_attention_mask
+    '''
     # get shape of bert output sequence
     batch_size, max_len, feat_dim = sequence_output.shape
     # initialize empty valid sequence

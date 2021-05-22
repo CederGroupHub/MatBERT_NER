@@ -9,7 +9,7 @@ split_dict = {'predict': 1.0}
 batch_size = 10
 sentence_level = False
 seed = None
-device = 'gpu:0'
+device = 'cpu'
 if 'gpu' in device:
     gpu = True
     try:
