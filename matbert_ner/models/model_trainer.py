@@ -372,7 +372,7 @@ class NERTrainer(object):
                         # append token to combined tokens
                         ctok[ii].append(toks[i][j])
                         # append label to single labels
-                        slbl[ii].append(lbls[i][kk])
+                        slbl[ii].append(lbls[i][kk] if lbls[i][kk] == 'O' else lbls[i][kk].split('-')[1])
                         # step index within sentence forward
                         jj += 1
                     # step index within labels
@@ -390,8 +390,35 @@ class NERTrainer(object):
             # append sentences
             ctoks.append(ctok)
             slbls.append(slbl)
+        # empty intity list
+        entities = []
+        # class types
+        class_types = sorted(list(set([_class.split('-')[1] for _class in self.model.classes if _class != 'O'])))
+        # for entry
+        for i in range(len(slbls)):
+            # initialize empty dictionary of extracted entities
+            entry_entities = {class_type: set([]) for class_type in class_types}
+            # for sentence in entry
+            for j in range (len(slbls[i])):
+                # extract beginning indices for entities
+                entity_idx = [k for k in range(len(slbls[i][j])) if slbls[i][j][k] != slbls[i][j][k-1]]
+                # append ending sequence
+                entity_idx.append(len(slbls[i][j]))
+                # for entity beginning index
+                for k in range(len(entity_idx)):
+                    # if not last index (last index in sequence)
+                    if k != len(entity_idx)-1:
+                        # if entity is not outside
+                        if slbls[i][j][entity_idx[k]] != 'O':
+                            # append joined entity to dictionary
+                            entry_entities[slbls[i][j][entity_idx[k]]].add(' '.join(ctoks[i][j][entity_idx[k]:entity_idx[k+1]]))
+            # append entry entity dictionary
+            entities.append(entry_entities)
         # construct dictionary of (text, annotation) pairs
-        annotations = [[[{'text': t, 'annotation': l} for t, l in zip(ctoksw, slblsw)] for ctoksw, slblsw in zip(ctoksp, slblsp)] for ctoksp, slblsp in zip(ctoks, slbls)]
+        annotations = [{'tokens': [[{'text': t, 'annotation': l} for t, l in zip(ctoks_sequence, slbls_sequence)]
+                                   for ctoks_sequence, slbls_sequence in zip(ctoks_entry, slbls_entry)],
+                        'entities': entities_entry}
+                       for ctoks_entry, slbls_entry, entities_entry in zip(ctoks, slbls, entities)]
         return annotations
     
 
@@ -669,10 +696,15 @@ class NERTrainer(object):
             Returns:
                 Dictionary of text and annotations by word, sentence, paragraph e.g. [[[{'text': text, 'annotation': annotation},...],...],...]
         '''
+        # if state path provided, load state (excluding optimizer)
         if state_path is not None:
             self.load_state(state_path, optimizer=False)
+        # evaluate the prediction set
         prediction_results = self.train_evaluate_epoch(0, 1, predict_iter, 'predict')
+        # process the predictions into annotations
         annotations = self.process_ids(prediction_results['input_ids'], prediction_results['attention_mask'],
                                        prediction_results['valid_mask'], prediction_results['prediction_ids'])
+        # save annotations
         torch.save(annotations, predict_path)
+        # return the annotations
         return annotations

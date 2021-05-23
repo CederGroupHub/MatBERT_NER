@@ -193,10 +193,14 @@ if __name__ == '__main__':
                             # save tokens/annotations to text file
                             with open(save_dir+'predictions.txt', 'w') as f:
                                 for entry in annotations:
-                                    f.write(80*'='+'\n')
-                                    for sentence in entry:
-                                        f.write(80*'-'+'\n')
+                                    f.write(160*'='+'\n')
+                                    for sentence in entry['tokens']:
+                                        f.write(160*'-'+'\n')
                                         for word in sentence:
                                             f.write('{:<40}{:<40}\n'.format(word['text'], word['annotation']))
-                                        f.write(80*'-'+'\n')
-                                    f.write(80*'='+'\n')
+                                        f.write(160*'-'+'\n')
+                                    f.write(160*'-'+'\n')
+                                    for entity_type in entry['entities'].keys():
+                                        f.write('{:<20}{}\n'.format(entity_type, ', '.join(entry['entities'][entity_type])))
+                                    f.write(160*'-'+'\n')
+                                    f.write(160*'='+'\n')

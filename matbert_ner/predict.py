@@ -38,10 +38,14 @@ bert_ner_trainer = NERTrainer(bert_ner, device)
 annotations = bert_ner_trainer.predict(ner_data.dataloaders['predict'], predict_path=save_dir+'predict_{}.pt'.format(data_file.split('/')[-1].replace('.json', '')), state_path=state_path)
 with open(save_dir+'predictions_{}.txt'.format(data_file.split('/')[-1].replace('.json', '')), 'w') as f:
     for entry in annotations:
-        f.write(80*'='+'\n')
-        for sentence in entry:
-            f.write(80*'-'+'\n')
+        f.write(160*'='+'\n')
+        for sentence in entry['tokens']:
+            f.write(160*'-'+'\n')
             for word in sentence:
-                f.write('{:<20}{:<20}\n'.format(word['text'], word['annotation']))
-            f.write(80*'-'+'\n')
-        f.write(80*'='+'\n')
+                f.write('{:<40}{:<40}\n'.format(word['text'], word['annotation']))
+            f.write(160*'-'+'\n')
+        f.write(160*'-'+'\n')
+        for entity_type in entry['entities'].keys():
+            f.write('{:<20}{}\n'.format(entity_type, ', '.join(entry['entities'][entity_type])))
+        f.write(160*'-'+'\n')
+        f.write(160*'='+'\n')
