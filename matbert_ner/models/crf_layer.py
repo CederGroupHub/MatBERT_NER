@@ -21,7 +21,7 @@ class CRF(nn.Module):
         # classes
         self.classes = classes
         # class prefixes
-        self.prefixes = set([_class.split('-')[0] for _class in self.classes])
+        self.prefixes = set([class_.split('-')[0] for class_ in self.classes])
         # labeling scheme
         self.scheme = scheme
         # initialize CRF
@@ -112,15 +112,15 @@ class CRF(nn.Module):
         num_tags = len(self.classes)
         # penalize bad beginnings and endings
         for i in range(num_tags):
-            _class = self.classes[i]
-            if _class.split('-')[0] in self.invalid_begin:
+            class_ = self.classes[i]
+            if class_.split('-')[0] in self.invalid_begin:
                 torch.nn.init.constant_(self.crf.start_transitions[i], penalty)
-            if _class.split('-')[0] in self.invalid_end:
+            if class_.split('-')[0] in self.invalid_end:
                 torch.nn.init.constant_(self.crf.end_transitions[i], penalty)
         # build label type dictionary
         label_is = {}
         for label_position in self.prefixes:
-            label_is[label_position] = [i for i, _class in enumerate(self.classes) if _class.split('-')[0] == label_position]
+            label_is[label_position] = [i for i, class_ in enumerate(self.classes) if class_.split('-')[0] == label_position]
         # penalties for invalid consecutive labels by position
         for from_label, to_label_list in self.invalid_transitions_position.items():
             to_labels = list(to_label_list)

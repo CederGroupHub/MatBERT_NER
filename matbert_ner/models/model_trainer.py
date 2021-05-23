@@ -393,7 +393,7 @@ class NERTrainer(object):
         # empty intity list
         entities = []
         # class types
-        class_types = sorted(list(set([_class.split('-')[1] for _class in self.model.classes if _class != 'O'])))
+        class_types = sorted(list(set([class_.split('-')[1] for class_ in self.model.classes if class_ != 'O'])))
         # for entry
         for i in range(len(slbls)):
             # initialize empty dictionary of extracted entities
@@ -414,7 +414,7 @@ class NERTrainer(object):
                             entry_entities[slbls[i][j][entity_idx[k]]].add(' '.join(ctoks[i][j][entity_idx[k]:entity_idx[k+1]]))
             # append entry entity dictionary
             entities.append(entry_entities)
-        # construct dictionary of (text, annotation) pairs
+        # construct dictionary of (text, annotation) pairs under tokens and a dictionary of entities under entities
         annotations = [{'tokens': [[{'text': t, 'annotation': l} for t, l in zip(ctoks_sequence, slbls_sequence)]
                                    for ctoks_sequence, slbls_sequence in zip(ctoks_entry, slbls_entry)],
                         'entities': entities_entry}

@@ -386,7 +386,7 @@ class NERData():
                 A dictionary of InputFeatures e.g. {'split': [InputFeatures,...],...}
         '''
         # dictionary of classes (given class name, return index)
-        class_dict = {_class: i for i, _class in enumerate(self.classes)}
+        class_dict = {class_: i for i, class_ in enumerate(self.classes)}
         # initialize empty dictionary
         data_feature = {split: [] for split in data_example.keys()}
         # for split in dataset
