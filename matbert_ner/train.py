@@ -176,14 +176,11 @@ if __name__ == '__main__':
                             # save model history
                             bert_ner_trainer.save_history(history_path=save_dir+'history.pt')
                             # if cache was used and the model should be kept, the state must be saved directly after loading best parameters
-                            if use_cache and keep_model:
+                            if use_cache:
                                 bert_ner_trainer.load_state_from_cache('best')
                                 bert_ner_trainer.save_state(state_path=save_dir+'best.pt')
-                            # if the cache is not used and the model/optimizer state is not kept, delete model/optimizer state
-                            elif not use_cache and not keep_model:
-                                os.remove(save_dir+'best.pt')
                         # if test dataloader provided
-                        if ner_data.dataloaders['test'] is not None:
+                        if ner_data.dataloaders['test'] is not None and os.path.exists(save_dir+'best.pt'):
                             # retrieve test results
                             metrics, test_results = bert_ner_trainer.test(ner_data.dataloaders['test'], test_path=save_dir+'test.pt', state_path=save_dir+'best.pt')
                             # print classification report over test results
@@ -204,3 +201,8 @@ if __name__ == '__main__':
                                         f.write('{:<20}{}\n'.format(entity_type, ', '.join(entry['entities'][entity_type])))
                                     f.write(160*'-'+'\n')
                                     f.write(160*'='+'\n')
+                        if not keep_model:
+                            try:
+                                os.remove(save_dir+'best.pt')
+                            except:
+                                print('Saved parameter file {} does not exist'.format(save_dir+'best.pt'))
