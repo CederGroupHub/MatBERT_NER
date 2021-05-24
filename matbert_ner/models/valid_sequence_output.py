@@ -28,6 +28,7 @@ def valid_sequence_output(sequence_output, label_ids, attention_mask, valid_mask
     for i in range(batch_size):
         # valid index starts at zero
         jj = 0
+        # n = 1
         # loop through length of sample
         for j in range(max_len):
             # if valid entry
@@ -39,6 +40,9 @@ def valid_sequence_output(sequence_output, label_ids, attention_mask, valid_mask
                 valid_attention_mask[i][jj] = attention_mask[i][j]
                 # increment index for valid tensors
                 jj += 1
-            # invalid entries not added
+            #     n = 1
+            # else:
+            #     valid_sequence[i][jj-1] = (n*valid_sequence[i][jj-1]+sequence_output[i][j])/(n+1)
+            #     n += 1
     # return valid tensors
     return valid_sequence, valid_label_ids, valid_attention_mask
