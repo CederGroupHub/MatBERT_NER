@@ -502,10 +502,10 @@ class NERData():
         # for split in dataset
         for split in data_input_feature.keys():
             # collect features
-            token_ids = torch.tensor([f.token_ids for f in data_input_feature[split]], dtype=torch.long)
-            label_ids = torch.tensor([f.label_ids for f in data_input_feature[split]], dtype=torch.long)
-            attention_mask = torch.tensor([f.attention_mask for f in data_input_feature[split]], dtype=torch.long)
-            valid_mask = torch.tensor([f.valid_mask for f in data_input_feature[split]], dtype=torch.long)
+            token_ids = torch.tensor([f.token_ids for f in data_input_feature[split]], dtype=torch.int32)
+            label_ids = torch.tensor([f.label_ids for f in data_input_feature[split]], dtype=torch.uint8)
+            attention_mask = torch.tensor([f.attention_mask for f in data_input_feature[split]], dtype=torch.bool)
+            valid_mask = torch.tensor([f.valid_mask for f in data_input_feature[split]], dtype=torch.bool)
             # store as tensor dataset
             self.dataset[split] = TensorDataset(token_ids, label_ids, attention_mask, valid_mask)
     

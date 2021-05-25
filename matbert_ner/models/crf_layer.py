@@ -101,7 +101,7 @@ class CRF(nn.Module):
                                              'I': 'IE'}
     
 
-    def init_crf_transitions(self, penalty=-10000):
+    def init_crf_transitions(self, penalty=-100):
         '''
         Initializes CRF transitions according to invalid transitions as dictating by the labeling scheme
             Arguments:
