@@ -1,5 +1,4 @@
 import json
-from chemdataextractor.doc import Paragraph
 from transformers import BertTokenizer
 import random
 import numpy as np
@@ -297,7 +296,7 @@ class NERData():
                 A dictionary of entries by sentence rather than paragraph then sentence e.g. {'split': [[{'text': [...], 'label': [...]}],...],...}
         '''
         # initialize empty dictionary
-        data_tagged_sentences = {split: [] for split in data_labeled.keys()}
+        data_labeled_sentences = {split: [] for split in data_labeled.keys()}
         # for split in dataset
         for split in data_labeled.keys():
             # for entry in dataset split
@@ -305,8 +304,8 @@ class NERData():
                 # for sentence in entry
                 for s in d:
                     # append sentence to dictionary
-                    data_tagged_sentences[split].append(s)
-        return data_tagged_sentences
+                    data_labeled_sentences[split].append(s)
+        return data_labeled_sentences
     
 
     def combine_into_paragraphs(self, data_labeled):
@@ -318,7 +317,7 @@ class NERData():
                 A dictionary of entries by paragraph with sentences combined rather than paragraph then sentence e.g. {'split': [[{'text': [...], 'label': [...]}],...],...}
         '''
         # initialize empty dictionary
-        data_tagged_paragraphs = {split: [] for split in data_labeled.keys()}
+        data_labeled_paragraphs = {split: [] for split in data_labeled.keys()}
         # for split in dataset
         for split in data_labeled.keys():
             # for entry in dataset split
@@ -336,8 +335,8 @@ class NERData():
                             # append the appropriate value for the [SEP] token
                             p[key].append(self.sep_dict[key])
                 # append paragraph to dictionary
-                data_tagged_paragraphs[split].append(p)
-        return data_tagged_paragraphs
+                data_labeled_paragraphs[split].append(p)
+        return data_labeled_paragraphs
     
 
     def combine_or_split(self, data_labeled, sentence_level):
@@ -356,50 +355,29 @@ class NERData():
             return self.combine_into_paragraphs(data_labeled)
     
 
-    def create_examples(self, data_labeled):
-        '''
-        Converts the entry dictionaries into InputExamples
-            Arguments:
-                data_labeled: A dictionary of single-sequence entries e.g. {'split': [[{'text': [...], 'label': [...]}],...],...}
-            Returns:
-                A dictionary of InputExamples e.g. {'split': [InputExample,...],...}
-        '''
-        # initialize empty dictionary
-        data_example = {split: [] for split in data_labeled.keys()}
-        # for split in dataset
-        for split in data_labeled.keys():
-            # for entry in dataset split
-            for n, dat in enumerate(data_labeled[split]):
-                # create example from entry dictionary
-                example = InputExample(n, dat['text'], dat['label'])
-                # append example to dictionary
-                data_example[split].append(example)
-        return data_example
-    
-
-    def create_features(self, data_example):
+    def create_features(self, data_labeled):
         '''
         Converts the dictionary of InputExamples into InputFeatures
             Arguments:
-                data_example: A dictionary of InputExamples e.g. {'split': [InputExample,...],...}
+                data_labeled: A dictionary of InputExamples e.g. {'split': [InputExample,...],...}
             Returns:
-                A dictionary of InputFeatures e.g. {'split': [InputFeatures,...],...}
+                A dictionary of InputFeatures e.g. {'split': [{'tokens': [...], 'labels': [...], 'token_ids': [...], 'label_ids': [...], 'attention_mask': [...], 'valid_mask': [...]},...],...}
         '''
         # dictionary of classes (given class name, return index)
         class_dict = {class_: i for i, class_ in enumerate(self.classes)}
         # initialize empty dictionary
-        data_feature = {split: [] for split in data_example.keys()}
+        data_feature = {split: [] for split in data_labeled.keys()}
         # for split in dataset
-        for split in data_example.keys():
-            example_range = tqdm(data_example[split], desc='| writing {} features |'.format(split))
+        for split in data_labeled.keys():
+            data_label_range = tqdm(data_labeled[split], desc='| writing {} features |'.format(split))
             # for example in dataset split
-            for example in example_range:
+            for dat in data_label_range:
                 # initialize empty dictionary for features
                 d = {key: [] for key in ['tokens', 'labels', 'token_ids', 'label_ids', 'attention_mask', 'valid_mask']}
                 # for token in example
-                for i in range(len(example.text)):
+                for i in range(len(dat['text'])):
                     # split token using bert tokenizer
-                    word_tokens = self.tokenizer.tokenize(example.text[i])
+                    word_tokens = self.tokenizer.tokenize(dat['text'][i])
                     # for subtoken from bert tokenization
                     for j, word_token in enumerate(word_tokens):
                         # append to tokens
@@ -413,9 +391,9 @@ class NERData():
                             # the subtoken is valid for classification
                             d['valid_mask'].append(1)
                             # append the label
-                            d['labels'].append(example.label[i])
+                            d['labels'].append(dat['label'][i])
                             # append the label id using the class dictionary
-                            d['label_ids'].append(class_dict[example.label[i]])
+                            d['label_ids'].append(class_dict[dat['label'][i]])
                         # if the subtoken is not the first for the original token
                         else:
                             # the subtoken is not valid for classification
@@ -454,7 +432,7 @@ class NERData():
         # initialize maximum entry length
         max_length = 0
         # for split in dataset
-        for split in data_example.keys():
+        for split in data_labeled.keys():
             # for entry in dataset split
             for d in data_feature[split]:
                 # length of entry
@@ -463,7 +441,7 @@ class NERData():
                 if length > max_length:
                     max_length = length
         # for split in datset
-        for split in data_example.keys():
+        for split in data_labeled.keys():
             # for entry in datset split
             for d in data_feature[split]:
                 # length of entry
@@ -475,18 +453,7 @@ class NERData():
                 d['label_ids'].extend((max_length-length)*[class_dict[self.pad_dict['label']]])
                 d['attention_mask'].extend((max_length-length)*[0])
                 d['valid_mask'].extend((max_length-length)*[0])
-        # initialize empty dictionary
-        data_input_feature = {split: [] for split in data_feature.keys()}
-        # for split in datset
-        for split in data_feature.keys():
-            # for entry in dataset split
-            for d in data_feature[split]:
-                # append input features to example
-                data_input_feature[split].append(InputFeatures(token_ids=d['token_ids'],
-                                                               label_ids=d['label_ids'],
-                                                               attention_mask=d['attention_mask'],
-                                                               valid_mask=d['valid_mask']))
-        return data_input_feature
+        return data_feature
     
 
     def create_datasets(self, data_input_feature):
@@ -502,10 +469,10 @@ class NERData():
         # for split in dataset
         for split in data_input_feature.keys():
             # collect features
-            token_ids = torch.tensor([f.token_ids for f in data_input_feature[split]], dtype=torch.int32)
-            label_ids = torch.tensor([f.label_ids for f in data_input_feature[split]], dtype=torch.uint8)
-            attention_mask = torch.tensor([f.attention_mask for f in data_input_feature[split]], dtype=torch.bool)
-            valid_mask = torch.tensor([f.valid_mask for f in data_input_feature[split]], dtype=torch.bool)
+            token_ids = torch.tensor([d['token_ids'] for d in data_input_feature[split]], dtype=torch.int32)
+            label_ids = torch.tensor([d['label_ids'] for d in data_input_feature[split]], dtype=torch.uint8)
+            attention_mask = torch.tensor([d['attention_mask'] for d in data_input_feature[split]], dtype=torch.bool)
+            valid_mask = torch.tensor([d['valid_mask'] for d in data_input_feature[split]], dtype=torch.bool)
             # store as tensor dataset
             self.dataset[split] = TensorDataset(token_ids, label_ids, attention_mask, valid_mask)
     
@@ -530,7 +497,7 @@ class NERData():
         if shuffle:
             data = self.shuffle_data(data, seed)
         # creat datasets
-        self.create_datasets(self.create_features(self.create_examples(self.combine_or_split(self.label_entries(self.format_entries(self.split_entries(data, split_dict, shuffle, seed))), sentence_level))))   
+        self.create_datasets(self.create_features(self.combine_or_split(self.label_entries(self.format_entries(self.split_entries(data, split_dict, shuffle, seed))), sentence_level)))  
     
 
     def create_dataloaders(self, batch_size=32, shuffle=False, seed=256):
@@ -554,43 +521,3 @@ class NERData():
         for split in self.dataset.keys():
             # store dataloaders for tensor datasets
             self.dataloaders[split] = DataLoader(self.dataset[split], batch_size=batch_size, shuffle=shuffle, num_workers=0, pin_memory=True)
-
-
-class InputExample(object):
-    '''
-    A single example consisting of id, text, and label attributes
-    '''
-    def __init__(self, id, text, label):
-        '''
-        Initializes the InputExample object
-            Arguments:
-                id: A unique identification number
-                text: A sequence of tokens
-                label: A sequence of labels
-            Returns:
-                InputExample object
-        '''
-        self.id = id
-        self.text = text
-        self.label = label
-
-
-class InputFeatures(object):
-    '''
-    A single feature set consisting of token ids, label ids, attention masks, and valid masks
-    '''
-    def __init__(self, token_ids, label_ids, attention_mask, valid_mask):
-        '''
-        Initializes the InputFeatures object
-            Arguments:
-                token_ids: A sequence of token ids
-                label_ids: A sequence of label ids
-                attention_mask: An attention mask
-                valid_mask: A valid mask
-            Returns:
-                InputFeatures object
-        '''
-        self.token_ids = token_ids
-        self.label_ids = label_ids
-        self.attention_mask = attention_mask
-        self.valid_mask = valid_mask
