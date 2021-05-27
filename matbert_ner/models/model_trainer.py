@@ -4,7 +4,7 @@ from tqdm import tqdm
 import torch
 from torch.optim.lr_scheduler import LambdaLR
 from transformers import AdamW
-from torchtools.optim import RangerLars
+from torchtools.optim import RangerLars, Ralamb, Ranger, Novograd, RAdam, Lamb, Lookahead
 from seqeval.scheme import IOB1, IOB2, IOBES
 from seqeval.metrics import accuracy_score, classification_report
 
@@ -218,20 +218,33 @@ class NERTrainer(object):
                 None
         ''' 
         # optimizer dict
-        optimizers = {'adamw': AdamW, 'rangerlars': RangerLars}
+        optimizer_options = optimizer_name.split('_')
+        optimizer_name = optimizer_options[0]
+        if len(optimizer_options) > 1:
+            if optimizer_options[1] == 'lookahead':
+                la = True
+            else:
+                la = False
+        optimizers = {'adamw': AdamW, 'rangerlars': RangerLars,
+                      'ralamb': Ralamb, 'ranger': Ranger,
+                      'novograd': Novograd, 'radam': RAdam, 'lamb': Lamb}
         # default to AdamW if invalid optimizer name provided
         if optimizer_name not in optimizers.keys():
             optimizer_name = 'adamw'
             print('Reverted to default optimizer (AdamW)')
         # construct optimizer
-        self.optimizer = optimizers[optimizer_name]([{'params': self.model.bert.embeddings.parameters(), 'lr': elr},
-                                                     {'params': self.model.bert.encoder.parameters(), 'lr': tlr},
-                                                     {'params': self.model.bert.pooler.parameters(), 'lr': clr},
-                                                     {'params': self.model.classifier.parameters(), 'lr': clr},
-                                                     {'params': self.model.crf.parameters(), 'lr': clr}])
+        optimizer=optimizers[optimizer_name]([{'params': self.model.bert.embeddings.parameters(), 'lr': elr},
+                                              {'params': self.model.bert.encoder.parameters(), 'lr': tlr},
+                                              {'params': self.model.bert.pooler.parameters(), 'lr': clr},
+                                              {'params': self.model.classifier.parameters(), 'lr': clr},
+                                              {'params': self.model.crf.parameters(), 'lr': clr}])
+        if la:
+            self.optimizer = Lookahead(base_optimizer=optimizer, k=10, alpha=0.5)
+        else:
+            self.optimizer = optimizer
     
 
-    def init_scheduler(self, n_epoch, bert_unfreeze, function_name='linear'):
+    def init_scheduler(self, n_epoch, bert_unfreeze, function_name='exponential'):
         '''
         Initializes learning rate scheduler
             Arguments:
@@ -270,17 +283,17 @@ class NERTrainer(object):
         # for batch index
         for i in range(batch_size):
             # set valid index to 0
-            jj = 0
+            k = 0
             # for sequence index
             for j in range(max_len):
                 # if sequence index is valid
                 if inputs['valid_mask'][i][j].item() == 1:
                     # assign valid values at (batch index, valid index) to input values at (batch index, sequence index)
-                    valid_input_ids[i, jj] = inputs['input_ids'][i][j].item()
-                    valid_label_ids[i, jj] = inputs['label_ids'][i][j].item()
-                    valid_attention_mask[i, jj] = inputs['attention_mask'][i][j].item()
+                    valid_input_ids[i, k] = inputs['input_ids'][i][j].item()
+                    valid_label_ids[i, k] = inputs['label_ids'][i][j].item()
+                    valid_attention_mask[i, k] = inputs['attention_mask'][i][j].item()
                     # increment valid index
-                    jj += 1
+                    k += 1
         # return valid inputs
         return list(valid_input_ids), list(valid_label_ids), list(valid_attention_mask)
     
@@ -344,11 +357,11 @@ class NERTrainer(object):
             slbl = [[]]
             # initialize special subindices
             # sentence index (only stepped forward on new sentence)
-            ii = 0
+            k = 0
             # index within sentence (only stepped forward within sentence and reset on new sentence)
-            jj = 0
+            u = 0
             # index in labels (only stepped forward on valid indices)
-            kk = 0
+            v = 0
             # for index in sequence
             for j in range(len(valid_mask[i])):
                 # if the index is valid
@@ -364,29 +377,29 @@ class NERTrainer(object):
                             ctok.append([])
                             slbl.append([])
                             # step sentence index forward
-                            ii += 1
+                            k += 1
                             # reset index within sentence to zero
-                            jj = 0
+                            u = 0
                     # if valid token and not special token
                     else:
                         # append token to combined tokens
-                        ctok[ii].append(toks[i][j])
+                        ctok[k].append(toks[i][j])
                         # append label to single labels
-                        slbl[ii].append(lbls[i][kk] if lbls[i][kk] == 'O' else lbls[i][kk].split('-')[1])
+                        slbl[k].append(lbls[i][v] if lbls[i][v] == 'O' else lbls[i][v].split('-')[1])
                         # step index within sentence forward
-                        jj += 1
+                        u += 1
                     # step index within labels
-                    kk += 1
+                    v += 1
                 # if not valid index
                 else:
                     # if token is suffix (as determined by BERT tokenizer with ##)
                     if '##' in toks[i][j]:
                         # combine with prior token while filtering out the suffix indication (##)
-                        ctok[ii][jj-1] += toks[i][j].replace('##', '')
+                        ctok[k][u-1] += toks[i][j].replace('##', '')
                     # otherwise
                     else:
                         # combine with prior token
-                        ctok[ii][jj-1] += toks[i][j]
+                        ctok[k][u-1] += toks[i][j]
             # append sentences
             ctoks.append(ctok)
             slbls.append(slbl)

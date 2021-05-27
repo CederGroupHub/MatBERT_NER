@@ -35,7 +35,7 @@ def parse_args():
                         help='number of samples in each batch',
                         type=int, default=10)
     parser.add_argument('-on', '--optimizer_name',
-                        help='name of optimizer',
+                        help='name of optimizer, add "_lookahead" to implement lookahead on top of optimizer (not recommended for ranger or rangerlars)',
                         type=str, default='adamw')
     parser.add_argument('-ne', '--n_epoch',
                         help='number of training epochs',
@@ -126,8 +126,6 @@ if __name__ == '__main__':
     model_files = {'bert': 'bert-base-uncased',
                    'scibert': 'allenai/scibert_scivocab_uncased',
                    'matbert': '../../matbert-base-uncased'}
-    # labeling scheme dictionary
-    dschemes = {'IOB1': IOB1, 'IOB2': IOB2, 'IOBES': IOBES}
     # loop through command line lists
     for seed in seeds:
         for scheme in schemes:
@@ -161,7 +159,7 @@ if __name__ == '__main__':
                         # print classes
                         print('Classes: {}'.format(' '.join(ner_data.classes)))
                         # if test file already exists, skip, otherwise, train
-                        if os.path.exists(save_dir+'test.pt'):
+                        if os.path.exists(save_dir+'best.pt'):
                             print('Already trained {}'.format(alias))
                         else:
                             # create directory if it doesn't exist
@@ -189,7 +187,7 @@ if __name__ == '__main__':
                             # retrieve test results
                             metrics, test_results = bert_ner_trainer.test(ner_data.dataloaders['test'], test_path=save_dir+'test.pt', state_path=save_dir+'best.pt')
                             # print classification report over test results
-                            print(classification_report(test_results['labels'], test_results['predictions'], mode='strict', scheme=dschemes[scheme]))
+                            print(classification_report(test_results['labels'], test_results['predictions'], mode='strict', scheme=bert_ner_trainer.metric_scheme))
                             # predict classifications
                             annotations = bert_ner_trainer.predict(ner_data.dataloaders['test'], predict_path=save_dir+'predict.pt', state_path=save_dir+'best.pt')
                             # save tokens/annotations to text file

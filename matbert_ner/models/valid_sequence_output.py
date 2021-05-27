@@ -27,17 +27,17 @@ def valid_sequence_output(sequence_output, label_ids, attention_mask, valid_mask
     # loop through samples in batch
     for i in range(batch_size):
         # valid index starts at zero
-        jj = 0
+        k = 0
         # loop through length of sample
         for j in range(max_len):
             # if valid entry
             if valid_mask[i][j].item() == 1:
                 # fill in the valid tensors
-                valid_sequence[i][jj] = sequence_output[i][j]
+                valid_sequence[i][k] = sequence_output[i][j]
                 if label_ids is not None:
-                    valid_label_ids[i][jj] = label_ids[i][j]
-                valid_attention_mask[i][jj] = attention_mask[i][j]
+                    valid_label_ids[i][k] = label_ids[i][j]
+                valid_attention_mask[i][k] = attention_mask[i][j]
                 # increment index for valid tensors
-                jj += 1
+                k += 1
     # return valid tensors
     return valid_sequence, valid_label_ids, valid_attention_mask
