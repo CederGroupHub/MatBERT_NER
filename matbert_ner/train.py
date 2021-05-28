@@ -159,8 +159,13 @@ if __name__ == '__main__':
                         # print classes
                         print('Classes: {}'.format(' '.join(ner_data.classes)))
                         # if test file already exists, skip, otherwise, train
-                        if os.path.exists(save_dir+'best.pt'):
+                        if os.path.exists(save_dir+'best.pt') and os.path.exists(save_dir+'test.pt'):
                             print('Already trained {}'.format(alias))
+                            history = torch.load(save_dir+'history.pt')
+                            print('{:<10}{:<10}{:10}'.format('epoch', 'training', 'validation'))
+                            for i in range(len(history['training'].keys())):
+                                metrics = {key: np.mean([batch['micro avg']['f1-score'] for batch in history[key]['epoch_{}'.format(i)]]) for key in ['training', 'validation']}
+                                print('{:<10f}{:<10.4f}{:<10.4f}'.format(i, metrics['training'], metrics['validation']))
                         else:
                             # create directory if it doesn't exist
                             if not os.path.exists(save_dir):

@@ -225,6 +225,8 @@ class NERTrainer(object):
                 la = True
             else:
                 la = False
+        else:
+            la = False
         optimizers = {'adamw': AdamW, 'rangerlars': RangerLars,
                       'ralamb': Ralamb, 'ranger': Ranger,
                       'novograd': Novograd, 'radam': RAdam, 'lamb': Lamb}
