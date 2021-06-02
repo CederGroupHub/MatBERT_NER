@@ -206,7 +206,7 @@ class NERTrainer(object):
         return self.epoch_metrics
     
 
-    def init_optimizer(self, optimizer_name, elr, tlr, clr):
+    def init_optimizer(self, optimizer_name, elr, tlr, clr, weight_decay):
         '''
         Initialize optimizer
             Arguments:
@@ -235,11 +235,22 @@ class NERTrainer(object):
             optimizer_name = 'adamw'
             print('Reverted to default optimizer (AdamW)')
         # construct optimizer
-        optimizer=optimizers[optimizer_name]([{'params': self.model.bert.embeddings.parameters(), 'lr': elr},
-                                              {'params': self.model.bert.encoder.parameters(), 'lr': tlr},
-                                              {'params': self.model.bert.pooler.parameters(), 'lr': clr},
-                                              {'params': self.model.classifier.parameters(), 'lr': clr},
-                                              {'params': self.model.crf.parameters(), 'lr': clr}])
+        bert_embeddings_params = self.model.bert.embeddings.named_parameters()
+        bert_encoder_params = self.model.bert.encoder.named_parameters()
+        bert_pooler_params = self.model.bert.pooler.named_parameters()
+        classifier_params = self.model.classifier.named_parameters()
+        crf_params = self.model.crf.named_parameters()
+        no_decay = ['bias', 'gamma', 'beta']
+        optimizer=optimizers[optimizer_name]([{'params': [p for n, p in bert_embeddings_params if not any(nd in n for nd in no_decay)], 'lr': elr, 'weight_decay':weight_decay},
+                                              {'params': [p for n, p in bert_embeddings_params if any(nd in n for nd in no_decay)], 'lr': elr, 'weight_decay': 0.0},
+                                              {'params': [p for n, p in bert_encoder_params if not any(nd in n for nd in no_decay)], 'lr': tlr, 'weight_decay': weight_decay},
+                                              {'params': [p for n, p in bert_encoder_params if any(nd in n for nd in no_decay)], 'lr': tlr, 'weight_decay': 0.0},
+                                              {'params': [p for n, p in bert_pooler_params if not any(nd in n for nd in no_decay)], 'lr': clr, 'weight_decay': weight_decay},
+                                              {'params': [p for n, p in bert_pooler_params if any(nd in n for nd in no_decay)], 'lr': clr, 'weight_decay': 0.0},
+                                              {'params': [p for n, p in classifier_params if not any(nd in n for nd in no_decay)], 'lr': clr, 'weight_decay': weight_decay},
+                                              {'params': [p for n, p in classifier_params if any(nd in n for nd in no_decay)], 'lr': clr, 'weight_decay': 0.0},
+                                              {'params': [p for n, p in crf_params if not any(nd in n for nd in no_decay)], 'lr': clr, 'weight_decay': weight_decay},
+                                              {'params': [p for n, p in crf_params if any(nd in n for nd in no_decay)], 'lr': clr, 'weight_decay': 0.0}])
         if la:
             self.optimizer = Lookahead(base_optimizer=optimizer, k=10, alpha=0.5)
         else:

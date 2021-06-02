@@ -12,7 +12,7 @@ class BERTNER(BertPreTrainedModel):
     '''
     An BERT model with additional layers for a downstream NER task
     '''
-    def __init__(self, model_file, classes, scheme, seed):
+    def __init__(self, model_file, classes, scheme, seed=None):
         '''
         Initializes the BERT NER model
             Arguments:

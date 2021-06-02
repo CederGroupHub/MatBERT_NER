@@ -37,6 +37,9 @@ def parse_args():
     parser.add_argument('-on', '--optimizer_name',
                         help='name of optimizer, add "_lookahead" to implement lookahead on top of optimizer (not recommended for ranger or rangerlars)',
                         type=str, default='adamw')
+    parser.add_argument('-wd', '--weight_decay',
+                        help='weight decay for optimizer (excluding bias, gamma, and beta)',
+                        type=float, default=0)
     parser.add_argument('-ne', '--n_epoch',
                         help='number of training epochs',
                         type=int, default=5)
@@ -63,7 +66,7 @@ def parse_args():
                         action='store_true')
     args = parser.parse_args()
     return (args.device, args.seeds, args.tag_schemes, args.splits, args.datasets,
-            args.models, args.sentence_level, args.batch_size, args.optimizer_name,
+            args.models, args.sentence_level, args.batch_size, args.optimizer_name, args.weight_decay,
             args.n_epoch, args.embedding_unfreeze, args.transformer_unfreeze,
             args.embedding_learning_rate, args.transformer_learning_rate, args.classifier_learning_rate,
             args.scheduling_function, args.keep_model)
@@ -72,7 +75,7 @@ def parse_args():
 if __name__ == '__main__':
     # retrieve command line arguments
     (device, seeds, tag_schemes, splits, datasets,
-     models, sentence_level, batch_size, optimizer_name,
+     models, sentence_level, batch_size, optimizer_name, weight_decay,
      n_epoch, embedding_unfreeze, transformer_unfreeze,
      elr, tlr, clr, scheduling_function, keep_model) = parse_args()
     # if gpu
@@ -171,7 +174,7 @@ if __name__ == '__main__':
                             if not os.path.exists(save_dir):
                                 os.mkdir(save_dir)
                             # initialize optimizer
-                            bert_ner_trainer.init_optimizer(optimizer_name=optimizer_name, elr=elr, tlr=tlr, clr=clr)
+                            bert_ner_trainer.init_optimizer(optimizer_name=optimizer_name, elr=elr, tlr=tlr, clr=clr, weight_decay=weight_decay)
                             # train model
                             bert_ner_trainer.train(n_epoch=n_epoch, train_iter=ner_data.dataloaders['train'], valid_iter=ner_data.dataloaders['valid'],
                                                    embedding_unfreeze=embedding_unfreeze, encoder_schedule=encoder_schedule, scheduling_function=scheduling_function,
