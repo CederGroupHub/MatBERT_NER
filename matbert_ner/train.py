@@ -138,9 +138,9 @@ if __name__ == '__main__':
                         # parameter tumple
                         params = (model, dataset, 'sentence' if sentence_level else 'paragraph', scheme.lower(),
                                   batch_size, optimizer_name, n_epoch, embedding_unfreeze, transformer_unfreeze.replace(',', ''),
-                                  elr, tlr, clr, scheduling_function, seed, split)
+                                  elr, tlr, clr, weight_decay, scheduling_function, seed, split)
                         # alias for save directory
-                        alias = '{}_{}_{}_{}_crf_{}_{}_{}_{}_{}_{:.0e}_{:.0e}_{:.0e}_{}_{}_{}'.format(*params)
+                        alias = '{}_{}_{}_{}_crf_{}_{}_{}_{}_{}_{:.0e}_{:.0e}_{:.0e}_{:.0e}_{}_{}_{}'.format(*params)
                         save_dir = os.getcwd()+'/{}/'.format(alias)
                         print('Calculating results for {}'.format(alias))
                         # initialize ner data and split dictionary
