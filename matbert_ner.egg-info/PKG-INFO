@@ -1,0 +1,19 @@
+Metadata-Version: 1.0
+Name: matbert-ner
+Version: 0.1
+Summary: Training and inference for Materials Science named entity recognition (NER)
+Home-page: https://github.com/walkernr/MatBERT_NER
+Author: ['Nick Walker']
+Author-email: walkernr@lbl.gov
+License: UNKNOWN
+Description: # MatBERT NER
+        
+        A framework for materials science NER using the HuggingFace Transformers NLP Toolkit.
+        
+        # Installation
+        
+        
+        # Example Usage
+        
+        # License
+Platform: UNKNOWN

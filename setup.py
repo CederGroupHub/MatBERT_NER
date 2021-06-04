@@ -15,7 +15,7 @@ with open(readme_path, "r") as f:
     long_description = f.read()
 
 setup(
-    name="matbertner",
+    name="matbert_ner",
     version="0.1",
     description="Training and inference for Materials Science named entity recognition (NER)",
     long_description=long_description,
