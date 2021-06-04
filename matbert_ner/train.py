@@ -185,11 +185,6 @@ if __name__ == '__main__':
                             if use_cache:
                                 bert_ner_trainer.load_state_from_cache('best')
                                 bert_ner_trainer.save_state(state_path=save_dir+'best.pt')
-                            if not keep_model:
-                                try:
-                                    os.remove(save_dir+'best.pt')
-                                except:
-                                    print('Saved parameter file {} does not exist'.format(save_dir+'best.pt'))
                         # if test dataloader provided
                         if ner_data.dataloaders['test'] is not None and os.path.exists(save_dir+'best.pt'):
                             # retrieve test results
@@ -212,3 +207,8 @@ if __name__ == '__main__':
                                         f.write('{:<20}{}\n'.format(entity_type, ', '.join(entry['entities'][entity_type])))
                                     f.write(160*'-'+'\n')
                                     f.write(160*'='+'\n')
+                        if not keep_model:
+                            try:
+                                os.remove(save_dir+'best.pt')
+                            except:
+                                print('Saved parameter file {} does not exist'.format(save_dir+'best.pt'))
