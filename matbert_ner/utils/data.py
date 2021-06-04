@@ -500,7 +500,7 @@ class NERData():
         self.create_datasets(self.create_features(self.combine_or_split(self.label_entries(self.format_entries(self.split_entries(data, split_dict, shuffle, seed))), sentence_level)))  
     
 
-    def create_dataloaders(self, batch_size=32, shuffle=False, seed=256):
+    def create_dataloaders(self, batch_size=32, shuffle=True, seed=256):
         '''
         Creates dataloaders from dictionary of datasets which are saved as an attribute
             Arguments:
