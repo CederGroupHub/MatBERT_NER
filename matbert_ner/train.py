@@ -36,7 +36,7 @@ def parse_args():
                         type=int, default=10)
     parser.add_argument('-on', '--optimizer_name',
                         help='name of optimizer, add "_lookahead" to implement lookahead on top of optimizer (not recommended for ranger or rangerlars)',
-                        type=str, default='adamw')
+                        type=str, default='lamb')
     parser.add_argument('-wd', '--weight_decay',
                         help='weight decay for optimizer (excluding bias, gamma, and beta)',
                         type=float, default=0)
@@ -54,10 +54,10 @@ def parse_args():
                         type=float, default=1e-4)
     parser.add_argument('-tl', '--transformer_learning_rate',
                         help='transformer learning rate',
-                        type=float, default=1e-4)
+                        type=float, default=2e-3)
     parser.add_argument('-cl', '--classifier_learning_rate',
                         help='pooler/classifier learning rate',
-                        type=float, default=1e-3)
+                        type=float, default=1e-2)
     parser.add_argument('-sf', '--scheduling_function',
                         help='function for learning rate scheduler (linear, exponential, or cosine)',
                         type=str, default='exponential')
@@ -162,7 +162,7 @@ if __name__ == '__main__':
                         # print classes
                         print('Classes: {}'.format(' '.join(ner_data.classes)))
                         # if test file already exists, skip, otherwise, train
-                        if os.path.exists(save_dir+'best.pt') and os.path.exists(save_dir+'test.pt'):
+                        if os.path.exists(save_dir+'history.pt'):
                             print('Already trained {}'.format(alias))
                             history = torch.load(save_dir+'history.pt')
                             print('{:<10}{:<10}{:10}'.format('epoch', 'training', 'validation'))
@@ -186,13 +186,19 @@ if __name__ == '__main__':
                                 bert_ner_trainer.load_state_from_cache('best')
                                 bert_ner_trainer.save_state(state_path=save_dir+'best.pt')
                         # if test dataloader provided
-                        if ner_data.dataloaders['test'] is not None and os.path.exists(save_dir+'best.pt'):
-                            # retrieve test results
-                            metrics, test_results = bert_ner_trainer.test(ner_data.dataloaders['test'], test_path=save_dir+'test.pt', state_path=save_dir+'best.pt')
+                        if ner_data.dataloaders['test'] is not None:
+                            if os.path.exists(save_dir+'best.pt'):
+                                # predict test results
+                                metrics, test_results = bert_ner_trainer.test(ner_data.dataloaders['test'], test_path=save_dir+'test.pt', state_path=save_dir+'best.pt')
+                                # predict classifications
+                                annotations = bert_ner_trainer.predict(ner_data.dataloaders['test'], predict_path=save_dir+'predict.pt', state_path=save_dir+'best.pt')
+                            elif os.path.exists(save_dir+'test.pt'):
+                                # retrieve test results
+                                metrics, test_results = torch.load(save_dir+'test.pt')
+                                # retireve classifications
+                                annotations = torch.load(save_dir+'predict.pt')
                             # print classification report over test results
                             print(classification_report(test_results['labels'], test_results['predictions'], mode='strict', scheme=bert_ner_trainer.metric_scheme))
-                            # predict classifications
-                            annotations = bert_ner_trainer.predict(ner_data.dataloaders['test'], predict_path=save_dir+'predict.pt', state_path=save_dir+'best.pt')
                             # save tokens/annotations to text file
                             with open(save_dir+'predictions.txt', 'w') as f:
                                 for entry in annotations:

@@ -691,7 +691,7 @@ class NERTrainer(object):
                 self.scheduler.step()
     
     
-    def test(self, test_iter, test_path, state_path=None):
+    def test(self, test_iter, test_path=None, state_path=None):
         '''
         Evaluates the tests set and saves the predictions alongside the ground truths
             Arguments:
@@ -707,12 +707,13 @@ class NERTrainer(object):
         # evaluate the test set
         metrics, test_results = self.train_evaluate_epoch(0, 1, test_iter, 'test')
         # save the test metrics and results
-        torch.save((metrics, test_results), test_path)
+        if test_path is not None:
+            torch.save((metrics, test_results), test_path)
         # return the test metrics and results
         return metrics, test_results
     
 
-    def predict(self, predict_iter, predict_path, state_path=None):
+    def predict(self, predict_iter, predict_path=None, state_path=None):
         '''
         Predicts classifications for a dataset
             Arguments:
@@ -731,6 +732,7 @@ class NERTrainer(object):
         annotations = self.process_ids(prediction_results['input_ids'], prediction_results['attention_mask'],
                                        prediction_results['valid_mask'], prediction_results['prediction_ids'])
         # save annotations
-        torch.save(annotations, predict_path)
+        if predict_path is not None:
+            torch.save(annotations, predict_path)
         # return the annotations
         return annotations
