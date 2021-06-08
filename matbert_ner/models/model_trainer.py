@@ -602,7 +602,7 @@ class NERTrainer(object):
             return prediction_results
     
 
-    def train(self, n_epoch, train_iter, valid_iter, embedding_unfreeze, encoder_schedule, scheduling_function, save_dir, use_cache):
+    def train(self, n_epoch, train_iter, valid_iter, embedding_unfreeze, encoder_schedule, scheduling_function, save_dir=None, use_cache=False):
         '''
         Trains the model with validation if a validation iterator is provided
             Arguments:
