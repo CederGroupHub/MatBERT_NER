@@ -528,6 +528,7 @@ class NERTrainer(object):
 
             # if mode is not predict
             if mode != 'predict':
+                del loss
                 # display epoch progress, mode, and rolling averages alongside batch progress
                 msg = '| epoch: {:d}/{:d} | {} | loss: {:.4f} | accuracy: {:.4f} | precision: {:.4f} | recall: {:.4f} | f1-score: {:.4f} |'
                 info = (self.past_epoch+epoch+1, self.past_epoch+n_epoch, mode, means['loss'], means['accuracy'], means['precision'], means['recall'], means['f1-score'])
@@ -538,7 +539,6 @@ class NERTrainer(object):
                 info = (self.past_epoch+epoch+1, self.past_epoch+n_epoch, mode)
             # set progress bar description
             batch_range.set_description(msg.format(*info))
-            del loss
         # return statements
         if mode == 'test':
             return metrics, test_results
