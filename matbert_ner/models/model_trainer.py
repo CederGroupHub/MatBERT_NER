@@ -213,7 +213,7 @@ class NERTrainer(object):
                 optimizer_name: Name of optimizer (adamw or rangerlars)
                 elr: BERT embedding learning rate
                 tlr: BERT encoder learning rate
-                clr: Classifier learning rate (including BERT pooler, classifier, and CRF)
+                clr: Classifier learning rate (including classifier and CRF)
             Returns:
                 None
         ''' 
@@ -237,7 +237,6 @@ class NERTrainer(object):
         # construct optimizer
         bert_embeddings_params = self.model.bert.embeddings.named_parameters()
         bert_encoder_params = self.model.bert.encoder.named_parameters()
-        bert_pooler_params = self.model.bert.pooler.named_parameters()
         classifier_params = self.model.classifier.named_parameters()
         crf_params = self.model.crf.named_parameters()
         no_decay = ['bias', 'gamma', 'beta']
@@ -245,8 +244,6 @@ class NERTrainer(object):
                                               {'params': [p for n, p in bert_embeddings_params if any(nd in n for nd in no_decay)], 'lr': elr, 'weight_decay': 0.0},
                                               {'params': [p for n, p in bert_encoder_params if not any(nd in n for nd in no_decay)], 'lr': tlr, 'weight_decay': weight_decay},
                                               {'params': [p for n, p in bert_encoder_params if any(nd in n for nd in no_decay)], 'lr': tlr, 'weight_decay': 0.0},
-                                              {'params': [p for n, p in bert_pooler_params if not any(nd in n for nd in no_decay)], 'lr': clr, 'weight_decay': weight_decay},
-                                              {'params': [p for n, p in bert_pooler_params if any(nd in n for nd in no_decay)], 'lr': clr, 'weight_decay': 0.0},
                                               {'params': [p for n, p in classifier_params if not any(nd in n for nd in no_decay)], 'lr': clr, 'weight_decay': weight_decay},
                                               {'params': [p for n, p in classifier_params if any(nd in n for nd in no_decay)], 'lr': clr, 'weight_decay': 0.0},
                                               {'params': [p for n, p in crf_params if not any(nd in n for nd in no_decay)], 'lr': clr, 'weight_decay': weight_decay},
@@ -651,7 +648,7 @@ class NERTrainer(object):
         for param in self.model.bert.encoder.parameters():
             param.requires_grad = False
         print('BERT embeddings and encoders frozen')
-        print('CRF, Classifier, and BERT pooler unfrozen')
+        print('CRF, and Classifier unfrozen')
         # initialize best validation f1
         best_validation_f1 = 0.0
 
