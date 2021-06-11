@@ -517,7 +517,7 @@ class NERData():
         # for split in dataset
         for split in data_input_feature.keys():
             # collect features
-            token_ids = torch.tensor([d['token_ids'] for d in data_input_feature[split]], dtype=torch.long)
+            token_ids = torch.tensor([d['token_ids'] for d in data_input_feature[split]], dtype=torch.int32)
             label_ids = torch.tensor([d['label_ids'] for d in data_input_feature[split]], dtype=torch.uint8)
             attention_mask = torch.tensor([d['attention_mask'] for d in data_input_feature[split]], dtype=torch.bool)
             valid_mask = torch.tensor([d['valid_mask'] for d in data_input_feature[split]], dtype=torch.bool)
