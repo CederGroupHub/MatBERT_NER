@@ -99,7 +99,7 @@ class BERTNER(BertPreTrainedModel):
         prediction_ids = self.crf.decode(logits, mask=attention_mask)
         # if labels are provided, calculate loss
         if label_ids is not None:
-            loss = -self.crf(logits, label_ids, mask=attention_mask)
+            loss = -self.crf(logits, label_ids.type(torch.long), mask=attention_mask)
         # return statements
         if return_logits and label_ids is not None:
             return loss, logits, prediction_ids

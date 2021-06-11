@@ -19,7 +19,7 @@ def valid_sequence_output(sequence_output, label_ids, attention_mask, valid_mask
     valid_sequence = torch.zeros(batch_size, max_len, feat_dim, dtype=torch.float32, device=device)
     # initialize valid labels if label ids provided
     if label_ids is not None:
-        valid_label_ids = torch.zeros(batch_size, max_len, dtype=torch.long, device=device)
+        valid_label_ids = torch.zeros(batch_size, max_len, dtype=torch.uint8, device=device)
     else:
         valid_label_ids = None
     # initialize valid attention mask
