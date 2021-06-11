@@ -155,10 +155,8 @@ if __name__ == '__main__':
                         # preprocess data and create dataloaders
                         ner_data.preprocess(data_files[dataset], split_dict, is_file=True, sentence_level=sentence_level, shuffle=True, seed=seed)
                         ner_data.create_dataloaders(batch_size=batch_size, shuffle=True, seed=seed)
-                        # construct model
-                        bert_ner = BERTNER(model_file=model_files[model], classes=ner_data.classes, scheme=scheme, seed=seed)
                         # construct model trainer
-                        bert_ner_trainer = NERTrainer(bert_ner, device)
+                        bert_ner_trainer = NERTrainer(BERTNER(model_file=model_files[model], classes=ner_data.classes, scheme=scheme, seed=seed), device)
                         # print classes
                         print('Classes: {}'.format(' '.join(ner_data.classes)))
                         # if test file already exists, skip, otherwise, train
@@ -168,7 +166,7 @@ if __name__ == '__main__':
                             print('{:<10}{:<10}{:10}'.format('epoch', 'training', 'validation'))
                             for i in range(len(history['training'].keys())):
                                 metrics = {key: np.mean([batch['micro avg']['f1-score'] for batch in history[key]['epoch_{}'.format(i)]]) for key in ['training', 'validation']}
-                                print('{:<10f}{:<10.4f}{:<10.4f}'.format(i, metrics['training'], metrics['validation']))
+                                print('{:<10d}{:<10.4f}{:<10.4f}'.format(i, metrics['training'], metrics['validation']))
                         else:
                             # create directory if it doesn't exist
                             if not os.path.exists(save_dir):
@@ -218,3 +216,4 @@ if __name__ == '__main__':
                                 os.remove(save_dir+'best.pt')
                             except:
                                 print('Saved parameter file {} does not exist'.format(save_dir+'best.pt'))
+                        del ner_data, bert_ner_trainer
