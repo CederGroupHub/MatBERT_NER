@@ -541,6 +541,7 @@ class NERTrainer(object):
                 info = (self.past_epoch+epoch+1, self.past_epoch+n_epoch, mode)
             # set progress bar description
             batch_range.set_description(msg.format(*info))
+            del loss
         # return statements
         if mode == 'test':
             return metrics, test_results
