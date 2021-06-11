@@ -153,7 +153,7 @@ if __name__ == '__main__':
                             ner_data.dataloaders['valid'] = None
                             ner_data.dataloaders['test'] = None
                         # preprocess data and create dataloaders
-                        ner_data.preprocess(data_files[dataset], split_dict, is_file=True, sentence_level=False, shuffle=True, seed=seed)
+                        ner_data.preprocess(data_files[dataset], split_dict, is_file=True, sentence_level=sentence_level, shuffle=True, seed=seed)
                         ner_data.create_dataloaders(batch_size=batch_size, shuffle=True, seed=seed)
                         # construct model
                         bert_ner = BERTNER(model_file=model_files[model], classes=ner_data.classes, scheme=scheme, seed=seed)

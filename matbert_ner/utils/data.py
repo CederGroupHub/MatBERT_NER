@@ -5,6 +5,8 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
+from utils.tokenizer import MaterialsTextTokenizer
+from pathlib import Path
 
 class NERData():
     '''
@@ -20,6 +22,7 @@ class NERData():
                 NERData object
         '''
         # load tokenizer
+        self.pre_tokenizer = MaterialsTextTokenizer(Path(__file__).resolve().parent.as_posix()+'/phraser.pkl')
         self.tokenizer = BertTokenizer.from_pretrained(model_file)
         # initialize classes
         self.classes = None
@@ -64,9 +67,9 @@ class NERData():
         self.classes = ['O']+classes
 
     
-    def load_from_file(self, data_file):
+    def load_from_file_annotated(self, data_file):
         '''
-        Loads raw JSON entries from file. Also calls the get_classes function on the collected labels in the JSON entries
+        Loads raw annotated JSON entries from file. Also calls the get_classes function on the collected labels in the JSON entries
             Arguments:
                 data_file: Path to data file
             Returns:
@@ -108,6 +111,51 @@ class NERData():
         # fill out classes
         self.get_classes(labels)
         return data_raw
+
+    
+    def load_from_file_unannotated(self, data_file):
+        '''
+        Loads raw JSON unannotated entries from file. Also calls the get_classes function on the collected labels in the JSON entries
+            Arguments:
+                data_file: Path to data file
+            Returns:
+                List of dictionaries corresponding to the JSON entries
+        '''
+        # list of entry identifiers
+        identifiers = []
+        # list of raw data (json entries)
+        data_raw = []
+        # open data file
+        with open(data_file, 'r') as f:
+            content = f.read()
+            entries = json.loads(content)
+            for entry in entries:
+                # retrieve identifier (depends on the dataset, falls back to doi or doi+par)
+                identifier = entry['doi']
+                # only entries with unique identifiers are retrieved
+                if identifier in identifiers:
+                    pass
+                else:
+                    identifiers.append(identifier)
+                    d = {'doi': identifier, 'tokens': []}
+                    for sent in entry['sents']:
+                        tokens = self.pre_tokenizer.process(sent, convert_number=False)
+                        s = []
+                        for tok in tokens:
+                            s.append({'text': tok, 'annotation': None})
+                        d['tokens'].append(s)
+                    data_raw.append(d)
+                    # add labels in entry to raw label set
+        # fill out classes
+        self.get_classes([])
+        return data_raw
+
+
+    def load_from_file(self, data_file, annotated=True):
+        if annotated:
+            return self.load_from_file_annotated(data_file)
+        else:
+            return self.load_from_file_unannotated(data_file)
     
 
     def shuffle_data(self, data, seed=256):
@@ -477,7 +525,7 @@ class NERData():
             self.dataset[split] = TensorDataset(token_ids, label_ids, attention_mask, valid_mask)
     
 
-    def preprocess(self, data, split_dict={'main': 1}, is_file=True, sentence_level=False, shuffle=False, seed=256):
+    def preprocess(self, data, split_dict={'main': 1}, is_file=True, annotated=True, sentence_level=False, shuffle=False, seed=256):
         '''
         Preprocesses raw data provided in either dictionary or JSON form to produce datasets which are saved as an attribute
             Arguments:
@@ -492,7 +540,7 @@ class NERData():
         '''
         # call load from file if the data is a file
         if is_file:
-            data = self.load_from_file(data)
+            data = self.load_from_file(data, annotated)
         # shuffle the entries if shuffle is True
         if shuffle:
             data = self.shuffle_data(data, seed)

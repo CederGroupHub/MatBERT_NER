@@ -43,10 +43,11 @@ class CRF(nn.Module):
             np.random.seed(seed)
         # initialize weights
         self.crf.reset_parameters()
-        # construct definitions of invalid transitions
-        self.define_invalid_crf_transitions()
-        # initialize transitions
-        self.init_crf_transitions()
+        if len(self.classes) > 1:
+            # construct definitions of invalid transitions
+            self.define_invalid_crf_transitions()
+            # initialize transitions
+            self.init_crf_transitions()
     
 
     def define_invalid_crf_transitions(self):

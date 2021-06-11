@@ -439,7 +439,7 @@ class NERTrainer(object):
                             # append joined entity to dictionary
                             entry_entities[slbls[i][j][entity_idx[k]]].add(' '.join(ctoks[i][j][entity_idx[k]:entity_idx[k+1]]))
             # append entry entity dictionary
-            entities.append(entry_entities)
+            entities.append({class_type: list(entry_entities[class_type]) for class_type in class_types})
         # construct dictionary of (text, annotation) pairs under tokens and a dictionary of entities under entities
         annotations = [{'tokens': [[{'text': t, 'annotation': l} for t, l in zip(ctoks_sequence, slbls_sequence)]
                                    for ctoks_sequence, slbls_sequence in zip(ctoks_entry, slbls_entry)],
