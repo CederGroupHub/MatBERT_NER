@@ -91,7 +91,7 @@ class BERTNER(BertPreTrainedModel):
         sequence_output = outputs[0]
         # valid outputs
         sequence_output, label_ids, attention_mask = valid_sequence_output(sequence_output, label_ids, attention_mask, valid_mask, device)
-        # label_ids = label_ids.type(torch.long)
+        label_ids = label_ids.type(torch.long)
         # dropout on valid hidden layer output
         sequence_output = self.dropout(sequence_output)
         # classification logits
