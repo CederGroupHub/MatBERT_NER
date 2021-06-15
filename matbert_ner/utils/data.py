@@ -84,7 +84,7 @@ class NERData():
         # open data file
         with open(data_file, 'r') as f:
             # for line in file
-            for l in f:
+            for l in tqdm(f, desc='| loading annotated entries |'):
                 # load json entry
                 d = json.loads(l)
                 # retrieve identifier (depends on the dataset, falls back to doi or doi+par)
@@ -129,7 +129,7 @@ class NERData():
         with open(data_file, 'r') as f:
             content = f.read()
             entries = json.loads(content)
-            for entry in entries:
+            for entry in tqdm(entries, desc='| pre-tokenizing unannotated entries |'):
                 # retrieve identifier (depends on the dataset, falls back to doi or doi+par)
                 identifier = entry['doi']
                 # only entries with unique identifiers are retrieved

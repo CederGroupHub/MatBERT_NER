@@ -240,7 +240,7 @@ class NERTrainer(object):
         classifier_params = self.model.classifier.named_parameters()
         crf_params = self.model.crf.named_parameters()
         no_decay = ['bias', 'gamma', 'beta']
-        optimizer=optimizers[optimizer_name]([{'params': [p for n, p in bert_embeddings_params if not any(nd in n for nd in no_decay)], 'lr': elr, 'weight_decay':weight_decay},
+        optimizer=optimizers[optimizer_name]([{'params': [p for n, p in bert_embeddings_params if not any(nd in n for nd in no_decay)], 'lr': elr, 'weight_decay': weight_decay},
                                               {'params': [p for n, p in bert_embeddings_params if any(nd in n for nd in no_decay)], 'lr': elr, 'weight_decay': 0.0},
                                               {'params': [p for n, p in bert_encoder_params if not any(nd in n for nd in no_decay)], 'lr': tlr, 'weight_decay': weight_decay},
                                               {'params': [p for n, p in bert_encoder_params if any(nd in n for nd in no_decay)], 'lr': tlr, 'weight_decay': 0.0},
