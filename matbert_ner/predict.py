@@ -1,12 +1,12 @@
 import os
 
-data_file = '../../../LBL_NER_DATASETS/dop_toparse_2000.json'
+data_file = '../../../LBL_NER_DATASETS/dop_toparse_169828.json'
 model_file = '../../matbert-base-uncased'
 save_dir = './matbert_doping_paragraph_iobes_crf_10_lamb_5_1_012_1e-04_2e-03_1e-02_0e+00_exponential_256_80/'
 state_path = save_dir+'best.pt'
 scheme = 'IOBES'
 split_dict = {'predict': 1.0}
-batch_size = 10
+batch_size = 256
 sentence_level = False
 seed = None
 device = 'cpu'

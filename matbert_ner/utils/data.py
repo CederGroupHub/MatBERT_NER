@@ -148,6 +148,7 @@ class NERData():
                     # add labels in entry to raw label set
         # fill out classes
         self.get_classes([])
+        print(len(data_raw))
         return data_raw
 
 
@@ -194,7 +195,7 @@ class NERData():
         # fill list of split values
         split_vals = [split_dict[key] for key in split_keys]
         # calculate ending indices for splits based on size of dataset
-        index_split_vals = (np.cumsum(split_vals)*len(data_raw)).astype(np.uint16)
+        index_split_vals = (np.cumsum(split_vals)*len(data_raw)).astype(np.uint32)
         # split data according to split indices
         data_split = {split_keys[i]: data_raw[:index_split_vals[i]] if i == 0 else data_raw[index_split_vals[i-1]:index_split_vals[i]] for i in range(len(split_keys))}
         return data_split
