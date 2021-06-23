@@ -194,7 +194,7 @@ if __name__ == '__main__':
                                 # predict test results
                                 metrics, test_results = bert_ner_trainer.test(ner_data.dataloaders['test'], test_path=save_dir+'test.pt', state_path=save_dir+'best.pt')
                                 # predict classifications
-                                annotations = bert_ner_trainer.predict(ner_data.dataloaders['test'], predict_path=save_dir+'predict.pt', state_path=save_dir+'best.pt')
+                                annotations = bert_ner_trainer.predict(ner_data.dataloaders['test'], original_data=ner_data.data['test'], predict_path=save_dir+'predict.pt', state_path=save_dir+'best.pt')
                             elif os.path.exists(save_dir+'test.pt'):
                                 # retrieve test results
                                 metrics, test_results = torch.load(save_dir+'test.pt')

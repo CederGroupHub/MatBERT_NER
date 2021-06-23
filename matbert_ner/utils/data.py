@@ -12,7 +12,7 @@ class NERData():
     '''
     An object for handling NER data
     '''
-    def __init__(self, model_file="allenai/scibert_scivocab_uncased", scheme='IOB2'):
+    def __init__(self, model_file="allenai/scibert_scivocab_uncased", scheme='IOBES'):
         '''
         Initializes the NERData object
             Arguments:
@@ -40,6 +40,7 @@ class NERData():
         # labeling scheme
         self.scheme = scheme
         # initialize dataset and dataloaders
+        self.data = None
         self.dataset = None
         self.dataloaders = None
     
@@ -139,7 +140,7 @@ class NERData():
                     identifiers.append(identifier)
                     d = {'doi': identifier, 'tokens': []}
                     for sent in entry['sents']:
-                        tokens = self.pre_tokenizer.process(sent, convert_number=False)
+                        tokens = self.pre_tokenizer.process(sent, convert_number=False, normalize_materials=False)
                         s = []
                         for tok in tokens:
                             s.append({'text': tok, 'annotation': None})
@@ -333,6 +334,7 @@ class NERData():
                     d.append(s)
                 # append the entry to the labeled data split
                 data_labeled[split].append(d)
+        self.data = data_labeled
         return data_labeled
 
     
@@ -518,10 +520,10 @@ class NERData():
         # for split in dataset
         for split in data_input_feature.keys():
             # collect features
-            token_ids = torch.tensor([d['token_ids'] for d in data_input_feature[split]], dtype=torch.long)
-            label_ids = torch.tensor([d['label_ids'] for d in data_input_feature[split]], dtype=torch.uint8)
-            attention_mask = torch.tensor([d['attention_mask'] for d in data_input_feature[split]], dtype=torch.bool)
-            valid_mask = torch.tensor([d['valid_mask'] for d in data_input_feature[split]], dtype=torch.bool)
+            token_ids = torch.tensor([d['token_ids'] for d in data_input_feature[split]], dtype=torch.long, device=torch.device('cpu'))
+            label_ids = torch.tensor([d['label_ids'] for d in data_input_feature[split]], dtype=torch.uint8, device=torch.device('cpu'))
+            attention_mask = torch.tensor([d['attention_mask'] for d in data_input_feature[split]], dtype=torch.bool, device=torch.device('cpu'))
+            valid_mask = torch.tensor([d['valid_mask'] for d in data_input_feature[split]], dtype=torch.bool, device=torch.device('cpu'))
             # store as tensor dataset
             self.dataset[split] = TensorDataset(token_ids, label_ids, attention_mask, valid_mask)
     

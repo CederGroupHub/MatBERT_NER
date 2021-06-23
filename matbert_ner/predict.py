@@ -1,6 +1,6 @@
 import os
 
-data_file = '../../../LBL_NER_DATASETS/dop_toparse_169828.json'
+data_file = '../../../LBL_NER_DATASETS/dop_toparse_2000.json'
 model_file = '../../matbert-base-uncased'
 save_dir = './matbert_doping_paragraph_iobes_crf_10_lamb_5_1_012_1e-04_2e-03_1e-02_0e+00_exponential_256_80/'
 state_path = save_dir+'best.pt'
@@ -35,7 +35,7 @@ ner_data.preprocess(data_file, split_dict, is_file=True, annotated=False, senten
 ner_data.create_dataloaders(batch_size=batch_size, shuffle=False, seed=seed)
 bert_ner = BERTNER(model_file=model_file, classes=ner_data.classes, scheme=scheme, seed=seed)
 bert_ner_trainer = NERTrainer(bert_ner, device)
-annotations = bert_ner_trainer.predict(ner_data.dataloaders['predict'], predict_path=save_dir+'predict_{}.pt'.format(data_file.split('/')[-1].replace('.json', '')), state_path=state_path)
+annotations = bert_ner_trainer.predict(ner_data.dataloaders['predict'], original_data=ner_data.data['predict'], predict_path=save_dir+'predict_{}.pt'.format(data_file.split('/')[-1].replace('.json', '')), state_path=state_path)
 with open(save_dir+'predictions_{}.txt'.format(data_file.split('/')[-1].replace('.json', '')), 'w') as f:
     for entry in annotations:
         f.write(160*'='+'\n')

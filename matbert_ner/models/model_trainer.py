@@ -413,36 +413,38 @@ class NERTrainer(object):
             # append sentences
             ctoks.append(ctok)
             slbls.append(slbl)
-        # empty intity list
-        entities = []
+        # construct dictionary of (text, annotation) pairs under tokens and a dictionary of entities under entities
+        annotations = [{'tokens': [[{'text': t, 'annotation': l} for t, l in zip(ctoks_sequence, slbls_sequence)]
+                                   for ctoks_sequence, slbls_sequence in zip(ctoks_entry, slbls_entry)]}
+                       for ctoks_entry, slbls_entry in zip(ctoks, slbls)]
+        return annotations
+    
+
+    def process_summaries(self, annotations):
         # class types
         class_types = sorted(list(set([class_.split('-')[1] for class_ in self.model.classes if class_ != 'O'])))
         # for entry
-        for i in range(len(slbls)):
+        for annotation in annotations:
             # initialize empty dictionary of extracted entities
             entry_entities = {class_type: set([]) for class_type in class_types}
             # for sentence in entry
-            for j in range (len(slbls[i])):
+            for sentence in annotation['tokens']:
                 # extract beginning indices for entities
-                entity_idx = [k for k in range(len(slbls[i][j])) if slbls[i][j][k] != slbls[i][j][k-1]]
+                entity_idx = [k for k in range(len(sentence)) if sentence[k]['annotation'] != sentence[k-1]['annotation']]
                 # append ending sequence
-                entity_idx.append(len(slbls[i][j]))
+                entity_idx.append(len(sentence))
                 # for entity beginning index
                 for k in range(len(entity_idx)):
                     # if not last index (last index in sequence)
                     if k != len(entity_idx)-1:
                         # if entity is not outside
-                        if slbls[i][j][entity_idx[k]] != 'O':
+                        if sentence[entity_idx[k]]['annotation'] != 'O':
                             # append joined entity to dictionary
-                            entry_entities[slbls[i][j][entity_idx[k]]].add(' '.join(ctoks[i][j][entity_idx[k]:entity_idx[k+1]]))
+                            entry_entities[sentence[entity_idx[k]]['annotation']].add(' '.join([sentence[u]['text'] for u in range(entity_idx[k], entity_idx[k+1])]))
             # append entry entity dictionary
-            entities.append({class_type: list(entry_entities[class_type]) for class_type in class_types})
-        # construct dictionary of (text, annotation) pairs under tokens and a dictionary of entities under entities
-        annotations = [{'tokens': [[{'text': t, 'annotation': l} for t, l in zip(ctoks_sequence, slbls_sequence)]
-                                   for ctoks_sequence, slbls_sequence in zip(ctoks_entry, slbls_entry)],
-                        'entities': entities_entry}
-                       for ctoks_entry, slbls_entry, entities_entry in zip(ctoks, slbls, entities)]
+            annotation['entities'] = {class_type: list(entry_entities[class_type]) for class_type in class_types}
         return annotations
+
     
 
     def iterate_batches(self, epoch, n_epoch, iterator, mode):
@@ -711,7 +713,7 @@ class NERTrainer(object):
         return metrics, test_results
     
 
-    def predict(self, predict_iter, predict_path=None, state_path=None):
+    def predict(self, predict_iter, original_data=None, predict_path=None, state_path=None):
         '''
         Predicts classifications for a dataset
             Arguments:
@@ -729,6 +731,12 @@ class NERTrainer(object):
         # process the predictions into annotations
         annotations = self.process_ids(prediction_results['input_ids'], prediction_results['attention_mask'],
                                        prediction_results['valid_mask'], prediction_results['prediction_ids'])
+        if original_data is not None:
+            for annotation, original in zip(annotations, original_data):
+                for annotated_sentence, original_sentence in zip(annotation['tokens'], original):
+                    for token, text in zip(annotated_sentence, original_sentence['text']):
+                        token['text'] = text
+        annotations = self.process_summaries(annotations)
         # save annotations
         if predict_path is not None:
             torch.save(annotations, predict_path)
