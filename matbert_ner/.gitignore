@@ -1,4 +1,6 @@
-./__pycache__/*
-./models/__pycache__/*
-./data/__pycache__/*
-./utils/__pycache__/*
+*
+!models
+!utils
+!data
+!*.py
+!*.pkl

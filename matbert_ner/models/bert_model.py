@@ -1,134 +1,112 @@
-from torch.nn import CrossEntropyLoss
-from transformers.models.bert.modeling_bert import BertModel
-from transformers.models.bert.modeling_bert import BertPreTrainedModel
-import torch.nn as nn
-import torch
-import torch.nn.functional as F
-from typing import List, Optional
 import numpy as np
-from models.base_ner_model import NERModel
-import torch.optim as optim
-from torchtools.optim import RangerLars
-from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup, get_cosine_with_hard_restarts_schedule_with_warmup
+import torch
+import torch.nn as nn
+from transformers import AutoConfig
+from transformers import BertTokenizer
+from transformers.models.bert.modeling_bert import BertModel, BertPreTrainedModel
 from models.crf_layer import CRF
 from models.valid_sequence_output import valid_sequence_output
 
 
-class BertCRFNERModel(NERModel):
-
-
-    def initialize_model(self):
-        ner_model = BertCrfForNer(self.config, self.classes, self.tag_scheme, self.device).to(self.device)
-        return ner_model
-
-
-    def create_optimizer(self, deep_finetuning=True):
-        if deep_finetuning:
-            param_optimizer = list(self.model.named_parameters())
-            no_decay = ['bias', 'gamma', 'beta']
-            optimizer_grouped_parameters = [{'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay_rate': 0.0},
-                                            {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)],'weight_decay_rate': 0.0}]
-        else:
-            param_optimizer = [item for sblst in [list(module.named_parameters()) for module in self.model.model_modules[1:]] for item in sblst]
-            optimizer_grouped_parameters = [{"params": [p for n, p in param_optimizer]}]
-
-        optimizer = optim.AdamW(optimizer_grouped_parameters, lr=self.lr, eps=1e-8)
-        # optimizer = RangerLars(optimizer_grouped_parameters, lr=self.lr)
-        return optimizer
-
-
-    def create_scheduler(self, optimizer, n_epochs, train_dataloader):
-        warmup_epochs = 1
-        scheduler = get_linear_schedule_with_warmup(optimizer,
-                                                    num_warmup_steps=len(train_dataloader)*warmup_epochs,
-                                                    num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader))
-        # scheduler = get_cosine_schedule_with_warmup(optimizer,
-        #                                             num_warmup_steps=len(train_dataloader)*warmup_epochs,
-        #                                             num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader),
-        #                                             num_cycles=(n_epochs-warmup_epochs)/10)
-        # scheduler = get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
-        #                                                                num_warmup_steps=len(train_dataloader)*warmup_epochs,
-        #                                                                num_training_steps=(n_epochs-warmup_epochs)*len(train_dataloader),
-        #                                                                num_cycles=(n_epochs-warmup_epochs)/5)
-        return scheduler
-
-
-    def document_embeddings(self, **inputs):
-        return self.model.document_embedding(**inputs)
-
-
-class BertCrfForNer(BertPreTrainedModel):
-    def __init__(self, config, tag_names, tag_scheme, device):
-        super(BertCrfForNer, self).__init__(config)
-        self.bert = BertModel(config).from_pretrained(config.model_name)
-        self._device = device
-        self.use_lstm = False
-        self.dropout_b = nn.Dropout(config.hidden_dropout_prob)
-        self.model_modules = [self.bert, self.dropout_b]
-        if self.use_lstm:
-            self.lstm = nn.LSTM(batch_first=True, input_size=config.hidden_size,
-                                hidden_size=64, num_layers=2,
-                                bidirectional=True, dropout=0.1)
-            self.attn = nn.MultiheadAttention(embed_dim=128, num_heads=16, dropout=0.25)
-            self.dropout_c = nn.Dropout(0.25)
-            self.model_modules.extend([self.lstm, self.attn, self.dropout_c])
-        self.classifier = nn.Linear(128 if self.use_lstm else config.hidden_size, config.num_labels)
-        self.model_modules.append(self.classifier)
-        self.crf = CRF(tag_names=tag_names, tag_scheme=tag_scheme, batch_first=True)
-        self.crf.initialize()
-        self.model_modules.append(self.crf)
-
-
-    @property
-    def device(self):
-        return self._device
+class BERTNER(BertPreTrainedModel):
+    '''
+    An BERT model with additional layers for a downstream NER task
+    '''
+    def __init__(self, model_file, classes, scheme, seed=None):
+        '''
+        Initializes the BERT NER model
+            Arguments:
+                model_file: Path to the pretrained BERT model
+                classes: A list of classes (labels)
+                scheme: The labeling scheme e.g. IOB1, IOB2, or IOBES
+                seed: Random seed for parameter initialization
+            Returns:
+                BERTNER model
+        '''
+        # model file
+        self.model_file = model_file
+        # generate configuration from file
+        self.config = AutoConfig.from_pretrained(self.model_file)
+        # initialize tokenizer from file
+        self.tokenizer = BertTokenizer.from_pretrained(self.model_file)
+        # initialize pretrained BERT model parent class
+        super(BERTNER, self).__init__(self.config)
+        # classes
+        self.classes = classes
+        # labeling scheme
+        self.scheme = scheme
+        # seed for parameter initialization
+        self.seed = seed
+        # build model layers
+        self.build_model()
     
 
-    @device.setter
-    def device(self, device):
-        self._device = device
+    def build_model(self):
+        '''
+        Builds BERT NER model layers
+            Arguments:
+                None
+            Returns:
+                None
+        '''
+        # set seeds if a seed was provided
+        if self.seed:
+            torch.manual_seed(self.seed)
+            torch.cuda.manual_seed(self.seed)
+            np.random.seed(self.seed)
+        # initialize BERT model from file
+        self.bert = BertModel(self.config).from_pretrained(self.model_file)
+        # dropout layer for bert output
+        self.dropout = nn.Dropout(self.config.hidden_dropout_prob)
+        # dense classification layer
+        self.classifier = nn.Linear(self.config.hidden_size, len(self.classes))
+        # CRF output layer
+        self.crf = CRF(classes=self.classes, scheme=self.scheme, batch_first=True)
+        # initialize CRF with seed
+        self.crf.initialize(self.seed)
+    
 
-
-    def forward(self, input_ids,
-                attention_mask=None, token_type_ids=None,
-                position_ids=None, head_mask=None,
-                inputs_embeds=None, valid_mask=None,
-                labels=None, return_logits=False):
+    def forward(self, input_ids, label_ids=None, attention_mask=None, valid_mask=None, return_logits=False, device='cpu'):
+        '''
+        BERT NER forward call function
+            Arguments:
+                input_ids: Batch of sequence ids
+                label_ids: Batch of label ids
+                attention_mask: Batch of attention masks
+                valid_mask: Batch of valid masks
+                return_logits: Boolean controlling whether logits are returned
+                device: Device used for computation
+            Returns:
+                always returns prediction_ids
+                additionally returns loss if label_ids are provided
+                additionally returns logits if specified
+                order: loss, logits, prediction_ids
+        '''
+        # BERT outputs
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask,
-                            token_type_ids=token_type_ids, position_ids=position_ids,
-                            head_mask=head_mask, inputs_embeds=inputs_embeds,
+                            token_type_ids=None, position_ids=None,
+                            head_mask=None, inputs_embeds=None,
                             output_hidden_states=False)
-        # sequence_output = [outputs[2][i] for i in (-1, -2, -3, -4)]
-        # sequence_output = torch.mean(torch.stack(sequence_output), dim=0)
+        # final hidden layer
         sequence_output = outputs[0]
-        sequence_output, attention_mask = valid_sequence_output(input_ids, sequence_output, valid_mask, attention_mask, self.device)
-        sequence_output = self.dropout_b(sequence_output)
-        if self.use_lstm:
-            lstm_out, _ = self.lstm(sequence_output)
-            attn_out, attn_weight = self.attn(lstm_out, lstm_out, lstm_out, key_padding_mask=attention_mask)
-            logits = self.classifier(self.dropout_c(attn_out))
+        # valid outputs
+        sequence_output, label_ids, attention_mask = valid_sequence_output(sequence_output, label_ids, attention_mask, valid_mask, device)
+        # dropout on valid hidden layer output
+        sequence_output = self.dropout(sequence_output)
+        # classification logits
+        logits = self.classifier(sequence_output)
+        # prediction ids from Viterbi decode
+        prediction_ids = self.crf.decode(logits, mask=attention_mask)
+        # if labels are provided, calculate loss
+        if label_ids is not None:
+            label_ids = label_ids.type(torch.long)
+            loss = -self.crf(logits, label_ids, mask=attention_mask)
+        # return statements
+        if return_logits and label_ids is not None:
+            return loss, logits, prediction_ids
+        elif label_ids is not None:
+            return loss, prediction_ids
+        elif return_logits:
+            return logits, prediction_ids
         else:
-            logits = self.classifier(sequence_output)
-        predictions = self.crf.decode(logits, mask=attention_mask)
-        outputs = (predictions, )
-        if return_logits:
-            outputs = outputs + (logits, )
-        if labels is not None:
-            labels = torch.where(labels >= 0, labels, torch.zeros_like(labels))
-            loss = -self.crf(logits, labels, mask=attention_mask)
-            outputs = (loss,) + outputs
-        return outputs  # loss, logits/predictions
-
-
-    def document_embedding(self, input_ids,
-                           attention_mask=None, token_type_ids=None,
-                           position_ids=None, head_mask=None,
-                           inputs_embeds=None):
-        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask,
-                            token_type_ids=token_type_ids, position_ids=position_ids,
-                            head_mask=head_mask, inputs_embeds=inputs_embeds,
-                            output_hidden_states=True)
-        sequence_output = [outputs[2][i] for i in (-1, -2, -3, -4)]
-        sequence_output = torch.mean(torch.mean(torch.stack(sequence_output), dim=0), dim=1)
-        #sequence_output = torch.mean(outputs[0], dim=1)
-        return sequence_output
+            return prediction_ids

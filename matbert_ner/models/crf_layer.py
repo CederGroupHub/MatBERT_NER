@@ -1,32 +1,64 @@
 import torch
 from torch import nn
 import torchcrf
+import numpy as np
 
 class CRF(nn.Module):
-    def __init__(self, tag_names, tag_scheme, batch_first):
+    '''
+    Module implementing a conditional random field (CRF) output layer with the capacity for initializing transitions sensitive to the provided labeling scheme
+    '''
+    def __init__(self, classes, scheme, batch_first):
+        '''
+        Initializes the CRF module
+            Arguments:
+                classes: A list of classes (labels)
+                scheme: The labeling scheme e.g. IOB1, IOB2, or IOBES
+                batch_first: If True, the batch index is the first dimension as opposed to the last
+            Returns:
+                CRF module object
+        '''
         super().__init__()
-        # tag names
-        self.tag_names = tag_names
-        # tag prefixes
-        self.prefixes = set([tag_name.split('-')[0] for tag_name in self.tag_names])
-        # tag format
-        self.tag_scheme = tag_scheme
+        # classes
+        self.classes = classes
+        # class prefixes
+        self.prefixes = set([class_.split('-')[0] for class_ in self.classes])
+        # labeling scheme
+        self.scheme = scheme
         # initialize CRF
-        self.crf = torchcrf.CRF(num_tags=len(self.tag_names), batch_first=batch_first)
+        self.crf = torchcrf.CRF(num_tags=len(self.classes), batch_first=batch_first)
     
 
-    def initialize(self):
+    def initialize(self, seed):
+        '''
+        Initializes the CRF output layer
+            Arguments:
+                seed: Random seed for parameter initialization
+            Returns:
+                None
+        '''
+        # set seeds
+        if seed:
+            torch.manual_seed(seed)
+            torch.cuda.manual_seed(seed)
+            np.random.seed(seed)
         # initialize weights
         self.crf.reset_parameters()
-        # construct definitions of invalid transitions
-        self.define_invalid_crf_transitions()
-        # initialize transitions
-        self.init_crf_transitions()
+        if len(self.classes) > 1:
+            # construct definitions of invalid transitions
+            self.define_invalid_crf_transitions()
+            # initialize transitions
+            self.init_crf_transitions()
     
 
     def define_invalid_crf_transitions(self):
-        ''' function for establishing valid tagging transitions, assumes BIO or BILUO tagging '''
-        if self.tag_scheme == 'IOB':
+        '''
+        Establishes valid tagging transitions for the given labeling scheme
+            Arguments:
+                None
+            Returns:
+                None
+        '''
+        if self.scheme == 'IOB':
             # (B)eginning (I)nside (O)utside
             # must begin with O (outside) due to [CLS] token
             self.invalid_begin = ('B', 'I')
@@ -36,7 +68,7 @@ class CRF(nn.Module):
             self.invalid_transitions_position = {'B': 'BO'}
             # prevent B (beginning) going to I (inside) or B (beginning) of a different type
             self.invalid_transitions_tags = {'B': 'IB'}
-        elif self.tag_scheme == 'IOB2':
+        elif self.scheme == 'IOB2':
             # (B)eginning (I)nside (O)utside
             # must begin with O (outside) due to [CLS] token
             self.invalid_begin = ('B', 'I')
@@ -48,7 +80,7 @@ class CRF(nn.Module):
             # prevent I (inside) going to I (inside) of a different type
             self.invalid_transitions_tags = {'B': 'I',
                                              'I': 'I'}
-        elif self.tag_scheme == 'IOBES':
+        elif self.scheme == 'IOBES':
             # (B)eginning (I)nside (E)nd (S)ingle (O)utside
             # must begin with O (outside) due to [CLS] token
             self.invalid_begin = ('B', 'I', 'E', 'S')
@@ -70,41 +102,69 @@ class CRF(nn.Module):
                                              'I': 'IE'}
     
 
-    def init_crf_transitions(self, imp_value=-100):
-        num_tags = len(self.tag_names)
+    def init_crf_transitions(self, penalty=-10000):
+        '''
+        Initializes CRF transitions according to invalid transitions as dictating by the labeling scheme
+            Arguments:
+                penalty: The static penalty to the loss for an invalid transition
+            Returns:
+                None
+        '''
+        num_tags = len(self.classes)
         # penalize bad beginnings and endings
         for i in range(num_tags):
-            tag_name = self.tag_names[i]
-            if tag_name.split('-')[0] in self.invalid_begin:
-                torch.nn.init.constant_(self.crf.start_transitions[i], imp_value)
-            if tag_name.split('-')[0] in self.invalid_end:
-                torch.nn.init.constant_(self.crf.end_transitions[i], imp_value)
-        # build tag type dictionary
-        tag_is = {}
-        for tag_position in self.prefixes:
-            tag_is[tag_position] = [i for i, tag in enumerate(self.tag_names) if tag.split('-')[0] == tag_position]
-        # penalties for invalid consecutive tags by position
-        for from_tag, to_tag_list in self.invalid_transitions_position.items():
-            to_tags = list(to_tag_list)
-            for from_tag_i in tag_is[from_tag]:
-                for to_tag in to_tags:
-                    for to_tag_i in tag_is[to_tag]:
-                        torch.nn.init.constant_(self.crf.transitions[from_tag_i, to_tag_i], imp_value)
-        # penalties for invalid consecutive tags by tag
-        for from_tag, to_tag_list in self.invalid_transitions_tags.items():
-            to_tags = list(to_tag_list)
-            for from_tag_i in tag_is[from_tag]:
-                for to_tag in to_tags:
-                    for to_tag_i in tag_is[to_tag]:
-                        if self.tag_names[from_tag_i].split('-')[1] != self.tag_names[to_tag_i].split('-')[1]:
-                            torch.nn.init.constant_(self.crf.transitions[from_tag_i, to_tag_i], imp_value)
+            class_ = self.classes[i]
+            if class_.split('-')[0] in self.invalid_begin:
+                torch.nn.init.constant_(self.crf.start_transitions[i], penalty)
+            if class_.split('-')[0] in self.invalid_end:
+                torch.nn.init.constant_(self.crf.end_transitions[i], penalty)
+        # build label type dictionary
+        label_is = {}
+        for label_position in self.prefixes:
+            label_is[label_position] = [i for i, class_ in enumerate(self.classes) if class_.split('-')[0] == label_position]
+        # penalties for invalid consecutive labels by position
+        for from_label, to_label_list in self.invalid_transitions_position.items():
+            to_labels = list(to_label_list)
+            for from_label_i in label_is[from_label]:
+                for to_label in to_labels:
+                    for to_label_i in label_is[to_label]:
+                        torch.nn.init.constant_(self.crf.transitions[from_label_i, to_label_i], penalty)
+        # penalties for invalid consecutive labels by label
+        for from_label, to_label_list in self.invalid_transitions_tags.items():
+            to_labels = list(to_label_list)
+            for from_label_i in label_is[from_label]:
+                for to_label in to_labels:
+                    for to_label_i in label_is[to_label]:
+                        if self.classes[from_label_i].split('-')[1] != self.classes[to_label_i].split('-')[1]:
+                            torch.nn.init.constant_(self.crf.transitions[from_label_i, to_label_i], penalty)
     
 
     def decode(self, emissions, mask):
+        '''
+        Decodes emmissions (logits) given a mask using a Viterbi decoder
+            Arguments:
+                emissions: Sequence logits
+                mask: Mask for valid classification targets
+            Returns:
+                Most probable output sequence
+        '''
+        # verterbi decode logits (emissions) using valid attention mask
         crf_out = self.crf.decode(emissions, mask=mask)
         return crf_out
 
 
-    def forward(self, emissions, tags, mask, reduction='mean'):
-        crf_loss = self.crf(emissions, tags=tags, mask=mask, reduction=reduction)
+    def forward(self, emissions, labels, mask, reduction='token_mean'):
+        '''
+        Calculates the CRF loss given emissions (logits), the ground truth labels, masks, and the chosen reduction scheme
+            Arguments:
+                emissions: Sequence logits
+                labels: Sequence ground truth labels
+                mask: Mask for valid classification targets
+                reduction: Loss averaging scheme
+            Returns:
+                CRF loss
+        '''
+        # calculate loss with forward pass of crf given logits (emissions) and valid attention mask
+        # loss is mean over tokens
+        crf_loss = self.crf(emissions, tags=labels, mask=mask, reduction=reduction)
         return crf_loss
