@@ -124,6 +124,7 @@ if __name__ == '__main__':
     data_files = {'solid_state': 'data/solid_state.json',
                   'doping': 'data/doping.json',
                   'aunp2': 'data/aunp_2lab.json',
+                  'aunp5': 'data/aunp_5lab.json',
                   'aunp6': 'data/aunp_6lab.json',
                   'aunp11': 'data/aunp_11lab.json'}
     # model file dictionary
