@@ -82,9 +82,12 @@ class NERData():
         data_raw = []
         for entry in tqdm(data, desc='| pre-tokenizing unannotated entries |'):
             try:
-                identifier = entry['doi']
+                identifier = entry['meta']['doi']+'/'+str(entry['meta']['par'])+'/'+str(entry['meta']['split'])
             except:
-                identifier = entry['meta']['doi']+'/'+str(entry['meta']['par'])
+                try:
+                    identifier = entry['meta']['doi']+'/'+str(entry['meta']['par'])
+                except:
+                    identifier = entry['doi']
             # only entries with unique identifiers are retrieved
             if identifier in identifiers:
                 pass
