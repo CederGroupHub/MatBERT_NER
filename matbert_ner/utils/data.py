@@ -66,6 +66,47 @@ class NERData():
         classes = sorted(classes)
         # prepend 'O' label and set attribute
         self.classes = ['O']+classes
+    
+
+    def load_unannotated(self, data):
+        '''
+        Loads raw JSON unannotated entries from file. Also calls the get_classes function on the collected labels in the JSON entries
+            Arguments:
+                data: List of unannotated entries
+            Returns:
+                List of dictionaries corresponding to the JSON entries
+        '''
+        # list of entry identifiers
+        identifiers = []
+        # list of raw data (json entries)
+        data_raw = []
+        for entry in tqdm(data, desc='| pre-tokenizing unannotated entries |'):
+            try:
+                identifier = entry['doi']
+            except:
+                identifier = entry['meta']['doi']+'/'+str(entry['meta']['par'])
+            # only entries with unique identifiers are retrieved
+            if identifier in identifiers:
+                pass
+            else:
+                identifiers.append(identifier)
+                d = {'doi': identifier, 'tokens': []}
+                try:
+                    sents = entry['tokens']
+                except:
+                    try:
+                        sents = [self.pre_tokenizer.process(sent, convert_number=False, normalize_materials=False) for sent in entry['sents']]
+                    except:
+                        sents = [self.pre_tokenizer.process(sent, convert_number=False, normalize_materials=False) for sent in self.pre_tokenizer.tokenize(entry['text'], keep_sentences=True)]
+                for tokens in sents:
+                    s = []
+                    for tok in tokens:
+                        s.append({'text': tok, 'annotation': None})
+                    d['tokens'].append(s)
+                data_raw.append(d)
+        # fill out classes
+        self.get_classes([])
+        return data_raw
 
     
     def load_from_file_annotated(self, data_file):
@@ -122,10 +163,6 @@ class NERData():
             Returns:
                 List of dictionaries corresponding to the JSON entries
         '''
-        # list of entry identifiers
-        identifiers = []
-        # list of raw data (json entries)
-        data_raw = []
         # open data file
         try:
             with open(data_file, 'r') as f:
@@ -136,30 +173,7 @@ class NERData():
                 entries = []
                 for l in tqdm(f, desc='| loading unannotated entries |'):
                     entries.append(json.loads(l))
-        for entry in tqdm(entries, desc='| pre-tokenizing unannotated entries |'):
-            # retrieve identifier (depends on the dataset, falls back to doi or doi+par)
-            try:
-                identifier = entry['doi']
-            except:
-                identifier = entry['meta']['doi']+'/'+str(entry['meta']['par'])
-            # only entries with unique identifiers are retrieved
-            if identifier in identifiers:
-                pass
-            else:
-                identifiers.append(identifier)
-                d = {'doi': identifier, 'tokens': []}
-                try:
-                    sents = [self.pre_tokenizer.process(sent, convert_number=False, normalize_materials=False) for sent in entry['sents']]
-                except:
-                    sents = [self.pre_tokenizer.process(sent, convert_number=False, normalize_materials=False) for sent in self.pre_tokenizer.tokenize(entry['text'], keep_sentences=True)]
-                for tokens in sents:
-                    s = []
-                    for tok in tokens:
-                        s.append({'text': tok, 'annotation': None})
-                    d['tokens'].append(s)
-                data_raw.append(d)
-        # fill out classes
-        self.get_classes([])
+        data_raw = self.load_unannotated(entries)
         return data_raw
 
 
@@ -168,44 +182,6 @@ class NERData():
             return self.load_from_file_annotated(data_file)
         else:
             return self.load_from_file_unannotated(data_file)
-    
-
-    def load_unannotated(self, data):
-        '''
-        Loads raw JSON unannotated entries from file. Also calls the get_classes function on the collected labels in the JSON entries
-            Arguments:
-                data: List of unannotated entries
-            Returns:
-                List of dictionaries corresponding to the JSON entries
-        '''
-        # list of entry identifiers
-        identifiers = []
-        # list of raw data (json entries)
-        data_raw = []
-        for entry in data:
-            try:
-                identifier = entry['doi']
-            except:
-                identifier = entry['meta']['doi']+'/'+str(entry['meta']['par'])
-            # only entries with unique identifiers are retrieved
-            if identifier in identifiers:
-                pass
-            else:
-                identifiers.append(identifier)
-                d = {'doi': identifier, 'tokens': []}
-                try:
-                    sents = [self.pre_tokenizer.process(sent, convert_number=False, normalize_materials=False) for sent in entry['sents']]
-                except:
-                    sents = [self.pre_tokenizer.process(sent, convert_number=False, normalize_materials=False) for sent in self.pre_tokenizer.tokenize(entry['text'], keep_sentences=True)]
-                for tokens in sents:
-                    s = []
-                    for tok in tokens:
-                        s.append({'text': tok, 'annotation': None})
-                    d['tokens'].append(s)
-                data_raw.append(d)
-        # fill out classes
-        self.get_classes([])
-        return data_raw
 
 
     def shuffle_data(self, data, seed=256):
