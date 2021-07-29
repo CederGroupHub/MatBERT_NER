@@ -151,12 +151,12 @@ if __name__ == '__main__':
                             split_dict = {'train': split/100}
                         else:
                             split_dict = {'test': 0.1, 'valid': 0.00125*split, 'train': 0.01*split}
-                        if split == 100:
-                            ner_data.dataloaders['valid'] = None
-                            ner_data.dataloaders['test'] = None
                         # preprocess data and create dataloaders
                         ner_data.preprocess(data_files[dataset], split_dict, is_file=True, sentence_level=sentence_level, shuffle=True, seed=seed)
                         ner_data.create_dataloaders(batch_size=batch_size, shuffle=True, seed=seed)
+                        if split == 100:
+                            ner_data.dataloaders['valid'] = None
+                            ner_data.dataloaders['test'] = None
                         # construct model trainer
                         bert_ner_trainer = NERTrainer(BERTNER(model_file=model_files[model], classes=ner_data.classes, scheme=scheme, seed=seed), device)
                         # print classes
