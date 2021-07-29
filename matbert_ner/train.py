@@ -187,6 +187,8 @@ if __name__ == '__main__':
                                 if use_cache:
                                     bert_ner_trainer.load_state_from_cache('best')
                                     bert_ner_trainer.save_state(state_path=save_dir+'best.pt')
+                                if split == 100:
+                                    bert_ner_trainer.save_state(state_path=save_dir+'best.pt')
                             except:
                                 succeeded = False
                                 print('Error encountered, skipping')
