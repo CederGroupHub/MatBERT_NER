@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
-from utils.tokenizer import MaterialsTextTokenizer
+from matbert_ner.utils.tokenizer import MaterialsTextTokenizer
 from pathlib import Path
 
 class NERData():

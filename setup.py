@@ -7,7 +7,18 @@ this_dir = os.path.dirname(os.path.abspath(__file__))
 pip_requirements = parse_requirements(
     os.path.join(this_dir, "requirements.txt"), PipSession()
 )
-reqs = [pii.requirement for pii in pip_requirements]
+
+reqs_clean = []
+# Ensure git-required repositories on github are fetched correctly
+for req in pip_requirements:
+    r = req.requirement
+    if r == "git+https://github.com/pabloppp/pytorch-tools/@0.2.7#egg=torchtools":
+        r = "torchtools @ " + r
+    reqs_clean.append(r)
+
+print(reqs_clean)
+
+# raise ValueError
 
 readme_path = os.path.join(this_dir, "README.md")
 
@@ -26,7 +37,7 @@ setup(
     packages=find_packages(),
     package_data={},
     zip_safe=False,
-    install_requires=reqs,
+    install_requires=reqs_clean,
     # extras_require=extras_dict,
     classifiers=[],
     # tests_require=extras_list,
