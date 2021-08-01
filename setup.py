@@ -27,7 +27,7 @@ with open(readme_path, "r") as f:
 
 setup(
     name="matbert_ner",
-    version="0.1",
+    version="0.2",
     description="Training and inference for Materials Science named entity recognition (NER)",
     long_description=long_description,
     url="https://github.com/walkernr/MatBERT_NER",
