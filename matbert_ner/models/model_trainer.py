@@ -533,7 +533,7 @@ class NERTrainer(object):
                     if key == 'prediction_ids':
                         prediction_results[key].extend(prediction_ids)
                     else:
-                        prediction_results[key].extend(list(inputs[key].cpu().numpy()))
+                        prediction_results[key].extend(inputs[key])
 
             # if mode is not predice
             if mode != 'predict':
