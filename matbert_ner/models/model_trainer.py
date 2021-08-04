@@ -315,6 +315,7 @@ class NERTrainer(object):
         for id in ids:
             if id not in unique_ids:
                 unique_ids.append(id)
+        merged_ids = []
         merged_inputs = {key: [] for key in inputs.keys()}
         merged_prediction_ids = []
         for id in unique_ids:
@@ -322,6 +323,7 @@ class NERTrainer(object):
             id_pts_ind = id_pts_ind[np.argsort(pts[id_pts_ind])]
             for i, u in enumerate(id_pts_ind):
                 if i == 0:
+                    merged_ids.append(id)
                     for key in inputs.keys():
                         merged_inputs[key].append(inputs[key][u])
                     merged_prediction_ids.append(prediction_ids[u])
@@ -329,7 +331,7 @@ class NERTrainer(object):
                     for key in inputs.keys():
                         merged_inputs[key][-1].extend(inputs[key][u])
                     merged_prediction_ids[-1].extend(prediction_ids[u])
-        return merged_inputs, merged_prediction_ids
+        return merged_ids, merged_inputs, merged_prediction_ids
     
 
     def process_labels(self, inputs, prediction_ids):
@@ -357,7 +359,7 @@ class NERTrainer(object):
         return {'labels': labels, 'predictions': predictions}
     
 
-    def process_ids(self, input_ids, attention_mask, valid_mask, prediction_ids):
+    def process_ids(self, ids, input_ids, attention_mask, valid_mask, prediction_ids):
         '''
         Processes ids into tokens and labels
             Arguments:
@@ -438,9 +440,9 @@ class NERTrainer(object):
             ctoks.append(ctok)
             slbls.append(slbl)
         # construct dictionary of (text, annotation) pairs under tokens and a dictionary of entities under entities
-        annotations = [{'tokens': [[{'text': t, 'annotation': l} for t, l in zip(ctoks_sequence, slbls_sequence)]
+        annotations = [{'id': id, 'tokens': [[{'text': t, 'annotation': l} for t, l in zip(ctoks_sequence, slbls_sequence)]
                                    for ctoks_sequence, slbls_sequence in zip(ctoks_entry, slbls_entry)]}
-                       for ctoks_entry, slbls_entry in zip(ctoks, slbls)]
+                       for id, ctoks_entry, slbls_entry in zip(ids, ctoks, slbls)]
         return annotations
     
 
@@ -491,7 +493,7 @@ class NERTrainer(object):
             test_results = {'labels': [], 'predictions': []}
         # if mode is predict, initialize dictionary of input_ids, attention_masks, valid_masks, and prediction_ids
         if mode == 'predict':
-            prediction_results = {'input_ids': [], 'attention_mask': [], 'valid_mask': [], 'prediction_ids': []}
+            prediction_results = {'ids': [], 'input_ids': [], 'attention_mask': [], 'valid_mask': [], 'prediction_ids': []}
         # initialize batch range
         batch_range = tqdm(iterator, desc='')
         # for batch
@@ -518,7 +520,7 @@ class NERTrainer(object):
             else:
                 prediction_ids = self.model.forward(**inputs)
 
-            inputs, prediction_ids = self.merge_split_entries(inputs, prediction_ids, ids, pts)
+            ids, inputs, prediction_ids = self.merge_split_entries(inputs, prediction_ids, ids, pts)
 
             if mode != 'predict':
                 batch_results = self.process_labels(inputs, prediction_ids)
@@ -530,8 +532,8 @@ class NERTrainer(object):
             # if mode is predict, extend lists of input_ids, attention_masks, valid_masks, and prediction_ids by keys
             if mode == 'predict':
                 for key in prediction_results.keys():
-                    if key == 'prediction_ids':
-                        prediction_results[key].extend(prediction_ids)
+                    if key in ['ids', 'prediction_ids']:
+                        prediction_results[key].extend(ids)
                     else:
                         prediction_results[key].extend(inputs[key])
 
@@ -758,10 +760,14 @@ class NERTrainer(object):
         # evaluate the prediction set
         prediction_results = self.train_evaluate_epoch(0, 1, predict_iter, 'predict')
         # process the predictions into annotations
-        annotations = self.process_ids(prediction_results['input_ids'], prediction_results['attention_mask'],
+        annotations = self.process_ids(prediction_results['ids'], prediction_results['input_ids'], prediction_results['attention_mask'],
                                        prediction_results['valid_mask'], prediction_results['prediction_ids'])
+        annotation_dict = {}
+        for annotation in annotations:
+            annotation_dict[annotation['id']] = {'tokens': annotation['tokens']}
         if original_data is not None:
-            for annotation, original in zip(annotations, original_data):
+            for original in original_data:
+                annotation = annotation_dict[original['id']]
                 for annotated_sentence, original_sentence in zip(annotation['tokens'], original['tokens']):
                     for token, text in zip(annotated_sentence, original_sentence['text']):
                         print(token['text'], text)
