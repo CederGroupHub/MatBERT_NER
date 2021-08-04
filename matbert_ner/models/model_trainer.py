@@ -764,6 +764,7 @@ class NERTrainer(object):
             for annotation, original in zip(annotations, original_data):
                 for annotated_sentence, original_sentence in zip(annotation['tokens'], original['tokens']):
                     for token, text in zip(annotated_sentence, original_sentence['text']):
+                        print(token['text'], text)
                         token['text'] = text
         annotations = self.process_summaries(annotations)
         # save annotations
