@@ -285,27 +285,51 @@ class NERTrainer(object):
                 Valid input ids, valid label ids, and valid attention masks as lists of NumPy arrays
         '''
         # size of arrays
-        batch_size, max_len = inputs['valid_mask'].shape
+        batch_size = len(inputs['valid_mask'])
         # initialize empty arrays
-        valid_input_ids = np.zeros((batch_size, max_len), dtype=int)
-        valid_label_ids = np.zeros((batch_size, max_len), dtype=int)
-        valid_attention_mask = np.zeros((batch_size, max_len), dtype=int)
+        valid = {'input_ids': [], 'label_ids': [], 'attention_mask': []}
         # for batch index
         for i in range(batch_size):
+            max_len = len(inputs['valid_mask'][i])
             # set valid index to 0
             k = 0
+            v = {'input_ids': [], 'label_ids': [], 'attention_mask': []}
             # for sequence index
             for j in range(max_len):
                 # if sequence index is valid
-                if inputs['valid_mask'][i][j].item() == 1:
+                if inputs['valid_mask'][i][j] == 1:
                     # assign valid values at (batch index, valid index) to input values at (batch index, sequence index)
-                    valid_input_ids[i, k] = inputs['input_ids'][i][j].item()
-                    valid_label_ids[i, k] = inputs['label_ids'][i][j].item()
-                    valid_attention_mask[i, k] = inputs['attention_mask'][i][j].item()
+                    for key in v.keys():
+                        v[key].append(inputs[key][i][j])
                     # increment valid index
                     k += 1
+            for key in valid.keys():
+                valid[key].append(v[key])
         # return valid inputs
-        return list(valid_input_ids), list(valid_label_ids), list(valid_attention_mask)
+        return tuple([valid[key] for key in valid.keys()])
+    
+
+    def merge_split_entries(self, inputs, prediction_ids, ids, pts):
+        inputs = {key: list(inputs[key].cpu().numpy()) for key in inputs.keys() if key not in ['device']}
+        unique_ids = []
+        for id in ids:
+            if id not in unique_ids:
+                unique_ids.append(id)
+        merged_inputs = {key: [] for key in inputs.keys()}
+        merged_prediction_ids = []
+        for id in unique_ids:
+            id_pts_ind = np.where(ids == id)[0]
+            id_pts_ind = id_pts_ind[np.argsort(pts[id_pts_ind])]
+            for i, u in enumerate(id_pts_ind):
+                if i == 0:
+                    for key in inputs.keys():
+                        merged_inputs[key].append(inputs[key][u])
+                    merged_prediction_ids.append(prediction_ids[u])
+                else:
+                    for key in inputs.keys():
+                        merged_inputs[key][-1].extend(inputs[key][u])
+                    merged_prediction_ids[-1].extend(prediction_ids[u])
+        return merged_inputs, merged_prediction_ids
     
 
     def process_labels(self, inputs, prediction_ids):
@@ -444,7 +468,6 @@ class NERTrainer(object):
             # append entry entity dictionary
             annotation['entities'] = {class_type: list(entry_entities[class_type]) for class_type in class_types}
         return annotations
-
     
 
     def iterate_batches(self, epoch, n_epoch, iterator, mode):
@@ -474,13 +497,15 @@ class NERTrainer(object):
         # for batch
         for batch in batch_range:
             # collect inputs from batch
-            inputs = {'input_ids': batch[0].to(self.device, non_blocking=True),
-                      'attention_mask': batch[2].to(self.device, non_blocking=True),
-                      'valid_mask': batch[3].to(self.device, non_blocking=True),
+            ids = batch[0].cpu().numpy()
+            pts = batch[1].cpu().numpy()
+            inputs = {'input_ids': batch[2].to(self.device, non_blocking=True),
+                      'attention_mask': batch[4].to(self.device, non_blocking=True),
+                      'valid_mask': batch[5].to(self.device, non_blocking=True),
                       'device': self.device}
             # collect labels if the mode is not predict
             if mode != 'predict':
-                inputs['label_ids'] = batch[1].to(self.device, non_blocking=True)
+                inputs['label_ids'] = batch[3].to(self.device, non_blocking=True)
 
             # zero out prior gradients for training
             if mode == 'train':
@@ -489,10 +514,14 @@ class NERTrainer(object):
             # if mode is not predict, collect loss and prediction ids and then process labels
             if mode != 'predict':
                 loss, prediction_ids = self.model.forward(**inputs)
-                batch_results = self.process_labels(inputs, prediction_ids)
             # if mode is predict, only collect prediction ids
             else:
                 prediction_ids = self.model.forward(**inputs)
+
+            inputs, prediction_ids = self.merge_split_entries(inputs, prediction_ids, ids, pts)
+
+            if mode != 'predict':
+                batch_results = self.process_labels(inputs, prediction_ids)
             
             # if mode is test, extend the list of batch results in the test results dictionary for the labels and predictions keys
             if mode == 'test':

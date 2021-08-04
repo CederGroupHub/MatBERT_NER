@@ -3,6 +3,8 @@ import argparse
 import numpy as np
 from seqeval.scheme import IOB1, IOB2, IOBES
 from seqeval.metrics import classification_report
+import json
+from tqdm import tqdm
 
 def parse_args():
     '''
@@ -151,7 +153,6 @@ if __name__ == '__main__':
                             split_dict = {'train': split/100}
                         else:
                             split_dict = {'test': 0.1, 'valid': 0.00125*split, 'train': 0.01*split}
-                        # preprocess data and create dataloaders
                         ner_data.preprocess(data_files[dataset], split_dict, is_file=True, sentence_level=sentence_level, shuffle=True, seed=seed)
                         ner_data.create_dataloaders(batch_size=batch_size, shuffle=True, seed=seed)
                         if split == 100:
@@ -171,27 +172,27 @@ if __name__ == '__main__':
                                 metrics = {key: np.mean([batch['micro avg']['f1-score'] for batch in history[key]['epoch_{}'.format(i)]]) for key in ['training', 'validation']}
                                 print('{:<10d}{:<10.4f}{:<10.4f}'.format(i, metrics['training'], metrics['validation']))
                         else:
-                            try:
-                                # create directory if it doesn't exist
-                                if not os.path.exists(save_dir):
-                                    os.mkdir(save_dir)
-                                # initialize optimizer
-                                bert_ner_trainer.init_optimizer(optimizer_name=optimizer_name, elr=elr, tlr=tlr, clr=clr, weight_decay=weight_decay)
-                                # train model
-                                bert_ner_trainer.train(n_epoch=n_epoch, train_iter=ner_data.dataloaders['train'], valid_iter=ner_data.dataloaders['valid'],
-                                                    embedding_unfreeze=embedding_unfreeze, encoder_schedule=encoder_schedule, scheduling_function=scheduling_function,
-                                                    save_dir=save_dir, use_cache=use_cache)
-                                # save model history
-                                bert_ner_trainer.save_history(history_path=save_dir+'history.pt')
-                                # if cache was used and the model should be kept, the state must be saved directly after loading best parameters
-                                if use_cache:
-                                    bert_ner_trainer.load_state_from_cache('best')
-                                    bert_ner_trainer.save_state(state_path=save_dir+'best.pt')
-                                if split == 100:
-                                    bert_ner_trainer.save_state(state_path=save_dir+'best.pt')
-                            except:
-                                succeeded = False
-                                print('Error encountered, skipping')
+                            # try:
+                            # create directory if it doesn't exist
+                            if not os.path.exists(save_dir):
+                                os.mkdir(save_dir)
+                            # initialize optimizer
+                            bert_ner_trainer.init_optimizer(optimizer_name=optimizer_name, elr=elr, tlr=tlr, clr=clr, weight_decay=weight_decay)
+                            # train model
+                            bert_ner_trainer.train(n_epoch=n_epoch, train_iter=ner_data.dataloaders['train'], valid_iter=ner_data.dataloaders['valid'],
+                                                embedding_unfreeze=embedding_unfreeze, encoder_schedule=encoder_schedule, scheduling_function=scheduling_function,
+                                                save_dir=save_dir, use_cache=use_cache)
+                            # save model history
+                            bert_ner_trainer.save_history(history_path=save_dir+'history.pt')
+                            # if cache was used and the model should be kept, the state must be saved directly after loading best parameters
+                            if use_cache:
+                                bert_ner_trainer.load_state_from_cache('best')
+                                bert_ner_trainer.save_state(state_path=save_dir+'best.pt')
+                            if split == 100:
+                                bert_ner_trainer.save_state(state_path=save_dir+'best.pt')
+                            # except:
+                            #     succeeded = False
+                            #     print('Error encountered, skipping')
                         # if test dataloader provided
                         if ner_data.dataloaders['test'] is not None and succeeded:
                             if os.path.exists(save_dir+'best.pt'):
