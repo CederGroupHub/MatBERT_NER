@@ -167,10 +167,16 @@ if __name__ == '__main__':
                         if os.path.exists(save_dir+'history.pt'):
                             print('Already trained {}'.format(alias))
                             history = torch.load(save_dir+'history.pt')
-                            print('{:<10}{:<10}{:10}'.format('epoch', 'training', 'validation'))
-                            for i in range(len(history['training'].keys())):
-                                metrics = {key: np.mean([batch['micro avg']['f1-score'] for batch in history[key]['epoch_{}'.format(i)]]) for key in ['training', 'validation']}
-                                print('{:<10d}{:<10.4f}{:<10.4f}'.format(i, metrics['training'], metrics['validation']))
+                            if split == 100:
+                                print('{:<10}{:<10}'.format('epoch', 'training'))
+                                for i in range(len(history['training'].keys())):
+                                    metrics = {key: np.mean([batch['micro avg']['f1-score'] for batch in history[key]['epoch_{}'.format(i)]]) for key in ['training']}
+                                    print('{:<10d}{:<10.4f}'.format(i, metrics['training']))
+                            else:
+                                print('{:<10}{:<10}{:10}'.format('epoch', 'training', 'validation'))
+                                for i in range(len(history['training'].keys())):
+                                    metrics = {key: np.mean([batch['micro avg']['f1-score'] for batch in history[key]['epoch_{}'.format(i)]]) for key in ['training', 'validation']}
+                                    print('{:<10d}{:<10.4f}{:<10.4f}'.format(i, metrics['training'], metrics['validation']))
                         else:
                             try:
                                 # create directory if it doesn't exist

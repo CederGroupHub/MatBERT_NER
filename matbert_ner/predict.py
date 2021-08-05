@@ -1,6 +1,4 @@
 import os
-
-
 import torch
 from matbert_ner.utils.data import NERData
 from matbert_ner.models.bert_model import BERTNER
@@ -43,12 +41,10 @@ def predict(texts, model_file, state_path, scheme="IOBES", batch_size=256, devic
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
-
     input_formatted_texts = []
-    for t in texts:
-        entry = {"text": t, "meta": {"par": 0}, "doi": ""}
+    for i, t in enumerate(texts):
+        entry = {'text': t, "meta": {'doi': str(i), 'par': 0}}
         input_formatted_texts.append(entry)
-
 
     ner_data = NERData(model_file, scheme=scheme)
     ner_data.preprocess(input_formatted_texts, split_dict, is_file=False, annotated=False, sentence_level=False, shuffle=False, seed=seed)
@@ -63,6 +59,3 @@ def predict(texts, model_file, state_path, scheme="IOBES", batch_size=256, devic
     )
 
     return annotations
-
-
-
