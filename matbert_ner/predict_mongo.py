@@ -67,7 +67,7 @@ for entries in grouper(fetch_batch_size, db.entries.find({'doi': {'$nin': dois}}
         labels = list(set(ner_data.classes))
     annotations = bert_ner_trainer.predict(ner_data.dataloaders['predict'], original_data=ner_data.data['predict'])
     for entry, annotation in tqdm(zip(entries_clean, annotations), desc='| updating entry user/model/date stamps |'):
-        entry.update(annotation)
+        entry.update({key: annotation[key] for key in annotation.keys() if key != 'id'})
         entry.update({'user': 'walkernr', 'model': model_reference, 'date': datetime.now().strftime('%Y:%m:%d:%H:%M:%S')})
     db.matbert_ner_entries_walkernr_test_v2.insert_many(entries_clean)
     print(100*'=')
