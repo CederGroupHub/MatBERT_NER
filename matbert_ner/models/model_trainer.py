@@ -341,7 +341,6 @@ class NERTrainer(object):
             Returns:
                 Dictionary of text and annotations by word, sentence, paragraph e.g. [[[{'text': text, 'annotation': annotation},...],...],...]
         '''
-        print(ids)
         # for entry index
         for i in range(len(attention_mask)):
             # identify padding indices
@@ -356,6 +355,7 @@ class NERTrainer(object):
         # initialize empty lists of entries for tokens and labels
         # ctoks for c(ombined)tok(en)s, referencing that we will be merging the tokens split by the BERT tokenizer
         # slbls for s(ingle)l(a)b(e)ls, referencing that we often only have a single label for multiple subtokens
+        pids = []
         ctoks = []
         slbls = []
         # for index in entries
@@ -409,12 +409,13 @@ class NERTrainer(object):
                         # combine with prior token
                         ctok[k][u-1] += toks[i][j]
             # append sentences
+            pids.append(ids[i])
             ctoks.append(ctok)
             slbls.append(slbl)
         # construct dictionary of (text, annotation) pairs under tokens and a dictionary of entities under entities
         annotations = [{'id': id, 'tokens': [[{'text': t, 'annotation': l} for t, l in zip(ctoks_sequence, slbls_sequence)]
                                    for ctoks_sequence, slbls_sequence in zip(ctoks_entry, slbls_entry)]}
-                       for id, ctoks_entry, slbls_entry in zip(ids, ctoks, slbls)]
+                       for id, ctoks_entry, slbls_entry in zip(pids, ctoks, slbls)]
         return annotations
     
 
@@ -472,7 +473,6 @@ class NERTrainer(object):
         for batch in batch_range:
             # collect inputs from batch
             ids = batch[0].cpu().numpy()
-            print(ids)
             pts = batch[1].cpu().numpy()
             inputs = {'input_ids': batch[2].to(self.device, non_blocking=True),
                       'attention_mask': batch[4].to(self.device, non_blocking=True),
@@ -724,12 +724,12 @@ class NERTrainer(object):
                 unique_ids.append(id)
         merged_prediction_results = {key: [] for key in prediction_results.keys() if key != 'pts'}
         for id in unique_ids:
+            merged_prediction_results['ids'].append(id)
             id_pts_ind = np.where(prediction_results['ids'] == id)[0]
             id_pts_ind = id_pts_ind[np.argsort(np.array(prediction_results['pts'])[id_pts_ind])]
             for i, u in enumerate(id_pts_ind):
                 if i == 0:
                     for key in prediction_results.keys():
-                        merged_prediction_results['ids'].append(prediction_results['ids'][u])
                         if key not in ['ids', 'pts']:
                             merged_prediction_results[key].append(list(prediction_results[key][u]))
                 else:
@@ -758,8 +758,6 @@ class NERTrainer(object):
         prediction_results = self.merge_split_entries(prediction_results)
         annotations = self.process_ids(prediction_results['ids'], prediction_results['input_ids'], prediction_results['attention_mask'],
                                        prediction_results['valid_mask'], prediction_results['prediction_ids'])
-        orig_ids = [o['id'] for o in original_data]
-        ann_ids = [a['id'] for a in annotations]
         annotation_dict = {}
         for annotation in annotations:
             annotation_dict[annotation['id']] = {'tokens': annotation['tokens']}
