@@ -4,6 +4,7 @@ torch==1.7.1
 pytorch-crf==0.7.2
 seqeval==1.2.2
 tqdm>=4.55.1
+# torchtools==0.2.5
 
 # Custom pytorch tools repo
-git+git://github.com/pabloppp/pytorch-tools/@0.2.7#egg=torchtools
+git+https://github.com/pabloppp/pytorch-tools/@0.2.7#egg=torchtools
