@@ -4,8 +4,8 @@ import torch.nn as nn
 from transformers import AutoConfig
 from transformers import BertTokenizer
 from transformers.models.bert.modeling_bert import BertModel, BertPreTrainedModel
-from models.crf_layer import CRF
-from models.valid_sequence_output import valid_sequence_output
+from matbert_ner.models.crf_layer import CRF
+from matbert_ner.models.valid_sequence_output import valid_sequence_output
 
 
 class BERTNER(BertPreTrainedModel):

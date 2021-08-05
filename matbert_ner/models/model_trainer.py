@@ -287,9 +287,7 @@ class NERTrainer(object):
         # size of arrays
         batch_size, max_len = inputs['valid_mask'].shape
         # initialize empty arrays
-        valid_input_ids = np.zeros((batch_size, max_len), dtype=int)
-        valid_label_ids = np.zeros((batch_size, max_len), dtype=int)
-        valid_attention_mask = np.zeros((batch_size, max_len), dtype=int)
+        valid = {key: np.zeros((batch_size, max_len), dtype=int) for key in ['input_ids', 'label_ids', 'attention_mask']}
         # for batch index
         for i in range(batch_size):
             # set valid index to 0
@@ -299,13 +297,12 @@ class NERTrainer(object):
                 # if sequence index is valid
                 if inputs['valid_mask'][i][j].item() == 1:
                     # assign valid values at (batch index, valid index) to input values at (batch index, sequence index)
-                    valid_input_ids[i, k] = inputs['input_ids'][i][j].item()
-                    valid_label_ids[i, k] = inputs['label_ids'][i][j].item()
-                    valid_attention_mask[i, k] = inputs['attention_mask'][i][j].item()
+                    for key in valid.keys():
+                        valid[key][i, k] = inputs[key][i][j].item()
                     # increment valid index
                     k += 1
         # return valid inputs
-        return list(valid_input_ids), list(valid_label_ids), list(valid_attention_mask)
+        return tuple([list(valid[key]) for key in valid.keys()])
     
 
     def process_labels(self, inputs, prediction_ids):
@@ -333,7 +330,7 @@ class NERTrainer(object):
         return {'labels': labels, 'predictions': predictions}
     
 
-    def process_ids(self, input_ids, attention_mask, valid_mask, prediction_ids):
+    def process_ids(self, ids, input_ids, attention_mask, valid_mask, prediction_ids):
         '''
         Processes ids into tokens and labels
             Arguments:
@@ -347,10 +344,10 @@ class NERTrainer(object):
         # for entry index
         for i in range(len(attention_mask)):
             # identify padding indices
-            idx = np.where(attention_mask[i] == 0)
+            idx = np.where(np.array(attention_mask[i]) == 0)[0]
             # trim padding indices
-            input_ids[i] = np.delete(input_ids[i], idx, axis=0)
-            valid_mask[i] = np.delete(valid_mask[i], idx, axis=0)
+            input_ids[i] = np.delete(np.array(input_ids[i]), idx, axis=0)
+            valid_mask[i] = np.delete(np.array(valid_mask[i]), idx, axis=0)
         # convert token ids to tokens for each entry
         toks = [self.model.tokenizer.convert_ids_to_tokens(sequence) for sequence in input_ids]
         # convert label ids to classifications for each entry
@@ -358,6 +355,7 @@ class NERTrainer(object):
         # initialize empty lists of entries for tokens and labels
         # ctoks for c(ombined)tok(en)s, referencing that we will be merging the tokens split by the BERT tokenizer
         # slbls for s(ingle)l(a)b(e)ls, referencing that we often only have a single label for multiple subtokens
+        pids = []
         ctoks = []
         slbls = []
         # for index in entries
@@ -411,12 +409,13 @@ class NERTrainer(object):
                         # combine with prior token
                         ctok[k][u-1] += toks[i][j]
             # append sentences
+            pids.append(ids[i])
             ctoks.append(ctok)
             slbls.append(slbl)
         # construct dictionary of (text, annotation) pairs under tokens and a dictionary of entities under entities
-        annotations = [{'tokens': [[{'text': t, 'annotation': l} for t, l in zip(ctoks_sequence, slbls_sequence)]
+        annotations = [{'id': id, 'tokens': [[{'text': t, 'annotation': l} for t, l in zip(ctoks_sequence, slbls_sequence)]
                                    for ctoks_sequence, slbls_sequence in zip(ctoks_entry, slbls_entry)]}
-                       for ctoks_entry, slbls_entry in zip(ctoks, slbls)]
+                       for id, ctoks_entry, slbls_entry in zip(pids, ctoks, slbls)]
         return annotations
     
 
@@ -444,7 +443,6 @@ class NERTrainer(object):
             # append entry entity dictionary
             annotation['entities'] = {class_type: list(entry_entities[class_type]) for class_type in class_types}
         return annotations
-
     
 
     def iterate_batches(self, epoch, n_epoch, iterator, mode):
@@ -468,19 +466,21 @@ class NERTrainer(object):
             test_results = {'labels': [], 'predictions': []}
         # if mode is predict, initialize dictionary of input_ids, attention_masks, valid_masks, and prediction_ids
         if mode == 'predict':
-            prediction_results = {'input_ids': [], 'attention_mask': [], 'valid_mask': [], 'prediction_ids': []}
+            prediction_results = {'ids': [], 'pts': [], 'input_ids': [], 'attention_mask': [], 'valid_mask': [], 'prediction_ids': []}
         # initialize batch range
         batch_range = tqdm(iterator, desc='')
         # for batch
         for batch in batch_range:
             # collect inputs from batch
-            inputs = {'input_ids': batch[0].to(self.device, non_blocking=True),
-                      'attention_mask': batch[2].to(self.device, non_blocking=True),
-                      'valid_mask': batch[3].to(self.device, non_blocking=True),
+            ids = batch[0].cpu().numpy()
+            pts = batch[1].cpu().numpy()
+            inputs = {'input_ids': batch[2].to(self.device, non_blocking=True),
+                      'attention_mask': batch[4].to(self.device, non_blocking=True),
+                      'valid_mask': batch[5].to(self.device, non_blocking=True),
                       'device': self.device}
             # collect labels if the mode is not predict
             if mode != 'predict':
-                inputs['label_ids'] = batch[1].to(self.device, non_blocking=True)
+                inputs['label_ids'] = batch[3].to(self.device, non_blocking=True)
 
             # zero out prior gradients for training
             if mode == 'train':
@@ -492,7 +492,7 @@ class NERTrainer(object):
                 batch_results = self.process_labels(inputs, prediction_ids)
             # if mode is predict, only collect prediction ids
             else:
-                prediction_ids = self.model.forward(**inputs)
+                prediction_ids = self.model.forward(**inputs)                
             
             # if mode is test, extend the list of batch results in the test results dictionary for the labels and predictions keys
             if mode == 'test':
@@ -501,7 +501,11 @@ class NERTrainer(object):
             # if mode is predict, extend lists of input_ids, attention_masks, valid_masks, and prediction_ids by keys
             if mode == 'predict':
                 for key in prediction_results.keys():
-                    if key == 'prediction_ids':
+                    if key == 'ids':
+                        prediction_results[key].extend(ids)
+                    elif key == 'pts':
+                        prediction_results[key].extend(pts)
+                    elif key == 'prediction_ids':
                         prediction_results[key].extend(prediction_ids)
                     else:
                         prediction_results[key].extend(list(inputs[key].cpu().numpy()))
@@ -713,6 +717,28 @@ class NERTrainer(object):
         return metrics, test_results
     
 
+    def merge_split_entries(self, prediction_results):
+        unique_ids = []
+        for id in prediction_results['ids']:
+            if id not in unique_ids:
+                unique_ids.append(id)
+        merged_prediction_results = {key: [] for key in prediction_results.keys() if key != 'pts'}
+        for id in unique_ids:
+            merged_prediction_results['ids'].append(id)
+            id_pts_ind = np.where(prediction_results['ids'] == id)[0]
+            id_pts_ind = id_pts_ind[np.argsort(np.array(prediction_results['pts'])[id_pts_ind])]
+            for i, u in enumerate(id_pts_ind):
+                if i == 0:
+                    for key in prediction_results.keys():
+                        if key not in ['ids', 'pts']:
+                            merged_prediction_results[key].append(list(prediction_results[key][u]))
+                else:
+                    for key in prediction_results.keys():
+                        if key not in ['ids', 'pts']:
+                            merged_prediction_results[key][-1].extend(list(prediction_results[key][u]))
+        return merged_prediction_results
+    
+
     def predict(self, predict_iter, original_data=None, predict_path=None, state_path=None):
         '''
         Predicts classifications for a dataset
@@ -729,11 +755,16 @@ class NERTrainer(object):
         # evaluate the prediction set
         prediction_results = self.train_evaluate_epoch(0, 1, predict_iter, 'predict')
         # process the predictions into annotations
-        annotations = self.process_ids(prediction_results['input_ids'], prediction_results['attention_mask'],
+        prediction_results = self.merge_split_entries(prediction_results)
+        annotations = self.process_ids(prediction_results['ids'], prediction_results['input_ids'], prediction_results['attention_mask'],
                                        prediction_results['valid_mask'], prediction_results['prediction_ids'])
+        annotation_dict = {}
+        for annotation in annotations:
+            annotation_dict[annotation['id']] = {'tokens': annotation['tokens']}
         if original_data is not None:
-            for annotation, original in zip(annotations, original_data):
-                for annotated_sentence, original_sentence in zip(annotation['tokens'], original):
+            for original in original_data:
+                annotation = annotation_dict[original['id']]
+                for annotated_sentence, original_sentence in zip(annotation['tokens'], original['tokens']):
                     for token, text in zip(annotated_sentence, original_sentence['text']):
                         token['text'] = text
         annotations = self.process_summaries(annotations)
