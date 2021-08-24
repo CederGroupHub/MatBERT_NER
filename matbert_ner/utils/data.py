@@ -85,7 +85,15 @@ class NERData():
                     try:
                         identifier = entry['doi']
                     except:
-                        identifier = entry['text']
+                        try:
+                            identifier = entry['text']
+                        except:
+                            print('Value Error: Invalid Input Entry Format For Unique Identifier (Key(s) Missing)'+
+                                  '\nSupported Formats:'+
+                                  '\n  \{[meta][doi\}+\{[meta][par]\}+\{[meta][split]\}'+
+                                  '\n  \{[meta][doi\}+\{[meta][par]\}'+
+                                  '\n  \{[doi]\}'+
+                                  '\n  \{[text]\}')
             # only entries with unique identifiers are retrieved
             if identifier in identifiers:
                 pass
@@ -373,13 +381,13 @@ class NERData():
 
     
     def insert_cls(self, d):
-            # dictionary of classes (given class name, return index)
-            d['tokens'].insert(0, self.cls_dict['text'])
-            d['labels'].insert(0, self.cls_dict['label'])
-            d['token_ids'].insert(0, self.tokenizer.convert_tokens_to_ids(self.cls_dict['text']))
-            d['label_ids'].insert(0, self.class_dict[self.cls_dict['label']])
-            d['attention_mask'].insert(0, 1)
-            d['valid_mask'].insert(0, 1)
+        # dictionary of classes (given class name, return index)
+        d['tokens'].insert(0, self.cls_dict['text'])
+        d['labels'].insert(0, self.cls_dict['label'])
+        d['token_ids'].insert(0, self.tokenizer.convert_tokens_to_ids(self.cls_dict['text']))
+        d['label_ids'].insert(0, self.class_dict[self.cls_dict['label']])
+        d['attention_mask'].insert(0, 1)
+        d['valid_mask'].insert(0, 1)
 
 
     def create_features(self, data_labeled):
