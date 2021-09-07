@@ -531,12 +531,23 @@ class NERData():
                     tnum = sum(slen)
                     n_splits = int(np.ceil((self.token_limit-np.sqrt(self.token_limit**2-4*tnum))/2))
                     if n_splits > 1:
-                        bounds = partition(slen, n_splits)
-                        for i in range(n_splits):
-                            d = {'id': dat['id'], 'pt': i}
-                            d.update({key: [v for s in dat[key][bounds[i][0]:bounds[i][1]] for v in s] for key in ['tokens', 'labels', 'token_ids', 'label_ids', 'attention_mask', 'valid_mask']})
-                            self.insert_cls(d)
-                            dat_split_feature[split].append(d)
+                        valid = False
+                        while not valid:
+                            bounds = partition(slen, n_splits)
+                            ds = []
+                            ml= 0
+                            for i in range(n_splits):
+                                d = {'id': dat['id'], 'pt': i}
+                                d.update({key: [v for s in dat[key][bounds[i][0]:bounds[i][1]] for v in s] for key in ['tokens', 'labels', 'token_ids', 'label_ids', 'attention_mask', 'valid_mask']})
+                                self.insert_cls(d)
+                                ds.append(d)
+                                if len(d['tokens']) > ml:
+                                    ml = len(d['tokens'])
+                            if ml > self.token_limit:
+                                n_splits += 1
+                            else:
+                                valid = True
+                        dat_split_feature[split].append(d)
                     else:
                         d = {'id': dat['id'], 'pt': 0}
                         d.update({key: [v for s in dat[key] for v in s] for key in ['tokens', 'labels', 'token_ids', 'label_ids', 'attention_mask', 'valid_mask']})
