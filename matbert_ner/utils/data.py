@@ -534,6 +534,7 @@ class NERData():
                         valid = False
                         while not valid:
                             bounds = partition(slen, n_splits)
+                            print(bounds)
                             ds = []
                             ml= 0
                             for i in range(n_splits):
