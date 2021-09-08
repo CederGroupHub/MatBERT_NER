@@ -534,7 +534,6 @@ class NERData():
                         valid = False
                         while not valid:
                             bounds = partition(slen, n_splits)
-                            print(bounds)
                             ds = []
                             ml= 0
                             for i in range(n_splits):
@@ -548,7 +547,7 @@ class NERData():
                                 n_splits += 1
                             else:
                                 valid = True
-                        dat_split_feature[split].append(d)
+                        dat_split_feature[split].extend(ds)
                     else:
                         d = {'id': dat['id'], 'pt': 0}
                         d.update({key: [v for s in dat[key] for v in s] for key in ['tokens', 'labels', 'token_ids', 'label_ids', 'attention_mask', 'valid_mask']})
