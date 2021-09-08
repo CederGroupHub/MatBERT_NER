@@ -138,6 +138,9 @@ if __name__ == '__main__':
         for scheme in schemes:
             for split in splits:
                 for dataset in datasets:
+                    if dataset not in data_files.keys():
+                        data_files[dataset.split('/')[-1].split('.')[-2]] = dataset
+                        dataset = dataset.split('/')[-1].split('.')[-2]
                     for model in models:
                         # parameter tumple
                         params = (model, dataset, 'sentence' if sentence_level else 'paragraph', scheme.lower(),

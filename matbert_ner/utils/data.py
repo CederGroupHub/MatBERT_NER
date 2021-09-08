@@ -85,7 +85,15 @@ class NERData():
                     try:
                         identifier = entry['doi']
                     except:
-                        identifier = entry['text']
+                        try:
+                            identifier = entry['text']
+                        except:
+                            print('Value Error: Invalid Input Entry Format For Unique Identifier (Key(s) Missing)'+
+                                  '\nSupported Formats:'+
+                                  '\n  \{[meta][doi\}+\{[meta][par]\}+\{[meta][split]\}'+
+                                  '\n  \{[meta][doi\}+\{[meta][par]\}'+
+                                  '\n  \{[doi]\}'+
+                                  '\n  \{[text]\}')
             # only entries with unique identifiers are retrieved
             if identifier in identifiers:
                 pass
@@ -373,13 +381,13 @@ class NERData():
 
     
     def insert_cls(self, d):
-            # dictionary of classes (given class name, return index)
-            d['tokens'].insert(0, self.cls_dict['text'])
-            d['labels'].insert(0, self.cls_dict['label'])
-            d['token_ids'].insert(0, self.tokenizer.convert_tokens_to_ids(self.cls_dict['text']))
-            d['label_ids'].insert(0, self.class_dict[self.cls_dict['label']])
-            d['attention_mask'].insert(0, 1)
-            d['valid_mask'].insert(0, 1)
+        # dictionary of classes (given class name, return index)
+        d['tokens'].insert(0, self.cls_dict['text'])
+        d['labels'].insert(0, self.cls_dict['label'])
+        d['token_ids'].insert(0, self.tokenizer.convert_tokens_to_ids(self.cls_dict['text']))
+        d['label_ids'].insert(0, self.class_dict[self.cls_dict['label']])
+        d['attention_mask'].insert(0, 1)
+        d['valid_mask'].insert(0, 1)
 
 
     def create_features(self, data_labeled):
@@ -523,12 +531,24 @@ class NERData():
                     tnum = sum(slen)
                     n_splits = int(np.ceil((self.token_limit-np.sqrt(self.token_limit**2-4*tnum))/2))
                     if n_splits > 1:
-                        bounds = partition(slen, n_splits)
-                        for i in range(n_splits):
-                            d = {'id': dat['id'], 'pt': i}
-                            d.update({key: [v for s in dat[key][bounds[i][0]:bounds[i][1]] for v in s] for key in ['tokens', 'labels', 'token_ids', 'label_ids', 'attention_mask', 'valid_mask']})
-                            self.insert_cls(d)
-                            dat_split_feature[split].append(d)
+                        valid = False
+                        while not valid:
+                            bounds = partition(slen, n_splits)
+                            print(bounds)
+                            ds = []
+                            ml= 0
+                            for i in range(n_splits):
+                                d = {'id': dat['id'], 'pt': i}
+                                d.update({key: [v for s in dat[key][bounds[i][0]:bounds[i][1]] for v in s] for key in ['tokens', 'labels', 'token_ids', 'label_ids', 'attention_mask', 'valid_mask']})
+                                self.insert_cls(d)
+                                ds.append(d)
+                                if len(d['tokens']) > ml:
+                                    ml = len(d['tokens'])
+                            if ml > self.token_limit:
+                                n_splits += 1
+                            else:
+                                valid = True
+                        dat_split_feature[split].append(d)
                     else:
                         d = {'id': dat['id'], 'pt': 0}
                         d.update({key: [v for s in dat[key] for v in s] for key in ['tokens', 'labels', 'token_ids', 'label_ids', 'attention_mask', 'valid_mask']})
