@@ -84,5 +84,6 @@ for entries in grouper(fetch_batch_size, db.entries.find(query)):
         print('Entries Written to DB')
         print(100*'=')
         i += 1
-    except:
+    except Exception as exception:
         print('Fetched Batch Failed')
+        print(exception)
