@@ -52,11 +52,20 @@ db = client['matscholar_dev']
 print('Mongo Client Initialized')
 print(100*'=')
 
-dois = [d['meta']['doi'] for d in db.matbert_ner_entries_walkernr_v2.find()]
+dois = [e['doi'] for e in db.entries.find()]
+processed_dois = [d['meta']['doi'] for d in db.matbert_ner_entries_walkernr_v2.find()]
+unprocessed_dois = list(set(dois)-set(processed_dois))
+
+if len(unprocessed_dois) > len(processed_dois):
+    query = {'doi': {'$nin': processed_dois}}
+    print('query: not in processed dois')
+else:
+    query = {'doi': {'$in': unprocessed_dois}}
+    print('query: in unprocessed dois')
 
 i = 0
 ner_data = NERData(model_file, scheme=scheme)
-for entries in grouper(fetch_batch_size, db.entries.find({'doi': {'$nin': dois}})):
+for entries in grouper(fetch_batch_size, db.entries.find(query)):
     try:
         entries_clean = [{'meta': {'doi': entry['doi'], 'par': 0}, 'text': '{}. {}'.format(entry['title'], entry['abstract'])} for entry in entries]
         ner_data.preprocess(entries_clean, split_dict, is_file=False, annotated=False, sentence_level=False, shuffle=False, seed=seed)
