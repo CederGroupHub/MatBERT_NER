@@ -1,11 +1,12 @@
 import os
+import json
 import torch
 from matbert_ner.utils.data import NERData
 from matbert_ner.models.bert_model import BERTNER
 from matbert_ner.models.model_trainer import NERTrainer
 
 
-def predict(texts, model_file, state_path, scheme="IOBES", batch_size=256, device="cpu", seed=None):
+def predict(texts, is_file, model_file, state_path, predict_path=None, scheme="IOBES", batch_size=256, device="cpu", seed=None):
     """
     Predict labels for texts. Please limit input to 512 tokens or less.
 
@@ -41,20 +42,15 @@ def predict(texts, model_file, state_path, scheme="IOBES", batch_size=256, devic
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
-    input_formatted_texts = []
-    for i, t in enumerate(texts):
-        entry = {'text': t, "meta": {'doi': str(i), 'par': 0}}
-        input_formatted_texts.append(entry)
-
     ner_data = NERData(model_file, scheme=scheme)
-    ner_data.preprocess(input_formatted_texts, split_dict, is_file=False, annotated=False, sentence_level=False, shuffle=False, seed=seed)
+    ner_data.preprocess(texts, split_dict, is_file=is_file, annotated=False, sentence_level=False, shuffle=False, seed=seed)
     ner_data.create_dataloaders(batch_size=batch_size, shuffle=False, seed=seed)
     bert_ner = BERTNER(model_file=model_file, classes=ner_data.classes, scheme=scheme, seed=seed)
     bert_ner_trainer = NERTrainer(bert_ner, device)
     annotations = bert_ner_trainer.predict(
         ner_data.dataloaders['predict'],
         original_data=ner_data.data['predict'],
-        predict_path=None,
+        predict_path=predict_path,
         state_path=state_path
     )
 

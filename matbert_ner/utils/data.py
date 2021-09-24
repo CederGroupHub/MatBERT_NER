@@ -75,7 +75,7 @@ class NERData():
         identifiers = []
         # list of raw data (json entries)
         data_filt = []
-        for entry in tqdm(data, desc='| filtering entries |'):
+        for i, entry in enumerate(tqdm(data, desc='| filtering entries |')):
             try:
                 identifier = entry['meta']['doi']+'/'+str(entry['meta']['par'])+'/'+str(entry['meta']['split'])
             except:
@@ -88,12 +88,14 @@ class NERData():
                         try:
                             identifier = entry['text']
                         except:
-                            print('Value Error: Invalid Input Entry Format For Unique Identifier (Key(s) Missing)'+
-                                  '\nSupported Formats:'+
-                                  '\n  \{[meta][doi\}+\{[meta][par]\}+\{[meta][split]\}'+
-                                  '\n  \{[meta][doi\}+\{[meta][par]\}'+
-                                  '\n  \{[doi]\}'+
-                                  '\n  \{[text]\}')
+                            # print('Value Error: Invalid Input Entry Format For Unique Identifier (Key(s) Missing)'+
+                            #       '\nSupported Formats:'+
+                            #       '\n  \{[meta][doi\}+\{[meta][par]\}+\{[meta][split]\}'+
+                            #       '\n  \{[meta][doi\}+\{[meta][par]\}'+
+                            #       '\n  \{[doi]\}'+
+                            #       '\n  \{[text]\}')
+                            identifier = i
+                            entry = {'meta': {'doi': i, 'par': 0}, 'text': entry}
             # only entries with unique identifiers are retrieved
             if identifier in identifiers:
                 pass
@@ -529,14 +531,15 @@ class NERData():
                 else:
                     slen = [len(s) for s in dat['tokens']]
                     tnum = sum(slen)
-                    n_splits = int(np.ceil((self.token_limit-np.sqrt(self.token_limit**2-4*tnum))/2))
+                    n_splits= int(np.ceil((self.token_limit-np.sqrt(self.token_limit**2-4*tnum))/2))
+                    n_shave = 0
                     if n_splits > 1:
                         valid = False
                         while not valid:
                             bounds = partition(slen, n_splits)
                             ds = []
                             ml= 0
-                            for i in range(n_splits):
+                            for i in range(len(bounds)):
                                 d = {'id': dat['id'], 'pt': i}
                                 d.update({key: [v for s in dat[key][bounds[i][0]:bounds[i][1]] for v in s] for key in ['tokens', 'labels', 'token_ids', 'label_ids', 'attention_mask', 'valid_mask']})
                                 self.insert_cls(d)
@@ -545,14 +548,25 @@ class NERData():
                                     ml = len(d['tokens'])
                             if ml > self.token_limit:
                                 n_splits += 1
+                                if n_splits > len(dat['tokens']):
+                                    n_shave += 1
+                                    if n_shave == len(slen):
+                                        valid = True
+                                        print('failed to split paragraph on sentence breaks into subparagraphs below the token limit, skipping')
+                                    else:
+                                        d.update({key: [v for s in dat[key][:-n_shave] for v in s] for key in ['tokens', 'labels', 'token_ids', 'label_ids', 'attention_mask', 'valid_mask']})
+                                        slen = [len(s) for s in d['tokens']]
+                                        tnum = sum(slen)
+                                        n_splits = int(np.ceil((self.token_limit-np.sqrt(self.token_limit**2-4*tnum))/2))
                             else:
                                 valid = True
-                        dat_split_feature[split].extend(ds)
+                                dat_split_feature[split].extend(ds)
                     else:
                         d = {'id': dat['id'], 'pt': 0}
                         d.update({key: [v for s in dat[key] for v in s] for key in ['tokens', 'labels', 'token_ids', 'label_ids', 'attention_mask', 'valid_mask']})
                         self.insert_cls(d)
                         dat_split_feature[split].append(d)
+            print(len(dat_split_feature[split]))
         return dat_split_feature
     
 
