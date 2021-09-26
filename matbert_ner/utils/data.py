@@ -566,7 +566,6 @@ class NERData():
                         d.update({key: [v for s in dat[key] for v in s] for key in ['tokens', 'labels', 'token_ids', 'label_ids', 'attention_mask', 'valid_mask']})
                         self.insert_cls(d)
                         dat_split_feature[split].append(d)
-            print(len(dat_split_feature[split]))
         return dat_split_feature
     
 
