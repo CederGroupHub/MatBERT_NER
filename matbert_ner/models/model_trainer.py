@@ -769,7 +769,7 @@ class NERTrainer(object):
                 for original_sentence, output_annotation_sentence  in zip(original['tokens'], output_annotation['tokens']):
                     for original_token, output_annotation_token in zip(original_sentence['text'], output_annotation_sentence):
                         output_annotation_token['text'] = original_token
-            output_annotations.append(output_annotation)
+                output_annotations.append(output_annotation)
         else:
             output_annotations = annotations
         annotations = self.process_summaries(output_annotations)
