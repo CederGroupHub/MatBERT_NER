@@ -110,6 +110,10 @@ class NERData():
                         d['text'] = entry['text']
                     except:
                         d['text'] = entry
+            try:
+                d['labels'] = entry['labels']
+            except:
+                pass
             # only entries with unique identifiers are retrieved
             if identifier in identifiers:
                 pass
