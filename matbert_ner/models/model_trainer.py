@@ -764,6 +764,7 @@ class NERTrainer(object):
         if original_data is not None:
             for original in original_data:
                 annotation = annotation_dict[original['id']]
+                annotation['meta'] = original['meta']
                 for annotated_sentence, original_sentence in zip(annotation['tokens'], original['tokens']):
                     for token, text in zip(annotated_sentence, original_sentence['text']):
                         token['text'] = text
