@@ -759,8 +759,8 @@ class NERTrainer(object):
         annotations = self.process_ids(prediction_results['ids'], prediction_results['input_ids'], prediction_results['attention_mask'],
                                        prediction_results['valid_mask'], prediction_results['prediction_ids'])
         if original_data is not None:
+            annotation_dict = {}
             for annotation in annotations:
-                annotation_dict = {}
                 annotation_dict[annotation['id']] = {'tokens': annotation['tokens']}
             for original in original_data:
                 annotation = annotation_dict[original['id']]
