@@ -9,5 +9,5 @@ aunp6_state = './matbert_aunp6_paragraph_iobes_crf_10_lamb_5_1_012_1e-04_2e-03_1
 
 # predict(doping_data, True, model, solid_state_state, predict_path=solid_state_state.replace('best.pt', 'predict_doping_solid_state_169828.pt'), device='gpu:0')
 # predict(doping_data, True, model, doping_state, predict_path=doping_state.replace('best.pt', 'predict_doping_doping_169828.pt'), device='gpu:0')
-predict(aunp_data, True, model, solid_state_state, predict_path=solid_state_state.replace('best.pt', 'predict_aunp_solid_state.pt'), device='gpu:0')
+# predict(aunp_data, True, model, solid_state_state, predict_path=solid_state_state.replace('best.pt', 'predict_aunp_solid_state.pt'), device='gpu:0')
 predict(aunp_data, True, model, aunp6_state, predict_path=aunp6_state.replace('best.pt', 'predict_aunp_aunp6.pt'), device='gpu:0')
