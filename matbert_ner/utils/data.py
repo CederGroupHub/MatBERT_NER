@@ -78,15 +78,19 @@ class NERData():
         for i, entry in enumerate(tqdm(data, desc='| filtering entries |')):
             try:
                 identifier = entry['meta']['doi']+'/'+str(entry['meta']['par'])+'/'+str(entry['meta']['split'])
+                d = {'meta': {'doi': entry['meta']['doi'], 'par': entry['meta']['par'], 'split': entry['meta']['split']}}
             except:
                 try:
                     identifier = entry['meta']['doi']+'/'+str(entry['meta']['par'])
+                    d = {'meta': {'doi': entry['meta']['doi'], 'par': entry['meta']['par'], 'split': 0}}
                 except:
                     try:
                         identifier = entry['doi']
+                        d = {'meta': {'doi': entry['doi'], 'par': 0, 'split': 0}}
                     except:
                         try:
                             identifier = entry['text']
+                            d = {'meta': {'doi': i, 'par': 0, 'split': 0}}
                         except:
                             # print('Value Error: Invalid Input Entry Format For Unique Identifier (Key(s) Missing)'+
                             #       '\nSupported Formats:'+
@@ -95,13 +99,23 @@ class NERData():
                             #       '\n  \{[doi]\}'+
                             #       '\n  \{[text]\}')
                             identifier = i
-                            entry = {'meta': {'doi': i, 'par': 0}, 'text': entry}
+                            d = {'meta': {'doi': i, 'par': 0, 'split': 0}}
+            try:
+                d['tokens'] = entry['tokens']
+            except:
+                try:
+                    d['sents'] = entry['sents']
+                except:
+                    try:
+                        d['text'] = entry['text']
+                    except:
+                        d['text'] = entry
             # only entries with unique identifiers are retrieved
             if identifier in identifiers:
                 pass
             else:
                 identifiers.append(identifier)
-                data_filt.append(entry)
+                data_filt.append(d)
         return identifiers, data_filt
 
     
@@ -121,7 +135,7 @@ class NERData():
         _, data_filt = self.filter_data(data)
         id = 0
         for entry in tqdm(data_filt, desc='| loading annotated entries |'):
-            d = {'id': id, 'tokens': entry['tokens']}
+            d = {'id': id, 'meta': entry['meta'], 'tokens': entry['tokens']}
             data_raw.append(d)
             # add labels in entry to raw label set
             for l in entry['labels']:
@@ -146,7 +160,7 @@ class NERData():
         _, data_filt = self.filter_data(data)
         id = 0
         for entry in tqdm(data_filt, desc='| pre-tokenizing unannotated entries |'):
-            d = {'id': id, 'tokens': []}
+            d = {'id': id, 'meta': entry['meta'], 'tokens': []}
             try:
                 sents = entry['tokens']
             except:
@@ -261,7 +275,7 @@ class NERData():
             # for entry in split
             for d in data_split[split]:
                 # represent entry as list of dictionaries (sentences) with text and annotation keys for lists of the corresponding token properties
-                data_formatted[split].append({'id': d['id'], 'tokens': [{key: [token[key] for token in sentence] for key in ['text', 'annotation']} for sentence in d['tokens']]})
+                data_formatted[split].append({'id': d['id'], 'meta': d['meta'], 'tokens': [{key: [token[key] for token in sentence] for key in ['text', 'annotation']} for sentence in d['tokens']]})
         return data_formatted
 
 
@@ -280,7 +294,7 @@ class NERData():
             # for entry in split (paragraph)
             for dat in data_formatted[split]:
                 # initialize empty list
-                d = {'id': dat['id'], 'tokens': []}
+                d = {'id': dat['id'], 'meta': dat['meta'], 'tokens': []}
                 # for sentence in entry
                 for sent in dat['tokens']:
                     # initialize text/label dictionary for sentence
