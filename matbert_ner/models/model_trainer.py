@@ -759,15 +759,17 @@ class NERTrainer(object):
         annotations = self.process_ids(prediction_results['ids'], prediction_results['input_ids'], prediction_results['attention_mask'],
                                        prediction_results['valid_mask'], prediction_results['prediction_ids'])
         if original_data is not None:
+            output_annotations = []
             annotation_dict = {}
             for annotation in annotations:
                 annotation_dict[annotation['id']] = {'tokens': annotation['tokens']}
             for original in original_data:
                 annotation = annotation_dict[original['id']]
-                for original_sentence, annotated_sentence  in zip(original['tokens'], annotation['tokens']):
-                    for original_token, annotated_token in zip(original_sentence, annotated_sentence):
-                        original_token['label'] = annotated_token['label']
-            output_annotations = original_data
+                output_annotation = {'id': original['id'], 'meta': original['meta'], 'tokens': annotation['tokens']}
+                for original_sentence, output_annotation_sentence  in zip(original['tokens'], output_annotation['tokens']):
+                    for original_token, output_annotation_token in zip(original_sentence['text'], output_annotation_sentence):
+                        output_annotation_token['text'] = original_token
+            output_annotations.append(output_annotation)
         else:
             output_annotations = annotations
         annotations = self.process_summaries(output_annotations)
