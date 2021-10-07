@@ -768,6 +768,7 @@ class NERTrainer(object):
                 for annotated_sentence, original_sentence in zip(annotation['tokens'], original['tokens']):
                     for token, text in zip(annotated_sentence, original_sentence['text']):
                         token['text'] = text
+                print(annotation.keys())
         annotations = self.process_summaries(annotations)
         # save annotations
         if predict_path is not None:
