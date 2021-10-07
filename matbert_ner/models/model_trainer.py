@@ -758,18 +758,19 @@ class NERTrainer(object):
         prediction_results = self.merge_split_entries(prediction_results)
         annotations = self.process_ids(prediction_results['ids'], prediction_results['input_ids'], prediction_results['attention_mask'],
                                        prediction_results['valid_mask'], prediction_results['prediction_ids'])
-        annotation_dict = {}
-        for annotation in annotations:
-            annotation_dict[annotation['id']] = {'tokens': annotation['tokens']}
         if original_data is not None:
+            for annotation in annotations:
+                annotation_dict = {}
+                annotation_dict[annotation['id']] = {'tokens': annotation['tokens']}
             for original in original_data:
                 annotation = annotation_dict[original['id']]
-                annotation['meta'] = original['meta']
-                for annotated_sentence, original_sentence in zip(annotation['tokens'], original['tokens']):
-                    for token, text in zip(annotated_sentence, original_sentence['text']):
-                        token['text'] = text
-                print(annotation.keys())
-        annotations = self.process_summaries(annotations)
+                for original_sentence, annotated_sentence  in zip(original['tokens'], annotation['tokens']):
+                    for original_token, annotated_token in zip(original_sentence, annotated_sentence):
+                        original_token['label'] = annotated_token['label']
+            output_annotations = original_data
+        else:
+            output_annotations = annotations
+        annotations = self.process_summaries(output_annotations)
         # save annotations
         if predict_path is not None:
             torch.save(annotations, predict_path)

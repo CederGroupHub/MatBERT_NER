@@ -47,11 +47,8 @@ def predict(texts, is_file, model_file, state_path, predict_path=None, scheme="I
     ner_data.create_dataloaders(batch_size=batch_size, shuffle=False, seed=seed)
     bert_ner = BERTNER(model_file=model_file, classes=ner_data.classes, scheme=scheme, seed=seed)
     bert_ner_trainer = NERTrainer(bert_ner, device)
-    annotations = bert_ner_trainer.predict(
-        ner_data.dataloaders['predict'],
-        original_data=ner_data.data['predict'],
-        predict_path=predict_path,
-        state_path=state_path
-    )
-
+    annotations = bert_ner_trainer.predict(ner_data.dataloaders['predict'],
+                                           original_data=ner_data.data['predict'],
+                                           predict_path=predict_path,
+                                           state_path=state_path)
     return annotations
