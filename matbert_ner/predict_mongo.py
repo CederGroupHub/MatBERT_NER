@@ -53,7 +53,7 @@ print('Mongo Client Initialized')
 print(100*'=')
 
 dois = [e['doi'] for e in db.entries.find()]
-processed_dois = [d['meta']['doi'] for d in db.matbert_ner_entries_walkernr_v3.find()]
+processed_dois = [d['meta']['doi'] for d in db.matbert_ner_entries_walkernr_v4.find()]
 unprocessed_dois = list(set(dois)-set(processed_dois))
 
 if len(unprocessed_dois) > len(processed_dois):
@@ -79,7 +79,7 @@ for entries in grouper(fetch_batch_size, db.entries.find(query)):
         for entry, annotation in tqdm(zip(entries_clean, annotations), desc='| updating entry user/model/date stamps |'):
             entry.update({key: annotation[key] for key in annotation.keys() if key != 'id'})
             entry.update({'user': 'walkernr', 'model': model_reference, 'date': datetime.now().strftime('%Y:%m:%d:%H:%M:%S')})
-        db.matbert_ner_entries_walkernr_v3.insert_many(entries_clean)
+        db.matbert_ner_entries_walkernr_v4.insert_many(entries_clean)
         print(100*'=')
         print('Entries Written to DB')
         print(100*'=')
