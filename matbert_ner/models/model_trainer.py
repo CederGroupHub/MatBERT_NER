@@ -758,16 +758,21 @@ class NERTrainer(object):
         prediction_results = self.merge_split_entries(prediction_results)
         annotations = self.process_ids(prediction_results['ids'], prediction_results['input_ids'], prediction_results['attention_mask'],
                                        prediction_results['valid_mask'], prediction_results['prediction_ids'])
-        annotation_dict = {}
-        for annotation in annotations:
-            annotation_dict[annotation['id']] = {'tokens': annotation['tokens']}
         if original_data is not None:
+            output_annotations = []
+            annotation_dict = {}
+            for annotation in annotations:
+                annotation_dict[annotation['id']] = {'tokens': annotation['tokens']}
             for original in original_data:
                 annotation = annotation_dict[original['id']]
-                for annotated_sentence, original_sentence in zip(annotation['tokens'], original['tokens']):
-                    for token, text in zip(annotated_sentence, original_sentence['text']):
-                        token['text'] = text
-        annotations = self.process_summaries(annotations)
+                output_annotation = {'id': original['id'], 'meta': original['meta'], 'tokens': annotation['tokens']}
+                for original_sentence, output_annotation_sentence  in zip(original['tokens'], output_annotation['tokens']):
+                    for original_token, output_annotation_token in zip(original_sentence['text'], output_annotation_sentence):
+                        output_annotation_token['text'] = original_token
+                output_annotations.append(output_annotation)
+        else:
+            output_annotations = annotations
+        annotations = self.process_summaries(output_annotations)
         # save annotations
         if predict_path is not None:
             torch.save(annotations, predict_path)
