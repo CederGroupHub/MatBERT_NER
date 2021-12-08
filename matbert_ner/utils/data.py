@@ -77,11 +77,11 @@ class NERData():
         data_filt = []
         for i, entry in enumerate(tqdm(data, desc='| filtering entries |')):
             try:
-                identifier = entry['meta']['doi']+'/'+str(entry['meta']['par'])+'/'+str(entry['meta']['split'])
-                d = {'meta': {'doi': entry['meta']['doi'], 'par': entry['meta']['par'], 'split': entry['meta']['split']}}
+                identifier = '{}/{}/{}'.format(entry['meta']['doi'], str(entry['meta']['par']), str(entry['meta']['split']))
+                d = {'meta': entry['meta']}
             except:
                 try:
-                    identifier = entry['meta']['doi']+'/'+str(entry['meta']['par'])
+                    identifier = '{}/{}'.format(entry['meta']['doi'], str(entry['meta']['par']))
                     d = {'meta': {'doi': entry['meta']['doi'], 'par': entry['meta']['par'], 'split': 0}}
                 except:
                     try:
@@ -203,13 +203,13 @@ class NERData():
         # open data file
         try:
             with open(data_file, 'r') as f:
-                content = f.read()
-                entries = json.loads(content)
-        except:
-            with open(data_file, 'r') as f:
                 entries = []
                 for l in tqdm(f, desc='| loading entries from file |'):
                     entries.append(json.loads(l))
+        except:
+            with open(data_file, 'r') as f:
+                content = f.read()
+                entries = json.loads(content)
         data_raw = self.load_from_memory(entries, annotated)
         return data_raw
 
