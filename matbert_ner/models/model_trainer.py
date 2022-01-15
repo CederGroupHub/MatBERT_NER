@@ -10,6 +10,17 @@ from seqeval.metrics import accuracy_score, classification_report
 import json
 
 
+class NpEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NpEncoder, self).default(obj)
+
+
 class StateCacher(object):
     '''
     An object that caches the state of a training model (parameters and optimizer)
@@ -179,7 +190,7 @@ class NERTrainer(object):
         '''
         # save epoch metrics
         with open(history_path, 'w') as f:
-            f.write(json.dumps(self.epoch_metrics, indent=2))
+            f.write(json.dumps(self.epoch_metrics, indent=2, cls=NpEncoder))
     
 
     def load_history(self, history_path):

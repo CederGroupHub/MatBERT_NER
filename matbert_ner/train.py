@@ -132,7 +132,9 @@ if __name__ == '__main__':
     # model file dictionary
     model_files = {'bert': 'bert-base-uncased',
                    'scibert': 'allenai/scibert_scivocab_uncased',
-                   'matbert': '../../matbert-base-uncased'}
+                   'matbert': '../../matbert-base-uncased',
+                   'matbert_uncased': '../../matbert-base-uncased',
+                   'matbert_cased': '../../matbert-base-cased'}
     # loop through command line lists
     for seed in seeds:
         for scheme in schemes:
