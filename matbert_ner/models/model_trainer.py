@@ -727,7 +727,7 @@ class NERTrainer(object):
         # save the test metrics and results
         if test_path is not None:
             with open(test_path, 'w') as f:
-                f.write(json.dumps({'metrics': metrics, 'results': test_results}, indent=2))
+                f.write(json.dumps({'metrics': metrics, 'results': test_results}, indent=2, cls=NpEncoder))
         # return the test metrics and results
         return metrics, test_results
     
