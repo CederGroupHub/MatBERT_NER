@@ -6,15 +6,18 @@ from matbert_ner.models.bert_model import BERTNER
 from matbert_ner.models.model_trainer import NERTrainer
 
 
-def predict(texts, is_file, model_file, state_path, predict_path=None, scheme="IOBES", batch_size=256, device="cpu", seed=None):
+def predict(texts, is_file, model_file, state_path, predict_path=None, return_full_dict=False, scheme="IOBES", batch_size=256, device="cpu", seed=None):
     """
     Predict labels for texts. Please limit input to 512 tokens or less.
 
     Args:
-        texts ([str]): List of string texts to predict labels for. Limit to 512 estimated tokens. Untokenized text will be tokenized interally with
+        texts ([str]): JSON filename, list of JSON entries, or list of string texts to predict labels for. Untokenized text will be tokenized interally with
             the Materials Tokenizer.
+        is_file (bool): Toggle for whether the texts are a JSON file or list of JSON entries/strings
         model_file (str): Path to BERT model file.
         state_path (str): Path to model state for NER task, fine tuned for specific task (e.g., gold nanoparticles).
+        predict_path (str): Name of output file
+        return_full_dict (bool): Toggle for returning the full JSON entry or just the summarized entities detected by the model
         scheme (str): IOBES or IOB2.
         batch_size (int): Number of samples to predict in one batch pass.
         device (str): Select 'cpu', 'gpu', or torch specific logic for running on multiple GPUs.
@@ -49,6 +52,7 @@ def predict(texts, is_file, model_file, state_path, predict_path=None, scheme="I
     bert_ner_trainer = NERTrainer(bert_ner, device)
     annotations = bert_ner_trainer.predict(ner_data.dataloaders['predict'],
                                            original_data=ner_data.data['predict'],
+                                           state_path=state_path,
                                            predict_path=predict_path,
-                                           state_path=state_path)
+                                           return_full_dict=return_full_dict)
     return annotations

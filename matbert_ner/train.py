@@ -132,7 +132,9 @@ if __name__ == '__main__':
     # model file dictionary
     model_files = {'bert': 'bert-base-uncased',
                    'scibert': 'allenai/scibert_scivocab_uncased',
-                   'matbert': '../../matbert-base-uncased'}
+                   'matbert': '../../matbert-base-uncased',
+                   'matbert_uncased': '../../matbert-base-uncased',
+                   'matbert_cased': '../../matbert-base-cased'}
     # loop through command line lists
     for seed in seeds:
         for scheme in schemes:
@@ -167,9 +169,10 @@ if __name__ == '__main__':
                         print('Classes: {}'.format(' '.join(ner_data.classes)))
                         # if test file already exists, skip, otherwise, train
                         succeeded = True
-                        if os.path.exists(save_dir+'history.pt'):
+                        if os.path.exists(save_dir+'history.json'):
                             print('Already trained {}'.format(alias))
-                            history = torch.load(save_dir+'history.pt')
+                            with open(save_dir+'history.json', 'r') as f:
+                                history = json.load(f)
                             if split == 100:
                                 print('{:<10}{:<10}'.format('epoch', 'training'))
                                 for i in range(len(history['training'].keys())):
@@ -192,7 +195,7 @@ if __name__ == '__main__':
                                                     embedding_unfreeze=embedding_unfreeze, encoder_schedule=encoder_schedule, scheduling_function=scheduling_function,
                                                     save_dir=save_dir, use_cache=use_cache)
                                 # save model history
-                                bert_ner_trainer.save_history(history_path=save_dir+'history.pt')
+                                bert_ner_trainer.save_history(history_path=save_dir+'history.json')
                                 # if cache was used and the model should be kept, the state must be saved directly after loading best parameters
                                 if use_cache:
                                     bert_ner_trainer.load_state_from_cache('best')
@@ -206,14 +209,17 @@ if __name__ == '__main__':
                         if ner_data.dataloaders['test'] is not None and succeeded:
                             if os.path.exists(save_dir+'best.pt'):
                                 # predict test results
-                                metrics, test_results = bert_ner_trainer.test(ner_data.dataloaders['test'], test_path=save_dir+'test.pt', state_path=save_dir+'best.pt')
+                                metrics, test_results = bert_ner_trainer.test(ner_data.dataloaders['test'], test_path=save_dir+'test.json', state_path=save_dir+'best.pt')
                                 # predict classifications
-                                annotations = bert_ner_trainer.predict(ner_data.dataloaders['test'], original_data=ner_data.data['test'], predict_path=save_dir+'predict.pt', state_path=save_dir+'best.pt')
-                            elif os.path.exists(save_dir+'test.pt'):
+                                annotations = bert_ner_trainer.predict(ner_data.dataloaders['test'], original_data=ner_data.data['test'], predict_path=save_dir+'predict.json', state_path=save_dir+'best.pt', return_full_dict=True)
+                            elif os.path.exists(save_dir+'test.json'):
                                 # retrieve test results
-                                metrics, test_results = torch.load(save_dir+'test.pt')
-                                # retireve classifications
-                                annotations = torch.load(save_dir+'predict.pt')
+                                with open(save_dir+'test.json', 'r') as f:
+                                    test = json.load(f)
+                                    metrics, test_results = test['metrics'], test['results']
+                                # retrieve classifications
+                                with open(save_dir+'predict.json', 'r') as f:
+                                    annotations = json.load(f)
                             # print classification report over test results
                             print(classification_report(test_results['labels'], test_results['predictions'], mode='strict', scheme=bert_ner_trainer.metric_scheme))
                             # save tokens/annotations to text file
