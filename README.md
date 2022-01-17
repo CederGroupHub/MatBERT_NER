@@ -7,7 +7,7 @@ A framework for materials science NER using the HuggingFace Transformers NLP Too
 ```git
 git clone https://github.com/walkernr/MatBERT_NER.git MatBERT_NER
 cd MatBERT_NER
-pip install . -r requirements.txt
+pip install -r requirements.txt .
 ```
 
 # Example Usage
