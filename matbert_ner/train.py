@@ -124,7 +124,7 @@ if __name__ == '__main__':
         print('Provided invalid encoder schedule (too many layers), all encoders will be unlocked with the BERT embeddings')
     # data file dictionary
     data_files = {'solid_state': 'data/solid_state.json',
-                  'doping': 'data/doping.json',
+                  'doping': 'data/doping_wdoi_corrected.json',
                   'aunp2': 'data/aunp_2lab.json',
                   'aunp5': 'data/aunp_5lab.json',
                   'aunp6': 'data/aunp_6lab.json',
